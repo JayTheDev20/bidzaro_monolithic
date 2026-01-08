@@ -80,4 +80,14 @@ public interface TicketRepository extends MongoRepository<Ticket, String> {
      */
     @Query("{'category': ?0, 'status': {'$nin': ['RESOLVED', 'CLOSED']}}")
     Page<Ticket> findByCategory(String category, Pageable pageable);
+
+    /**
+     * Find tickets by status list.
+     */
+    List<Ticket> findByStatusIn(List<TicketStatus> statuses);
+
+    /**
+     * Find unassigned tickets by status.
+     */
+    List<Ticket> findByStatusAndAssignedToIsNull(TicketStatus status);
 }

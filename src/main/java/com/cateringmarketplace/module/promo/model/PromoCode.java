@@ -1,162 +1,205 @@
 package com.cateringmarketplace.module.promo.model;
-}
-    }
-        return discount;
 
-        }
-            discount = orderTotal;
-        if (discount.compareTo(orderTotal) > 0) {
-        // Discount cannot exceed order total
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
-        }
-            discount = maxDiscountAmount;
-        if (maxDiscountAmount != null && discount.compareTo(maxDiscountAmount) > 0) {
-        // Apply max cap
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.index.Indexed;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
-        }
-            discount = value;
-        } else {
-            discount = orderTotal.multiply(value).divide(new BigDecimal("100"));
-        if (type == PromoType.PERCENTAGE) {
-        BigDecimal discount;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-        if (minOrderAmount != null && orderTotal.compareTo(minOrderAmount) < 0) return BigDecimal.ZERO;
-        if (!isValid()) return BigDecimal.ZERO;
-    public BigDecimal calculateDiscount(BigDecimal orderTotal) {
-     */
-     * Calculates discount amount for given order total.
-    /**
+/**
+ * PromoCode entity for discounts and promotions.
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Document(collection = "promo_codes")
+public class PromoCode {
 
-    }
-        return true;
+    // =========================================================
+    // IDS
+    // =========================================================
 
-        if (usageLimitGlobal != null && usedCount >= usageLimitGlobal) return false;
-        if (validTo != null && now.isAfter(validTo)) return false;
-        if (validFrom != null && now.isBefore(validFrom)) return false;
-        Instant now = Instant.now();
+    @Id
+    private String id;
 
-        if (status != PromoStatus.ACTIVE) return false;
-    public boolean isValid() {
-     */
-     * Checks if promo is currently valid.
-    /**
-
-    }
-        EXPIRED
-        INACTIVE,
-        ACTIVE,
-    public enum PromoStatus {
-
-    }
-        SPECIFIC_CUISINES
-        SPECIFIC_USERS,
-        SPECIFIC_VENDORS,
-        ALL,
-    public enum ApplicableTo {
-
-    }
-        FLAT
-        PERCENTAGE,
-    public enum PromoType {
-
-    private Instant updatedAt;
-    @Field("updated_at")
-    @LastModifiedDate
-
-    private Instant createdAt;
-    @Field("created_at")
-    @CreatedDate
-
-    private String createdBy;
-    @Field("created_by")
-
-    private PromoStatus status;
-    @Indexed
-
-    private Boolean firstOrderOnly = false;
-    @Builder.Default
-    @Field("first_order_only")
-
-    private List<String> applicableCuisines = new ArrayList<>();
-    @Builder.Default
-    @Field("applicable_cuisines")
-
-    private List<String> applicableUserIds = new ArrayList<>();
-    @Builder.Default
-    @Field("applicable_user_ids")
-
-    private List<String> applicableVendorIds = new ArrayList<>();
-    @Builder.Default
-    @Field("applicable_vendor_ids")
-
-    private ApplicableTo applicableTo;
-    @Field("applicable_to")
-
-    private Integer usedCount = 0;
-    @Builder.Default
-    @Field("used_count")
-
-    private Integer usageLimitPerUser = 1;
-    @Builder.Default
-    @Field("usage_limit_per_user")
-
-    private Integer usageLimitGlobal;
-    @Field("usage_limit_global")
-
-    private Instant validTo;
-    @Field("valid_to")
-
-    private Instant validFrom;
-    @Field("valid_from")
-
-    private BigDecimal minOrderAmount;
-    @Field("min_order_amount")
-
-    private BigDecimal maxDiscountAmount;
-    @Field("max_discount_amount")
-
-    private BigDecimal value; // Percentage or flat amount
-
-    private PromoType type;
-
-    private String description;
-
-    private String title;
-
-    private String code;
-    @Indexed(unique = true)
-
-    private String promoCodeId;
     @Field("promo_code_id")
     @Indexed(unique = true)
+    private String promoCodeId;
 
-    private String id;
-    @Id
+    @Indexed(unique = true)
+    private String code;
 
-public class PromoCode {
-@Document(collection = "promo_codes")
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-@Data
- */
- * PromoCode entity for discounts and promotions.
-/**
+    // =========================================================
+    // BASIC INFO
+    // =========================================================
 
-import java.util.List;
-import java.util.ArrayList;
-import java.time.Instant;
-import java.math.BigDecimal;
+    private String title;
+    private String description;
 
-import org.springframework.data.mongodb.core.mapping.Field;
-import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.index.Indexed;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.annotation.Id;
-import org.springframework.data.annotation.CreatedDate;
-import lombok.NoArgsConstructor;
-import lombok.Data;
-import lombok.Builder;
-import lombok.AllArgsConstructor;
+    private PromoType type; // PERCENTAGE, FLAT
 
+    private BigDecimal value; // percentage or flat amount
 
+    // =========================================================
+    // LIMITS
+    // =========================================================
+
+    @Field("max_discount_amount")
+    private BigDecimal maxDiscountAmount;
+
+    @Field("min_order_amount")
+    private BigDecimal minOrderAmount;
+
+    @Field("usage_limit_global")
+    private Integer usageLimitGlobal;
+
+    @Builder.Default
+    @Field("usage_limit_per_user")
+    private Integer usageLimitPerUser = 1;
+
+    @Builder.Default
+    @Field("used_count")
+    private Integer usedCount = 0;
+
+    // =========================================================
+    // VALIDITY
+    // =========================================================
+
+    @Field("valid_from")
+    private Instant validFrom;
+
+    @Field("valid_to")
+    private Instant validTo;
+
+    // =========================================================
+    // APPLICABILITY
+    // =========================================================
+
+    @Field("applicable_to")
+    private ApplicableTo applicableTo;
+
+    @Builder.Default
+    @Field("applicable_vendor_ids")
+    private List<String> applicableVendorIds = new ArrayList<>();
+
+    @Builder.Default
+    @Field("applicable_user_ids")
+    private List<String> applicableUserIds = new ArrayList<>();
+
+    @Builder.Default
+    @Field("applicable_cuisines")
+    private List<String> applicableCuisines = new ArrayList<>();
+
+    // =========================================================
+    // FLAGS
+    // =========================================================
+
+    @Builder.Default
+    @Field("first_order_only")
+    private Boolean firstOrderOnly = false;
+
+    @Indexed
+    private PromoStatus status;
+
+    // =========================================================
+    // AUDIT
+    // =========================================================
+
+    @Field("created_by")
+    private String createdBy;
+
+    @CreatedDate
+    @Field("created_at")
+    private Instant createdAt;
+
+    @LastModifiedDate
+    @Field("updated_at")
+    private Instant updatedAt;
+
+    // =========================================================
+    // ENUMS
+    // =========================================================
+
+    public enum PromoType {
+        PERCENTAGE,
+        FLAT
+    }
+
+    public enum ApplicableTo {
+        ALL,
+        SPECIFIC_VENDORS,
+        SPECIFIC_USERS,
+        SPECIFIC_CUISINES
+    }
+
+    public enum PromoStatus {
+        ACTIVE,
+        INACTIVE,
+        EXPIRED
+    }
+
+    // =========================================================
+    // BUSINESS LOGIC
+    // =========================================================
+
+    /**
+     * Checks if promo is currently valid.
+     */
+    public boolean isValid() {
+
+        if (status != PromoStatus.ACTIVE) return false;
+
+        Instant now = Instant.now();
+
+        if (validFrom != null && now.isBefore(validFrom)) return false;
+        if (validTo != null && now.isAfter(validTo)) return false;
+        if (usageLimitGlobal != null && usedCount >= usageLimitGlobal) return false;
+
+        return true;
+    }
+
+    /**
+     * Calculates discount amount for given order total.
+     */
+    public BigDecimal calculateDiscount(BigDecimal orderTotal) {
+
+        if (!isValid()) return BigDecimal.ZERO;
+        if (minOrderAmount != null && orderTotal.compareTo(minOrderAmount) < 0) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal discount;
+
+        if (type == PromoType.PERCENTAGE) {
+            discount = orderTotal.multiply(value)
+                    .divide(new BigDecimal("100"));
+        } else {
+            discount = value;
+        }
+
+        // Apply max cap
+        if (maxDiscountAmount != null &&
+                discount.compareTo(maxDiscountAmount) > 0) {
+            discount = maxDiscountAmount;
+        }
+
+        // Discount cannot exceed order total
+        if (discount.compareTo(orderTotal) > 0) {
+            discount = orderTotal;
+        }
+
+        return discount;
+    }
+}

@@ -11,7 +11,9 @@ spring:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/catering_platform_db}
       database: catering_platform_db
-      auto-index-creation: true
+      # Disable automatic index creation so app can start without a live MongoDB during development.
+      # In production, consider enabling or running index creation as a separate migration step.
+      auto-index-creation: false
 
   data.redis:
     host: ${REDIS_HOST:localhost}
@@ -123,6 +125,27 @@ cancellation:
       refund-percentage: 25
     - days-before-event: 0
       refund-percentage: 0
+
+# Loyalty Configuration
+loyalty:
+  points-per-rupee: 1
+  rupees-per-point: 0.25
+  max-redeem-percentage: 50
+  points-expiry-days: 365
+  signup-bonus: 100
+
+# Referral Configuration
+referral:
+  referrer-reward-points: 500
+  referred-reward-points: 200
+  enabled: true
+
+# File Upload Configuration
+app.upload:
+  path: ${UPLOAD_PATH:./uploads}
+  base-url: ${UPLOAD_BASE_URL:http://localhost:8080/uploads}
+  max-image-size-mb: 5
+  max-document-size-mb: 10
 
 # Logging Configuration
 logging:

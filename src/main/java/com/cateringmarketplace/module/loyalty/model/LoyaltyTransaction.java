@@ -1,8 +1,6 @@
-package com.cateringmarketplace.module.support.model;
+package com.cateringmarketplace.module.loyalty.model;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
@@ -16,14 +14,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * TicketMessage entity for support ticket conversations.
+ * LoyaltyTransaction entity for tracking loyalty points.
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "ticket_messages")
-public class TicketMessage {
+@Document(collection = "loyalty_transactions")
+public class LoyaltyTransaction {
 
     // =========================================================
     // IDS
@@ -32,47 +30,43 @@ public class TicketMessage {
     @Id
     private String id;
 
-    @Field("ticket_message_id")
+    @Field("transaction_id")
     @Indexed(unique = true)
-    private String ticketMessageId;
+    private String transactionId;
 
-    @Field("ticket_id")
+    @Field("user_id")
     @Indexed
-    private String ticketId;
+    private String userId;
 
     // =========================================================
-    // SENDER INFO
+    // TRANSACTION DETAILS
     // =========================================================
 
-    @Field("sender_id")
-    private String senderId;
+    private TransactionType type;   // EARN, REDEEM, ADJUST, etc.
 
-    @Field("sender_type")
-    private String senderType; // USER, VENDOR, SUPPORT_AGENT, ADMIN, SYSTEM
+    private Integer points;
 
-    @Field("sender_name")
-    private String senderName;
+    @Field("balance_after")
+    private Integer balanceAfter;
 
-    // =========================================================
-    // MESSAGE
-    // =========================================================
-
-    private String message;
+    private String description;
 
     // =========================================================
-    // ATTACHMENTS
+    // REFERENCES
     // =========================================================
 
-    @Builder.Default
-    private List<MessageAttachment> attachments = new ArrayList<>();
+    @Field("order_id")
+    private String orderId;
+
+    @Field("reference_id")
+    private String referenceId;
 
     // =========================================================
-    // FLAGS
+    // VALIDITY
     // =========================================================
 
-    @Builder.Default
-    @Field("is_internal")
-    private Boolean isInternal = false; // Internal notes for support team only
+    @Field("expires_at")
+    private Instant expiresAt;
 
     // =========================================================
     // AUDIT
@@ -83,25 +77,16 @@ public class TicketMessage {
     private Instant createdAt;
 
     // =========================================================
-    // INNER CLASS : ATTACHMENT
+    // ENUM
     // =========================================================
 
-    @Data
-    @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class MessageAttachment {
+    public enum TransactionType {
 
-        @Field("file_name")
-        private String fileName;
-
-        @Field("file_url")
-        private String fileUrl;
-
-        @Field("file_type")
-        private String fileType;
-
-        @Field("file_size")
-        private Long fileSize;
+        EARN,           // Points earned from order
+        REDEEM,         // Points redeemed for discount
+        ADJUST,         // Manual adjustment by admin
+        EXPIRE,         // Points expired
+        BONUS,          // Bonus points (signup, referral, etc.)
+        REFUND          // Refund of redeemed points (order cancelled)
     }
 }

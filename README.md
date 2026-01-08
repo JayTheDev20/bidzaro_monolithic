@@ -48,36 +48,35 @@ git clone <repository-url>
 cd bidzaro_monolithic
 ```
 
-### 2. Configure environment variables
-
-Create a `.env` file or set the following environment variables:
+### 2. Set up environment variables
 
 ```bash
-# MongoDB
-MONGODB_URI=mongodb://localhost:27017/catering_platform_db
+# Copy the example file
+cp .env.example .env
 
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
+# Edit .env and add your credentials
+nano .env  # or use your preferred editor
+```
 
-# JWT
-JWT_SECRET=your-very-long-secret-key-at-least-256-bits
+**📖 See [ENVIRONMENT_SETUP.md](ENVIRONMENT_SETUP.md) for detailed configuration guide**
 
-# Razorpay
-RAZORPAY_KEY_ID=your-razorpay-key-id
-RAZORPAY_KEY_SECRET=your-razorpay-key-secret
+Required variables:
+- MongoDB connection URI
+- Redis connection details
+- JWT secret key
+- API keys for Razorpay, SendGrid, Twilio, Firebase, GCP
 
-# SendGrid
-SENDGRID_API_KEY=your-sendgrid-api-key
+### 3. Install dependencies
 
-# Twilio
-TWILIO_ACCOUNT_SID=your-twilio-account-sid
-TWILIO_AUTH_TOKEN=your-twilio-auth-token
-TWILIO_PHONE_NUMBER=+1234567890
+```bash
+./mvnw clean install
+```
 
-# Firebase
-FIREBASE_CREDENTIALS_PATH=firebase-credentials.json
+### 4. Run the application
+
+```bash
+./mvnw spring-boot:run
+```
 
 # GCP Storage
 GCP_PROJECT_ID=your-gcp-project-id

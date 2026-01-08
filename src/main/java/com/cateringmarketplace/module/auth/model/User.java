@@ -3,6 +3,7 @@ package com.cateringmarketplace.module.auth.model;
 import com.cateringmarketplace.module.auth.model.enums.Gender;
 import com.cateringmarketplace.module.auth.model.enums.UserStatus;
 import com.cateringmarketplace.module.auth.model.enums.UserType;
+import com.cateringmarketplace.module.loyalty.model.LoyaltyInfo;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -100,6 +101,11 @@ public class User {
 
     @Field("notification_preferences")
     private NotificationPreferences notificationPreferences;
+
+    private LoyaltyInfo loyalty;
+
+    @Field("referred_by")
+    private String referredBy;
 
     @Builder.Default
     private UserStatus status = UserStatus.PENDING_VERIFICATION;

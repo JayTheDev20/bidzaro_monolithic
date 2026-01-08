@@ -1,60 +1,62 @@
 package com.cateringmarketplace.module.promo.dto.request;
-}
-    private Boolean firstOrderOnly;
 
-    private List<String> applicableCuisines;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 
-    private List<String> applicableUserIds;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
-    private List<String> applicableVendorIds;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-    private String applicableTo; // ALL, SPECIFIC_VENDORS, SPECIFIC_USERS, SPECIFIC_CUISINES
+/**
+ * Request DTO for creating promo codes.
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class CreatePromoRequest {
 
-    private Integer usageLimitPerUser;
-
-    private Integer usageLimitGlobal;
-
-    private Instant validTo;
-
-    private Instant validFrom;
-
-    private BigDecimal minOrderAmount;
-
-    private BigDecimal maxDiscountAmount;
-
-    private BigDecimal value;
-    @Positive(message = "Value must be positive")
-    @NotNull(message = "Value is required")
-
-    private String type; // PERCENTAGE, FLAT
-    @NotNull(message = "Promo type is required")
-
-    private String description;
+    @NotBlank(message = "Promo code is required")
+    private String code;
 
     private String title;
 
-    private String code;
-    @NotBlank(message = "Promo code is required")
+    private String description;
 
-public class CreatePromoRequest {
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-@Data
- */
- * Request DTO for creating promo codes.
-/**
+    // PERCENTAGE, FLAT
+    @NotNull(message = "Promo type is required")
+    private String type;
 
-import java.util.List;
-import java.time.Instant;
-import java.math.BigDecimal;
+    @NotNull(message = "Value is required")
+    @Positive(message = "Value must be positive")
+    private BigDecimal value;
 
-import lombok.NoArgsConstructor;
-import lombok.Data;
-import lombok.Builder;
-import lombok.AllArgsConstructor;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.NotBlank;
+    private BigDecimal maxDiscountAmount;
 
+    private BigDecimal minOrderAmount;
 
+    private Instant validFrom;
+
+    private Instant validTo;
+
+    private Integer usageLimitGlobal;
+
+    private Integer usageLimitPerUser;
+
+    // ALL, SPECIFIC_VENDORS, SPECIFIC_USERS, SPECIFIC_CUISINES
+    private String applicableTo;
+
+    private List<String> applicableVendorIds;
+
+    private List<String> applicableUserIds;
+
+    private List<String> applicableCuisines;
+
+    private Boolean firstOrderOnly;
+}
