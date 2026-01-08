@@ -1,0 +1,159 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api/v1
+
+spring:
+  application:
+    name: catering-platform
+
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/catering_platform_db}
+      database: catering_platform_db
+      auto-index-creation: true
+
+  data.redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    timeout: 60000
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 15MB
+
+  mail:
+    host: smtp.sendgrid.net
+    port: 587
+    username: apikey
+    password: ${SENDGRID_API_KEY:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:mySecretKeyForJWTTokenGenerationWhichShouldBeVeryLongAndSecure123456789}
+  access-token-expiration: 900000
+  refresh-token-expiration: 604800000
+
+# Razorpay Configuration
+razorpay:
+  key-id: ${RAZORPAY_KEY_ID:}
+  key-secret: ${RAZORPAY_KEY_SECRET:}
+  webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
+
+# SendGrid Configuration
+sendgrid:
+  api-key: ${SENDGRID_API_KEY:}
+  from-email: ${SENDGRID_FROM_EMAIL:noreply@cateringplatform.com}
+  from-name: ${SENDGRID_FROM_NAME:Catering Platform}
+
+# Twilio Configuration
+twilio:
+  account-sid: ${TWILIO_ACCOUNT_SID:}
+  auth-token: ${TWILIO_AUTH_TOKEN:}
+  phone-number: ${TWILIO_PHONE_NUMBER:}
+  whatsapp-number: ${TWILIO_WHATSAPP_NUMBER:}
+
+# Firebase Configuration
+firebase:
+  credentials-path: ${FIREBASE_CREDENTIALS_PATH:firebase-credentials.json}
+  project-id: ${FIREBASE_PROJECT_ID:}
+
+# Google Cloud Storage Configuration
+gcp:
+  project-id: ${GCP_PROJECT_ID:}
+  storage-bucket: ${GCP_STORAGE_BUCKET:}
+  credentials-path: ${GCP_CREDENTIALS_PATH:gcp-credentials.json}
+
+# Application Configuration
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:8080}
+    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+    allowed-headers: "*"
+    allow-credentials: true
+  rate-limit:
+    enabled: true
+    requests-per-minute: 100
+  otp:
+    expiry-minutes: 10
+    length: 6
+
+# Bidding Configuration
+bidding:
+  competitive-period-hours: 72
+  cooling-period-hours: 24
+  payment-cooling-period-hours: 2
+  bid-expiry-hours: 168
+  min-vendors-for-competitive: 3
+  max-bid-revisions: 5
+
+# Payment Configuration
+payment:
+  token-percentage: 25
+  platform-fee-percentage: 2
+  payment-gateway-fee-percentage: 2
+  auto-refund-enabled: true
+  payment-timeout-hours: 24
+
+# Cancellation Policy
+cancellation:
+  window-days: 30
+  tiers:
+    - days-before-event: 30
+      refund-percentage: 100
+    - days-before-event: 15
+      refund-percentage: 75
+    - days-before-event: 7
+      refund-percentage: 50
+    - days-before-event: 3
+      refund-percentage: 25
+    - days-before-event: 0
+      refund-percentage: 0
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.cateringmarketplace: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.data.mongodb: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Springdoc OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha

@@ -1,0 +1,129 @@
+package com.cateringmarketplace.module.chat.controller;
+
+import com.cateringmarketplace.common.response.ApiResponse;
+import com.cateringmarketplace.common.response.PageInfo;
+import com.cateringmarketplace.module.auth.security.CustomUserDetails;
+import com.cateringmarketplace.module.chat.model.Conversation;
+import com.cateringmarketplace.module.chat.model.Conversation.ConversationType;
+import com.cateringmarketplace.module.chat.model.Message;
+import com.cateringmarketplace.module.chat.model.Message.MessageType;
+import com.cateringmarketplace.module.chat.service.ChatService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+/**
+ * REST Controller for chat operations.
+ */
+@RestController
+@RequestMapping("/chat")
+@RequiredArgsConstructor
+@Slf4j
+@Tag(name = "Chat", description = "Chat and messaging APIs")
+@SecurityRequirement(name = "bearerAuth")
+public class ChatController {
+
+    private final ChatService chatService;
+
+    @GetMapping("/conversations")
+    @Operation(summary = "Get conversations", description = "Returns user's conversations")
+    public ResponseEntity<ApiResponse<List<Conversation>>> getConversations(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("updatedAt").descending());
+        Page<Conversation> conversations = chatService.getUserConversations(userDetails.getUserId(), pageable);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                conversations.getContent(),
+                "Conversations retrieved",
+                PageInfo.from(conversations)
+        ));
+    }
+
+    @GetMapping("/conversations/{conversationId}")
+    @Operation(summary = "Get conversation", description = "Returns conversation details")
+    public ResponseEntity<ApiResponse<Conversation>> getConversation(
+            @PathVariable String conversationId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        Conversation conversation = chatService.getConversation(conversationId, userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(conversation));
+    }
+
+    @PostMapping("/conversations")
+    @Operation(summary = "Create conversation", description = "Creates or gets existing conversation with another user")
+    public ResponseEntity<ApiResponse<Conversation>> createConversation(
+            @RequestParam String otherUserId,
+            @RequestParam(defaultValue = "USER_VENDOR") String type,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        ConversationType conversationType = ConversationType.valueOf(type.toUpperCase());
+        Conversation conversation = chatService.getOrCreateConversation(
+                userDetails.getUserId(), otherUserId, conversationType);
+
+        return ResponseEntity.ok(ApiResponse.success(conversation, "Conversation ready"));
+    }
+
+    @GetMapping("/conversations/{conversationId}/messages")
+    @Operation(summary = "Get messages", description = "Returns messages in a conversation")
+    public ResponseEntity<ApiResponse<List<Message>>> getMessages(
+            @PathVariable String conversationId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("timestamp").descending());
+        Page<Message> messages = chatService.getMessages(conversationId, userDetails.getUserId(), pageable);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                messages.getContent(),
+                "Messages retrieved",
+                PageInfo.from(messages)
+        ));
+    }
+
+    @PostMapping("/messages")
+    @Operation(summary = "Send message", description = "Sends a message in a conversation")
+    public ResponseEntity<ApiResponse<Message>> sendMessage(
+            @RequestParam String conversationId,
+            @RequestParam String content,
+            @RequestParam(defaultValue = "TEXT") String messageType,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        MessageType type = MessageType.valueOf(messageType.toUpperCase());
+        Message message = chatService.sendMessage(conversationId, userDetails.getUserId(), content, type);
+
+        return ResponseEntity.ok(ApiResponse.success(message, "Message sent"));
+    }
+
+    @PatchMapping("/conversations/{conversationId}/read")
+    @Operation(summary = "Mark as read", description = "Marks all messages in conversation as read")
+    public ResponseEntity<ApiResponse<Void>> markAsRead(
+            @PathVariable String conversationId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        chatService.markAsRead(conversationId, userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(null, "Marked as read"));
+    }
+
+    @DeleteMapping("/messages/{messageId}")
+    @Operation(summary = "Delete message", description = "Deletes a message (soft delete)")
+    public ResponseEntity<ApiResponse<Void>> deleteMessage(
+            @PathVariable String messageId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        chatService.deleteMessage(messageId, userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(null, "Message deleted"));
+    }
+}
+

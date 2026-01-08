@@ -1,0 +1,170 @@
+package com.cateringmarketplace.module.vendor.dto.response;
+
+import com.cateringmarketplace.module.vendor.model.Vendor;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+
+/**
+ * Response DTO for vendor information.
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class VendorResponse {
+
+    private String vendorId;
+    private String userId;
+    private String businessName;
+    private String businessEmail;
+    private String businessPhone;
+    private String businessType;
+    private String logoUrl;
+    private String bannerUrl;
+    private String description;
+    private Integer establishedYear;
+    private List<String> cuisinesOffered;
+    private List<String> specialties;
+    private BusinessAddressResponse businessAddress;
+    private CapacityResponse capacity;
+    private PricingResponse pricing;
+    private RatingsResponse ratings;
+    private StatsResponse stats;
+    private String status;
+    private String approvalStatus;
+    private Boolean verified;
+    private Boolean featured;
+    private Instant createdAt;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class BusinessAddressResponse {
+        private String streetAddress;
+        private String city;
+        private String state;
+        private String postalCode;
+        private String country;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CapacityResponse {
+        private Integer minGuests;
+        private Integer maxGuests;
+        private Integer concurrentEvents;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PricingResponse {
+        private String currency;
+        private BigDecimal startingPricePerPlate;
+        private BigDecimal averagePricePerPlate;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RatingsResponse {
+        private BigDecimal averageRating;
+        private Integer totalReviews;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StatsResponse {
+        private Integer totalOrders;
+        private Integer completedOrders;
+    }
+
+    /**
+     * Creates a VendorResponse from a Vendor entity.
+     */
+    public static VendorResponse fromEntity(Vendor vendor) {
+        if (vendor == null) return null;
+
+        VendorResponseBuilder builder = VendorResponse.builder()
+                .vendorId(vendor.getVendorId())
+                .userId(vendor.getUserId())
+                .businessName(vendor.getBusinessName())
+                .businessEmail(vendor.getBusinessEmail())
+                .businessPhone(vendor.getBusinessPhone())
+                .businessType(vendor.getBusinessType() != null ? vendor.getBusinessType().name() : null)
+                .logoUrl(vendor.getLogoUrl())
+                .bannerUrl(vendor.getBannerUrl())
+                .description(vendor.getDescription())
+                .establishedYear(vendor.getEstablishedYear())
+                .cuisinesOffered(vendor.getCuisinesOffered())
+                .specialties(vendor.getSpecialties())
+                .status(vendor.getStatus() != null ? vendor.getStatus().name() : null)
+                .approvalStatus(vendor.getApprovalStatus() != null ? vendor.getApprovalStatus().name() : null)
+                .verified(vendor.getVerified())
+                .featured(vendor.getFeatured())
+                .createdAt(vendor.getCreatedAt());
+
+        // Map business address
+        if (vendor.getBusinessAddress() != null) {
+            builder.businessAddress(BusinessAddressResponse.builder()
+                    .streetAddress(vendor.getBusinessAddress().getStreetAddress())
+                    .city(vendor.getBusinessAddress().getCity())
+                    .state(vendor.getBusinessAddress().getState())
+                    .postalCode(vendor.getBusinessAddress().getPostalCode())
+                    .country(vendor.getBusinessAddress().getCountry())
+                    .build());
+        }
+
+        // Map capacity
+        if (vendor.getCapacity() != null) {
+            builder.capacity(CapacityResponse.builder()
+                    .minGuests(vendor.getCapacity().getMinGuests())
+                    .maxGuests(vendor.getCapacity().getMaxGuests())
+                    .concurrentEvents(vendor.getCapacity().getConcurrentEvents())
+                    .build());
+        }
+
+        // Map pricing
+        if (vendor.getPricing() != null) {
+            builder.pricing(PricingResponse.builder()
+                    .currency(vendor.getPricing().getCurrency())
+                    .startingPricePerPlate(vendor.getPricing().getStartingPricePerPlate())
+                    .averagePricePerPlate(vendor.getPricing().getAveragePricePerPlate())
+                    .build());
+        }
+
+        // Map ratings
+        if (vendor.getRatings() != null) {
+            builder.ratings(RatingsResponse.builder()
+                    .averageRating(vendor.getRatings().getAverageRating())
+                    .totalReviews(vendor.getRatings().getTotalReviews())
+                    .build());
+        }
+
+        // Map stats
+        if (vendor.getStats() != null) {
+            builder.stats(StatsResponse.builder()
+                    .totalOrders(vendor.getStats().getTotalOrders())
+                    .completedOrders(vendor.getStats().getCompletedOrders())
+                    .build());
+        }
+
+        return builder.build();
+    }
+}
+
