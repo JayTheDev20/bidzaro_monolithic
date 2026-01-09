@@ -15,6 +15,8 @@ import com.cateringmarketplace.module.auth.model.OTPVerification.VerificationTyp
 import com.cateringmarketplace.module.auth.model.enums.UserStatus;
 import com.cateringmarketplace.module.auth.model.enums.UserType;
 import com.cateringmarketplace.module.auth.repository.*;
+import com.cateringmarketplace.module.notification.service.EmailService;
+import com.cateringmarketplace.module.notification.service.TwilioService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,8 +41,9 @@ public class AuthService {
     private final OTPVerificationRepository otpVerificationRepository;
     private final JwtUtil jwtUtil;
     private final PasswordUtil passwordUtil;
+    private final EmailService emailService;
+    private final TwilioService twilioService;
     private final OTPUtil otpUtil;
-    private final com.cateringmarketplace.module.notification.service.EmailService emailService;
 
     @Value("${jwt.access-token-expiration:900000}")
     private long accessTokenExpiration;
@@ -50,6 +53,10 @@ public class AuthService {
 
     @Value("${app.otp.expiry-minutes:10}")
     private int otpExpiryMinutes;
+
+    // New property: whether to log plain OTPs (dev only). Default false.
+    @Value("${app.otp.log-plain:false}")
+    private boolean logPlainOtp;
 
     /**
      * Registers a new user.
@@ -245,7 +252,17 @@ public class AuthService {
 
         verification = otpVerificationRepository.save(verification);
 
-        // Send OTP via email
+        // If Twilio not configured and logging enabled, print OTP to logs for dev/testing
+        try {
+            if (!twilioService.isConfigured() && !request.getIdentifier().contains("@") && logPlainOtp) {
+                log.warn("[DEV-OTP] Plain OTP for {}: {} (expires in {} minutes). Enable app.otp.log-plain=false in production.",
+                        request.getIdentifier(), otp, otpExpiryMinutes);
+            }
+        } catch (Exception e) {
+            log.debug("Failed to do dev OTP logging: {}", e.getMessage());
+        }
+
+        // Send OTP via appropriate channel
         try {
             String purpose = switch (type) {
                 case EMAIL -> "Email Verification";
@@ -258,9 +275,75 @@ public class AuthService {
             if (request.getIdentifier().contains("@")) {
                 // Send via email
                 emailService.sendOTPEmail(request.getIdentifier(), otp, purpose);
+                log.info("OTP sent via email to: {}", request.getIdentifier());
             } else {
-                // For phone numbers, log for now (TODO: implement SMS)
-                log.info("SMS OTP for {}: {} (purpose: {})", request.getIdentifier(), otp, purpose);
+                // Determine channel preference: WHATSAPP, SMS, or AUTO (default)
+                String channelPref = request.getChannel() != null ? request.getChannel().toUpperCase() : "AUTO";
+
+                switch (channelPref) {
+                    case "WHATSAPP":
+                        // Send only via WhatsApp
+                        try {
+                            if (twilioService.isConfigured() && twilioService.sendOTPWhatsApp(request.getIdentifier(), otp, purpose)) {
+                                log.info("OTP sent via WhatsApp to: {}", request.getIdentifier());
+                            } else {
+                                log.warn("Failed to send WhatsApp OTP to: {}", request.getIdentifier());
+                            }
+                        } catch (Exception e) {
+                            log.error("Error sending WhatsApp OTP to {}: {}", request.getIdentifier(), e.getMessage(), e);
+                        }
+                        break;
+
+                    case "SMS":
+                        // Send only via SMS
+                        try {
+                            if (twilioService.isConfigured() && twilioService.sendOTPSMS(request.getIdentifier(), otp, purpose)) {
+                                log.info("OTP sent via SMS to: {}", request.getIdentifier());
+                            } else {
+                                log.warn("Failed to send SMS OTP to: {}", request.getIdentifier());
+                            }
+                        } catch (Exception e) {
+                            log.error("Error sending SMS OTP to {}: {}", request.getIdentifier(), e.getMessage(), e);
+                        }
+                        break;
+
+                    default:
+                        // AUTO: Try WhatsApp first, then fallback to SMS
+                        boolean sent = false;
+
+                        if (twilioService.isConfigured()) {
+                            try {
+                                sent = twilioService.sendOTPWhatsApp(request.getIdentifier(), otp, purpose);
+                                if (sent) {
+                                    log.info("OTP sent via WhatsApp to: {}", request.getIdentifier());
+                                } else {
+                                    log.warn("WhatsApp OTP failed for {}. Falling back to SMS.", request.getIdentifier());
+                                    sent = twilioService.sendOTPSMS(request.getIdentifier(), otp, purpose);
+                                    if (sent) {
+                                        log.info("OTP sent via SMS to: {}", request.getIdentifier());
+                                    } else {
+                                        log.warn("Failed to send OTP via SMS to: {}. Twilio may not be configured.", request.getIdentifier());
+                                    }
+                                }
+                            } catch (Exception e) {
+                                log.error("Error sending OTP via Twilio to {}: {}", request.getIdentifier(), e.getMessage(), e);
+                                // Attempt SMS fallback when WhatsApp attempt throws
+                                try {
+                                    sent = twilioService.sendOTPSMS(request.getIdentifier(), otp, purpose);
+                                    if (sent) {
+                                        log.info("OTP sent via SMS to: {}", request.getIdentifier());
+                                    } else {
+                                        log.warn("Failed to send OTP via SMS to: {} after WhatsApp error.", request.getIdentifier());
+                                    }
+                                } catch (Exception ex) {
+                                    log.error("Error sending OTP via SMS to {}: {}", request.getIdentifier(), ex.getMessage(), ex);
+                                }
+                            }
+                        } else {
+                            log.warn("Twilio not configured - cannot send WhatsApp/SMS OTP to: {}", request.getIdentifier());
+                        }
+                        break;
+                }
             }
         } catch (Exception e) {
             log.error("Failed to send OTP: {}", e.getMessage(), e);

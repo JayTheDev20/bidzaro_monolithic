@@ -2,18 +2,20 @@ package com.cateringmarketplace.module.payment.service;
 
 import com.cateringmarketplace.common.exception.BadRequestException;
 import com.cateringmarketplace.common.exception.ResourceNotFoundException;
+import com.cateringmarketplace.module.auth.model.User;
+import com.cateringmarketplace.module.auth.repository.UserRepository;
 import com.cateringmarketplace.module.order.model.Order;
 import com.cateringmarketplace.module.order.model.Order.OrderStatus;
 import com.cateringmarketplace.module.order.repository.OrderRepository;
+import com.cateringmarketplace.module.payment.dto.PaymentInitiationRequest;
+import com.cateringmarketplace.module.payment.dto.PaymentInitiationResponse;
+import com.cateringmarketplace.module.payment.gateway.PaymentGatewayFactory;
+import com.cateringmarketplace.module.payment.gateway.PaymentGatewayStrategy;
 import com.cateringmarketplace.module.payment.model.Transaction;
 import com.cateringmarketplace.module.payment.model.Transaction.*;
 import com.cateringmarketplace.module.payment.repository.TransactionRepository;
-import com.razorpay.RazorpayClient;
-import com.razorpay.RazorpayException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.json.JSONObject;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -22,10 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
  * Service class for payment operations.
+ * Supports multiple payment gateways: Stripe (USA) and Razorpay (India).
  */
 @Service
 @RequiredArgsConstructor
@@ -34,12 +38,8 @@ public class PaymentService {
 
     private final TransactionRepository transactionRepository;
     private final OrderRepository orderRepository;
-
-    @Value("${razorpay.key-id:}")
-    private String razorpayKeyId;
-
-    @Value("${razorpay.key-secret:}")
-    private String razorpayKeySecret;
+    private final UserRepository userRepository;
+    private final PaymentGatewayFactory gatewayFactory;
 
     /**
      * Initiates a payment for an order.
@@ -56,53 +56,63 @@ public class PaymentService {
             throw new BadRequestException("UNAUTHORIZED", "You cannot make payment for this order");
         }
 
+        // Get user to determine country and currency
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        String country = user.getCountry() != null ? user.getCountry() : "USA";
+        String currency = determineCurrency(country);
+
+        // Select appropriate payment gateway based on country
+        PaymentGatewayStrategy gateway = gatewayFactory.getGatewayForCountry(country);
+        PaymentGateway gatewayEnum = PaymentGateway.valueOf(gateway.getGatewayName());
+
         // Create transaction record
+        String transactionId = UUID.randomUUID().toString();
         Transaction transaction = Transaction.builder()
-                .transactionId(UUID.randomUUID().toString())
+                .transactionId(transactionId)
                 .orderId(orderId)
                 .userId(userId)
                 .paymentType(paymentType)
                 .amount(TransactionAmount.builder()
-                        .currency("INR")
+                        .currency(currency)
                         .amount(amount)
                         .build())
-                .paymentGateway(PaymentGateway.RAZORPAY)
+                .paymentGateway(gatewayEnum)
                 .status(TransactionStatus.PENDING)
                 .initiatedAt(Instant.now())
                 .metadata(TransactionMetadata.builder().build())
                 .build();
 
-        // Create Razorpay order
+        transaction = transactionRepository.save(transaction);
+
+        // Create payment intent using selected gateway
         try {
-            RazorpayClient razorpay = new RazorpayClient(razorpayKeyId, razorpayKeySecret);
-
-            JSONObject orderRequest = new JSONObject();
-            orderRequest.put("amount", amount.multiply(BigDecimal.valueOf(100)).intValue()); // Amount in paise
-            orderRequest.put("currency", "INR");
-            orderRequest.put("receipt", transaction.getTransactionId());
-            orderRequest.put("notes", new JSONObject()
-                    .put("orderId", orderId)
-                    .put("userId", userId)
-                    .put("paymentType", paymentType.name()));
-
-            com.razorpay.Order razorpayOrder = razorpay.orders.create(orderRequest);
-
-            transaction.setGatewayOrderId(razorpayOrder.get("id"));
-            transaction = transactionRepository.save(transaction);
-
-            log.info("Payment initiated. Transaction: {}, Razorpay Order: {}",
-                    transaction.getTransactionId(), razorpayOrder.get("id"));
-
-            return PaymentInitiationResponse.builder()
-                    .transactionId(transaction.getTransactionId())
-                    .gatewayOrderId(razorpayOrder.get("id"))
+            PaymentInitiationRequest request = PaymentInitiationRequest.builder()
+                    .orderId(orderId)
+                    .userId(userId)
+                    .transactionId(transactionId)
                     .amount(amount)
-                    .currency("INR")
-                    .keyId(razorpayKeyId)
+                    .currency(currency)
+                    .paymentType(paymentType.name())
+                    .customerEmail(user.getEmail())
+                    .customerName(user.getFirstName() + " " + user.getLastName())
+                    .country(country)
                     .build();
 
-        } catch (RazorpayException e) {
-            log.error("Failed to create Razorpay order: {}", e.getMessage());
+            PaymentInitiationResponse response = gateway.createPaymentIntent(request);
+
+            // Update transaction with gateway order ID
+            transaction.setGatewayOrderId(response.getGatewayOrderId());
+            transactionRepository.save(transaction);
+
+            log.info("Payment initiated via {}. Transaction: {}, Gateway Order: {}",
+                    gateway.getGatewayName(), transactionId, response.getGatewayOrderId());
+
+            return response;
+
+        } catch (Exception e) {
+            log.error("Failed to initiate payment via {}: {}", gateway.getGatewayName(), e.getMessage());
             transaction.setStatus(TransactionStatus.FAILED);
             transaction.setFailureReason(e.getMessage());
             transactionRepository.save(transaction);
@@ -120,73 +130,73 @@ public class PaymentService {
         Transaction transaction = transactionRepository.findByGatewayOrderId(gatewayOrderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found"));
 
-        // Verify signature
-        try {
-            String payload = gatewayOrderId + "|" + gatewayPaymentId;
-            boolean isValid = verifyRazorpaySignature(payload, signature);
+        // Get the gateway used for this transaction
+        PaymentGatewayStrategy gateway = gatewayFactory.getGatewayByName(transaction.getPaymentGateway().name());
 
-            if (!isValid) {
-                transaction.setStatus(TransactionStatus.FAILED);
-                transaction.setFailureReason("Invalid payment signature");
-                transactionRepository.save(transaction);
-                throw new BadRequestException("INVALID_SIGNATURE", "Payment verification failed");
-            }
+        // Verify payment using the appropriate gateway
+        boolean isValid = gateway.verifyPayment(gatewayOrderId, gatewayPaymentId, signature);
 
-            // Update transaction
-            transaction.setGatewayTransactionId(gatewayPaymentId);
-            transaction.setStatus(TransactionStatus.SUCCESS);
-            transaction.setProcessedAt(Instant.now());
-            transaction = transactionRepository.save(transaction);
-
-            // Update order payment status
-            updateOrderPaymentStatus(transaction);
-
-            log.info("Payment verified successfully: {}", transaction.getTransactionId());
-            return transaction;
-
-        } catch (Exception e) {
-            log.error("Payment verification failed: {}", e.getMessage());
+        if (!isValid) {
             transaction.setStatus(TransactionStatus.FAILED);
-            transaction.setFailureReason(e.getMessage());
+            transaction.setFailureReason("Invalid payment signature");
             transactionRepository.save(transaction);
-            throw new BadRequestException("VERIFICATION_FAILED", "Payment verification failed");
+            throw new BadRequestException("INVALID_SIGNATURE", "Payment verification failed");
         }
+
+        // Update transaction
+        transaction.setGatewayTransactionId(gatewayPaymentId);
+        transaction.setStatus(TransactionStatus.SUCCESS);
+        transaction.setProcessedAt(Instant.now());
+        transaction = transactionRepository.save(transaction);
+
+        // Update order payment status
+        updateOrderPaymentStatus(transaction);
+
+        log.info("Payment verified successfully: {}", transaction.getTransactionId());
+        return transaction;
     }
 
     /**
-     * Handles Razorpay webhook.
+     * Handles payment gateway webhook.
      */
     @Transactional
-    public void handleWebhook(String payload, String signature) {
-        log.info("Processing Razorpay webhook");
-
-        // Verify webhook signature
-        // Parse payload and update transaction status
-        // This is a simplified implementation
+    public void handleWebhook(String gatewayName, String payload, String signature) {
+        log.info("Processing {} webhook", gatewayName);
 
         try {
-            JSONObject event = new JSONObject(payload);
-            String eventType = event.getString("event");
+            PaymentGatewayStrategy gateway = gatewayFactory.getGatewayByName(gatewayName);
+            Map<String, Object> result = gateway.processWebhook(payload, signature);
 
-            if ("payment.captured".equals(eventType)) {
-                JSONObject paymentEntity = event.getJSONObject("payload")
-                        .getJSONObject("payment").getJSONObject("entity");
+            if (Boolean.TRUE.equals(result.get("success"))) {
+                String eventType = (String) result.get("eventType");
 
-                String orderId = paymentEntity.getString("order_id");
-                String paymentId = paymentEntity.getString("id");
+                if ("payment.captured".equals(eventType) || "payment_intent.succeeded".equals(eventType)) {
+                    String gatewayOrderId = (String) result.get("gatewayOrderId");
+                    String gatewayTransactionId = (String) result.get("gatewayTransactionId");
 
-                transactionRepository.findByGatewayOrderId(orderId)
-                        .ifPresent(transaction -> {
-                            transaction.setGatewayTransactionId(paymentId);
-                            transaction.setStatus(TransactionStatus.SUCCESS);
-                            transaction.setProcessedAt(Instant.now());
-                            transactionRepository.save(transaction);
-                            updateOrderPaymentStatus(transaction);
-                        });
+                    transactionRepository.findByGatewayOrderId(gatewayOrderId)
+                            .ifPresent(transaction -> {
+                                transaction.setGatewayTransactionId(gatewayTransactionId);
+                                transaction.setStatus(TransactionStatus.SUCCESS);
+                                transaction.setProcessedAt(Instant.now());
+                                transactionRepository.save(transaction);
+                                updateOrderPaymentStatus(transaction);
+                            });
+                } else if ("payment.failed".equals(eventType) || "payment_intent.payment_failed".equals(eventType)) {
+                    String gatewayOrderId = (String) result.get("gatewayOrderId");
+                    String failureReason = (String) result.get("failureReason");
+
+                    transactionRepository.findByGatewayOrderId(gatewayOrderId)
+                            .ifPresent(transaction -> {
+                                transaction.setStatus(TransactionStatus.FAILED);
+                                transaction.setFailureReason(failureReason);
+                                transactionRepository.save(transaction);
+                            });
+                }
             }
 
         } catch (Exception e) {
-            log.error("Webhook processing failed: {}", e.getMessage());
+            log.error("{} webhook processing failed: {}", gatewayName, e.getMessage(), e);
         }
     }
 
@@ -214,10 +224,27 @@ public class PaymentService {
 
     // ==================== HELPER METHODS ====================
 
-    private boolean verifyRazorpaySignature(String payload, String signature) {
-        // In production, use Razorpay SDK to verify signature
-        // This is a placeholder
-        return signature != null && !signature.isEmpty();
+    /**
+     * Determines currency based on country.
+     */
+    private String determineCurrency(String country) {
+        if (country == null || country.isEmpty()) {
+            return "USD"; // Default
+        }
+
+        // USA uses USD
+        if ("USA".equalsIgnoreCase(country) || "US".equalsIgnoreCase(country) ||
+            "UNITED STATES".equalsIgnoreCase(country)) {
+            return "USD";
+        }
+
+        // India uses INR
+        if ("INDIA".equalsIgnoreCase(country) || "IN".equalsIgnoreCase(country)) {
+            return "INR";
+        }
+
+        // Default to USD for other countries
+        return "USD";
     }
 
     private void updateOrderPaymentStatus(Transaction transaction) {
@@ -244,19 +271,6 @@ public class PaymentService {
         }
 
         orderRepository.save(order);
-    }
-
-    // Response DTOs
-    @lombok.Data
-    @lombok.Builder
-    @lombok.NoArgsConstructor
-    @lombok.AllArgsConstructor
-    public static class PaymentInitiationResponse {
-        private String transactionId;
-        private String gatewayOrderId;
-        private BigDecimal amount;
-        private String currency;
-        private String keyId;
     }
 }
 

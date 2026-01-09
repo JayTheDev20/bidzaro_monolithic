@@ -3,10 +3,10 @@ package com.cateringmarketplace.module.payment.controller;
 import com.cateringmarketplace.common.response.ApiResponse;
 import com.cateringmarketplace.common.response.PageInfo;
 import com.cateringmarketplace.module.auth.security.CustomUserDetails;
+import com.cateringmarketplace.module.payment.dto.PaymentInitiationResponse;
 import com.cateringmarketplace.module.payment.model.Transaction;
 import com.cateringmarketplace.module.payment.model.Transaction.PaymentType;
 import com.cateringmarketplace.module.payment.service.PaymentService;
-import com.cateringmarketplace.module.payment.service.PaymentService.PaymentInitiationResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -105,13 +105,24 @@ public class PaymentController {
     // ==================== WEBHOOK ENDPOINTS ====================
 
     @PostMapping("/webhook/razorpay")
-    @Operation(summary = "Razorpay webhook", description = "Handles Razorpay payment webhooks")
+    @Operation(summary = "Razorpay webhook", description = "Handles Razorpay payment webhooks (India)")
     public ResponseEntity<String> handleRazorpayWebhook(
             @RequestBody String payload,
             @RequestHeader("X-Razorpay-Signature") String signature) {
 
         log.info("Received Razorpay webhook");
-        paymentService.handleWebhook(payload, signature);
+        paymentService.handleWebhook("RAZORPAY", payload, signature);
+        return ResponseEntity.ok("OK");
+    }
+
+    @PostMapping("/webhook/stripe")
+    @Operation(summary = "Stripe webhook", description = "Handles Stripe payment webhooks (USA)")
+    public ResponseEntity<String> handleStripeWebhook(
+            @RequestBody String payload,
+            @RequestHeader("Stripe-Signature") String signature) {
+
+        log.info("Received Stripe webhook");
+        paymentService.handleWebhook("STRIPE", payload, signature);
         return ResponseEntity.ok("OK");
     }
 }

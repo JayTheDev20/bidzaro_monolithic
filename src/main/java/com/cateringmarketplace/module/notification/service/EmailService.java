@@ -5,7 +5,6 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -27,19 +26,30 @@ public class EmailService {
     @Value("${smtp.from-name:Catering Platform}")
     private String fromName;
 
+    @Value("${smtp.logo-url:https://cdn-icons-png.flaticon.com/512/9370/9370077.png}")
+    private String logoUrl;
+
     /**
-     * Sends a simple text email.
+     * Sends a simple text email (wrapped in HTML template).
      */
     @Async("emailExecutor")
     public boolean sendSimpleEmail(String to, String subject, String body) {
         try {
-            log.info("Sending simple email to: {}", to);
+            log.info("Sending simple email (as HTML) to: {}", to);
 
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(String.format("%s <%s>", fromName, fromEmail));
-            message.setTo(to);
-            message.setSubject(subject);
-            message.setText(body);
+            // Check if body seems to contain HTML tags, if so, don't replace newlines
+            boolean isHtml = body.trim().startsWith("<") && body.trim().endsWith(">");
+            String content = isHtml ? body : body.replace("\n", "<br>");
+
+            String htmlBody = getHtmlTemplate(subject, content);
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(String.format("%s <%s>", fromName, fromEmail));
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlBody, true);
 
             mailSender.send(message);
 
@@ -49,6 +59,105 @@ public class EmailService {
             log.error("Failed to send email to {}: {}", to, e.getMessage(), e);
             return false;
         }
+    }
+
+    /**
+     * Generates a beautiful HTML template with a logo.
+     */
+    private String getHtmlTemplate(String title, String content) {
+        // Uses configured logoUrl (smtp.logo-url) or default if not set
+        // Brand color: Orange (#F97316)
+
+        return String.format("""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        line-height: 1.6;
+                        color: #333333;
+                        margin: 0;
+                        padding: 0;
+                        background-color: #f7f9fa;
+                    }
+                    .email-container {
+                        max-width: 600px;
+                        margin: 40px auto;
+                        background-color: #ffffff;
+                        border-radius: 16px;
+                        overflow: hidden;
+                        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+                        border: 1px solid #e1e4e8;
+                    }
+                    .email-header {
+                        background-color: #ffffff;
+                        padding: 30px;
+                        text-align: center;
+                        border-bottom: 4px solid #F97316; /* Orange brand color */
+                    }
+                    .email-header img {
+                        max-height: 60px;
+                        object-fit: contain;
+                    }
+                    .email-body {
+                        padding: 40px 30px;
+                        background-color: #ffffff;
+                    }
+                    .email-title {
+                        color: #1a1a1a;
+                        font-size: 24px;
+                        font-weight: 700;
+                        margin-bottom: 25px;
+                        text-align: center;
+                    }
+                    .email-content {
+                        font-size: 16px;
+                        color: #555555;
+                        line-height: 1.8;
+                    }
+                    .email-footer {
+                        background-color: #f8fafc;
+                        padding: 25px;
+                        text-align: center;
+                        font-size: 13px;
+                        color: #94a3b8;
+                        border-top: 1px solid #edf2f7;
+                    }
+                    .email-footer p {
+                        margin: 5px 0;
+                    }
+                    .highlight-box {
+                        background-color: #FFF7ED; /* Light orange bg */
+                        border: 1px solid #FDBA74; /* Orange border */
+                        border-radius: 8px;
+                        padding: 20px;
+                        margin: 20px 0;
+                        text-align: center;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="email-container">
+                    <div class="email-header">
+                        <img src="%s" alt="Business Logo">
+                    </div>
+                    <div class="email-body">
+                        <h1 class="email-title">%s</h1>
+                        <div class="email-content">
+                            %s
+                        </div>
+                    </div>
+                    <div class="email-footer">
+                        <p>&copy; 2026 Catering Platform. All rights reserved.</p>
+                        <p>This is an automated message, please do not reply.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """, logoUrl, title, content);
     }
 
     /**
@@ -97,7 +206,13 @@ public class EmailService {
                 helper.setBcc(bcc);
             }
             helper.setSubject(subject);
-            helper.setText(body, isHtml);
+
+            if (!isHtml) {
+                String htmlBody = getHtmlTemplate(subject, body.replace("\n", "<br>"));
+                helper.setText(htmlBody, true);
+            } else {
+                helper.setText(body, true);
+            }
 
             mailSender.send(message);
 
@@ -115,20 +230,21 @@ public class EmailService {
     public boolean sendWelcomeEmail(String to, String userName) {
         String subject = "Welcome to Catering Platform!";
         String body = String.format("""
-                Dear %s,
+                <p>Dear %s,</p>
                 
-                Welcome to Catering Platform! We're excited to have you on board.
+                <p>Welcome to <strong>Catering Platform</strong>! We're excited to have you on board.</p>
                 
-                Your account has been successfully created. You can now:
-                - Browse vendors and their menus
-                - Create bid requests for your events
-                - Manage your orders and payments
-                - Track your loyalty points
+                <p>Your account has been successfully created. You can now:</p>
+                <ul style="color: #475569;">
+                    <li>Browse vendors and their menus</li>
+                    <li>Create bid requests for your events</li>
+                    <li>Manage your orders and payments</li>
+                    <li>Track your loyalty points</li>
+                </ul>
                 
-                If you have any questions, feel free to contact our support team.
+                <p>If you have any questions, feel free to contact our support team.</p>
                 
-                Best regards,
-                The Catering Platform Team
+                <p style="margin-top: 20px;">Best regards,<br>The Catering Platform Team</p>
                 """, userName);
 
         return sendSimpleEmail(to, subject, body);
@@ -139,18 +255,24 @@ public class EmailService {
      */
     public boolean sendOTPEmail(String to, String otp, String purpose) {
         String subject = "Your OTP Code - Catering Platform";
-        String body = String.format("""
-                Your OTP code for %s is: %s
+
+        // Create an HTML content block where the OTP is visually highlighted and centered
+        // Using Orange theme for the OTP box
+        String content = String.format("""
+                <p style="margin:0 0 20px 0; font-size:16px;">Hello,</p>
+                <p style="margin:0 0 20px 0; font-size:16px;">We received a request for <strong>%s</strong>. Please use the following One-Time Password (OTP) to proceed:</p>
                 
-                This code will expire in 10 minutes.
+                <div style="text-align:center; margin:30px 0;">
+                    <div style="display:inline-block; padding:20px 40px; background-color:#FFF7ED; border: 2px dashed #F97316; border-radius:12px;">
+                        <span style="font-size:32px; font-weight:800; color:#F97316; letter-spacing:8px; font-family: 'Courier New', monospace;">%s</span>
+                    </div>
+                </div>
                 
-                If you didn't request this code, please ignore this email.
-                
-                Best regards,
-                The Catering Platform Team
+                <p style="margin:20px 0 0 0; font-size:14px; color:#666;">This code is valid for <strong>10 minutes</strong>. Do not share this code with anyone.</p>
+                <p style="margin:10px 0 0 0; font-size:14px; color:#999;">If you didn't request this code, please ignore this email.</p>
                 """, purpose, otp);
 
-        return sendSimpleEmail(to, subject, body);
+        return sendSimpleEmail(to, subject, content);
     }
 
     /**
@@ -294,4 +416,3 @@ public class EmailService {
         return sendSimpleEmail(to, title, message);
     }
 }
-

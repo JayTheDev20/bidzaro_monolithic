@@ -1,32 +1,54 @@
 # ==================================================
+# BIDZARO CATERING PLATFORM - CONFIGURATION
+# Platform: USA/India | Currencies: USD/INR
+# ==================================================
+
+# ==================================================
 # SERVER CONFIG
 # ==================================================
 server:
   port: ${SERVER_PORT:8080}
   servlet:
     context-path: ${SERVER_CONTEXT_PATH:/api/v1}
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: on_param
 
 # ==================================================
 # SPRING CORE
 # ==================================================
 spring:
   application:
-    name: ${APP_NAME:catering-platform}
+    name: ${APP_NAME:bidzaro-catering-platform}
+
+  # Show detailed startup logs
+  main:
+    banner-mode: console
+    log-startup-info: true
 
   # -------------------------
-  # DATABASE
+  # DATABASE - MONGODB
   # -------------------------
   data:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017}
-      database: ${MONGODB_DATABASE:catering_platform}
+      database: ${MONGODB_DATABASE:bidzaro_catering_platform_db}
       auto-index-creation: false
 
+    # -------------------------
+    # CACHE - REDIS
+    # -------------------------
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
       timeout: ${REDIS_TIMEOUT:60000}
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
 
   # -------------------------
   # CACHE
@@ -34,13 +56,14 @@ spring:
   cache:
     type: redis
     redis:
-      time-to-live: ${REDIS_TTL:1800000}
+      time-to-live: ${REDIS_TTL:600000}
 
   # -------------------------
   # FILE UPLOAD
   # -------------------------
   servlet:
     multipart:
+      enabled: true
       max-file-size: ${MAX_FILE_SIZE:10MB}
       max-request-size: ${MAX_REQUEST_SIZE:15MB}
 
@@ -49,7 +72,7 @@ spring:
   # -------------------------
   mail:
     host: ${SMTP_HOST:smtp.hostinger.com}
-    port: ${SMTP_PORT:587}
+    port: ${SMTP_PORT:465}
     username: ${SMTP_USERNAME:}
     password: ${SMTP_PASSWORD:}
     protocol: ${MAIL_PROTOCOL:smtp}
@@ -59,51 +82,61 @@ spring:
         smtp:
           auth: ${MAIL_SMTP_AUTH:true}
           starttls:
-            enable: ${MAIL_SMTP_STARTTLS:true}
-            required: ${MAIL_SMTP_STARTTLS_REQUIRED:true}
+            enable: ${MAIL_SMTP_STARTTLS:false}
+            required: ${MAIL_SMTP_STARTTLS_REQUIRED:false}
           ssl:
-            enable: ${MAIL_SMTP_SSL:false}
-            trust: ${MAIL_SMTP_SSL_TRUST:*}
-          debug: ${MAIL_DEBUG:false}
-          connectiontimeout: ${MAIL_SMTP_CONNECTION_TIMEOUT:5000}
-          timeout: ${MAIL_SMTP_TIMEOUT:5000}
-          writetimeout: ${MAIL_SMTP_WRITE_TIMEOUT:5000}
+            enable: ${MAIL_SMTP_SSL:true}
+            trust: ${MAIL_SMTP_SSL_TRUST:smtp.hostinger.com}
+          debug: ${MAIL_DEBUG:true}
+          connectiontimeout: ${MAIL_SMTP_CONNECTION_TIMEOUT:30000}
+          timeout: ${MAIL_SMTP_TIMEOUT:30000}
+          writetimeout: ${MAIL_SMTP_WRITE_TIMEOUT:30000}
 
 # ==================================================
 # SECURITY / JWT
 # ==================================================
 jwt:
-  secret: ${JWT_SECRET:your-256-bit-secret-key-change-this-in-production}
+  secret: ${JWT_SECRET:mySecretKeyForJWTTokenGenerationWhichShouldBeVeryLongAndSecure123456789}
   access-token-expiration: ${JWT_ACCESS_TOKEN_EXP:900000}
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXP:604800000}
 
 # ==================================================
-# PAYMENT GATEWAY
+# PAYMENT GATEWAYS
 # ==================================================
+# Razorpay (India - INR)
 razorpay:
   key-id: ${RAZORPAY_KEY_ID:}
   key-secret: ${RAZORPAY_KEY_SECRET:}
   webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
 
+# Stripe (USA - USD)
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:}
+  publishable-key: ${STRIPE_PUBLISHABLE_KEY:}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+
 # ==================================================
 # NOTIFICATIONS
 # ==================================================
+# SMTP Email
 smtp:
-  from-email: ${SMTP_FROM_EMAIL:noreply@cateringplatform.com}
-  from-name: ${SMTP_FROM_NAME:Catering Platform}
+  from-email: ${SMTP_FROM_EMAIL:noreply@bidzaro.com}
+  from-name: ${SMTP_FROM_NAME:Bidzaro Catering Platform}
 
+# Twilio (SMS & WhatsApp)
 twilio:
   account-sid: ${TWILIO_ACCOUNT_SID:}
   auth-token: ${TWILIO_AUTH_TOKEN:}
   phone-number: ${TWILIO_PHONE_NUMBER:}
-  whatsapp-number: ${TWILIO_WHATSAPP_NUMBER:}
+  whatsapp-number: ${TWILIO_WHATSAPP_NUMBER:+14155238886}
 
+# Firebase (Push Notifications)
 firebase:
-  credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+  credentials-path: ${FIREBASE_CREDENTIALS_PATH:firebase-credentials.json}
   project-id: ${FIREBASE_PROJECT_ID:}
 
 # ==================================================
-# CLOUD STORAGE
+# CLOUD STORAGE (Google Cloud Platform)
 # ==================================================
 gcp:
   project-id: ${GCP_PROJECT_ID:}
@@ -116,21 +149,28 @@ gcp:
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
 
+  # MongoDB specific
+  mongodb:
+    ping-on-startup: false
+
   # Platform defaults - USA focused
   default-country: USA
   default-currency: USD
   location-based-features: true
 
+  # CORS
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:8080}
     allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS}
     allowed-headers: ${CORS_ALLOWED_HEADERS:*}
     allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
 
+  # Rate Limiting
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     requests-per-minute: ${RATE_LIMIT_RPM:100}
 
+  # OTP Configuration
   otp:
     expiry-minutes: ${OTP_EXPIRY_MINUTES:10}
     length: ${OTP_LENGTH:6}
@@ -138,6 +178,7 @@ app:
 # ==================================================
 # BUSINESS RULES
 # ==================================================
+# Bidding Rules
 bidding:
   competitive-period-hours: ${BIDDING_COMPETITIVE_HOURS:72}
   cooling-period-hours: ${BIDDING_COOLING_HOURS:24}
@@ -146,13 +187,14 @@ bidding:
   min-vendors-for-competitive: ${BIDDING_MIN_VENDORS:3}
   max-bid-revisions: ${BIDDING_MAX_REVISIONS:5}
 
+# Payment Rules
 payment:
   token-percentage: ${PAYMENT_TOKEN_PERCENT:25}
   platform-fee-percentage: ${PAYMENT_PLATFORM_FEE_PERCENT:2}
   payment-gateway-fee-percentage: ${PAYMENT_GATEWAY_FEE_PERCENT:2}
   auto-refund-enabled: ${PAYMENT_AUTO_REFUND:true}
   payment-timeout-hours: ${PAYMENT_TIMEOUT_HOURS:24}
-  currency: USD  # Platform currency
+  currency: USD
 
 # ==================================================
 # CANCELLATION POLICY
@@ -196,14 +238,56 @@ app-upload:
   max-document-size-mb: ${UPLOAD_MAX_DOC_MB:10}
 
 # ==================================================
-# LOGGING
+# LOGGING - DETAILED FOR ALL MODULES
 # ==================================================
 logging:
   level:
+    # Root level
     root: ${LOG_ROOT_LEVEL:INFO}
+
+    # Application packages - DETAILED
     com.cateringmarketplace: ${LOG_APP_LEVEL:DEBUG}
+    com.cateringmarketplace.module.auth: DEBUG
+    com.cateringmarketplace.module.payment: DEBUG
+    com.cateringmarketplace.module.notification: DEBUG
+    com.cateringmarketplace.module.order: DEBUG
+    com.cateringmarketplace.module.bid: DEBUG
+    com.cateringmarketplace.module.vendor: DEBUG
+    com.cateringmarketplace.common.filter: DEBUG
+
+    # Spring Framework
+    org.springframework.web: DEBUG
     org.springframework.security: ${LOG_SECURITY_LEVEL:INFO}
-    org.springframework.data.mongodb: ${LOG_MONGO_LEVEL:INFO}
+    org.springframework.boot: INFO
+    org.springframework.boot.autoconfigure: INFO
+
+    # Database - MongoDB
+    org.springframework.data.mongodb: ${LOG_MONGO_LEVEL:DEBUG}
+    org.mongodb.driver: INFO
+
+    # Cache - Redis
+    org.springframework.data.redis: DEBUG
+
+    # Email/Mail
+    org.springframework.mail: DEBUG
+    jakarta.mail: DEBUG
+
+    # Payment Gateways
+    com.stripe: INFO
+    com.razorpay: INFO
+
+    # Notifications
+    com.twilio: INFO
+
+    # Validation
+    org.hibernate.validator: INFO
+
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%-5level) %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %-40.40logger{39} : %m%n"
+
+  file:
+    name: logs/bidzaro-application.log
 
 # ==================================================
 # ACTUATOR / MONITORING
@@ -213,9 +297,19 @@ management:
     web:
       exposure:
         include: ${ACTUATOR_EXPOSE_ENDPOINTS:health,info,metrics,prometheus}
+      base-path: /actuator
+
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+
+  info:
+    env:
+      enabled: true
 
 # ==================================================
-# API DOCS
+# API DOCUMENTATION (Swagger)
 # ==================================================
 springdoc:
   api-docs:
@@ -225,3 +319,4 @@ springdoc:
     enabled: ${SWAGGER_ENABLED:true}
     operations-sorter: ${SWAGGER_OP_SORTER:method}
     tags-sorter: ${SWAGGER_TAG_SORTER:alpha}
+

@@ -26,5 +26,10 @@ public class SendOTPRequest {
      */
     @NotBlank(message = "OTP type is required")
     private String type;
-}
 
+    /**
+     * Optional delivery channel for phone OTPs: WHATSAPP, SMS, or AUTO.
+     * AUTO (default) will attempt WhatsApp first then fall back to SMS.
+     */
+    private String channel;
+}

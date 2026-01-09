@@ -29,6 +29,7 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final TwilioService twilioService;
 
     /**
      * Sends a notification to a user.
@@ -179,9 +180,12 @@ public class NotificationService {
     }
 
     private boolean sendSMS(String phone, String message) {
-        // TODO: Implement Twilio SMS integration
-        log.debug("Sending SMS to: {}", phone);
-        return true;
+        try {
+            return twilioService.sendSMS(phone, message);
+        } catch (Exception e) {
+            log.error("Error sending SMS to {}: {}", phone, e.getMessage(), e);
+            return false;
+        }
     }
 
     private boolean sendPushNotification(String fcmToken, String title, String body, Map<String, Object> data) {
@@ -195,9 +199,12 @@ public class NotificationService {
     }
 
     private boolean sendWhatsApp(String phone, String message) {
-        // TODO: Implement Twilio WhatsApp integration
-        log.debug("Sending WhatsApp to: {}", phone);
-        return true;
+        try {
+            return twilioService.sendWhatsApp(phone, message);
+        } catch (Exception e) {
+            log.error("Error sending WhatsApp to {}: {}", phone, e.getMessage(), e);
+            return false;
+        }
     }
 }
 
