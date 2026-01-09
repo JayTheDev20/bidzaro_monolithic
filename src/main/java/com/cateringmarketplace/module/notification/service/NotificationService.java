@@ -28,6 +28,7 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     /**
      * Sends a notification to a user.
@@ -169,9 +170,12 @@ public class NotificationService {
     }
 
     private boolean sendEmail(String email, String subject, String body) {
-        // TODO: Implement SendGrid integration
-        log.debug("Sending email to: {} with subject: {}", email, subject);
-        return true;
+        try {
+            return emailService.sendNotificationEmail(email, subject, body);
+        } catch (Exception e) {
+            log.error("Error sending email to {}: {}", email, e.getMessage(), e);
+            return false;
+        }
     }
 
     private boolean sendSMS(String phone, String message) {

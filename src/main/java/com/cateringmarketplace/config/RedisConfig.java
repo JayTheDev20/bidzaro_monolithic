@@ -1,5 +1,8 @@
 package com.cateringmarketplace.config;
 
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.api.sync.RedisCommands;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -25,6 +28,7 @@ import java.util.Map;
  */
 @Configuration
 @EnableCaching
+@Slf4j
 public class RedisConfig {
 
     @Value("${spring.data.redis.host:localhost}")
@@ -53,7 +57,27 @@ public class RedisConfig {
         if (redisPassword != null && !redisPassword.isEmpty()) {
             config.setPassword(redisPassword);
         }
-        return new LettuceConnectionFactory(config);
+        LettuceConnectionFactory factory = new LettuceConnectionFactory(config);
+        try {
+            factory.afterPropertiesSet();
+            // Test connection using Lettuce client to log immediate connectivity
+            String redisUri = String.format("redis://%s:%d", redisHost, redisPort);
+            if (redisPassword != null && !redisPassword.isEmpty()) {
+                redisUri = String.format("redis://default:%s@%s:%d", redisPassword, redisHost, redisPort);
+            }
+            try (RedisClient client = RedisClient.create(redisUri)) {
+                var conn = client.connect();
+                RedisCommands<String, String> commands = conn.sync();
+                String pong = commands.ping();
+                log.info("Redis ping response during startup: {}", pong);
+                conn.close();
+            } catch (Exception e) {
+                log.warn("Redis ping failed during startup (ping may still work later): {}", e.getMessage());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to initialize LettuceConnectionFactory: {}", e.getMessage());
+        }
+        return factory;
     }
 
     @Bean
@@ -106,4 +130,3 @@ public class RedisConfig {
                 .build();
     }
 }
-

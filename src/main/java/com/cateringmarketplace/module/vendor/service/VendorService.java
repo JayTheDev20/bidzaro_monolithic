@@ -36,6 +36,7 @@ public class VendorService {
 
     private final VendorRepository vendorRepository;
     private final UserRepository userRepository;
+    private final com.cateringmarketplace.module.notification.service.EmailService emailService;
 
     /**
      * Registers a new vendor.
@@ -245,7 +246,15 @@ public class VendorService {
         vendor = vendorRepository.save(vendor);
         log.info("Vendor approved successfully: {}", vendorId);
 
-        // TODO: Send notification to vendor
+        // Send approval email to vendor
+        try {
+            User vendorUser = userRepository.findByUserId(vendor.getUserId()).orElse(null);
+            if (vendorUser != null) {
+                emailService.sendVendorApprovalEmail(vendorUser.getEmail(), vendor.getBusinessName());
+            }
+        } catch (Exception e) {
+            log.error("Failed to send vendor approval email: {}", e.getMessage(), e);
+        }
 
         return VendorResponse.fromEntity(vendor);
     }
@@ -267,7 +276,15 @@ public class VendorService {
         vendor = vendorRepository.save(vendor);
         log.info("Vendor rejected: {}", vendorId);
 
-        // TODO: Send notification to vendor
+        // Send rejection email to vendor
+        try {
+            User vendorUser = userRepository.findByUserId(vendor.getUserId()).orElse(null);
+            if (vendorUser != null) {
+                emailService.sendVendorRejectionEmail(vendorUser.getEmail(), vendor.getBusinessName(), reason);
+            }
+        } catch (Exception e) {
+            log.error("Failed to send vendor rejection email: {}", e.getMessage(), e);
+        }
 
         return VendorResponse.fromEntity(vendor);
     }

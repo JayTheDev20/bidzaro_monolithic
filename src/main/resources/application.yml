@@ -1,182 +1,214 @@
+# ==================================================
+# SERVER CONFIG
+# ==================================================
 server:
-  port: 8080
+  port: ${SERVER_PORT}
   servlet:
-    context-path: /api/v1
+    context-path: ${SERVER_CONTEXT_PATH}
 
+# ==================================================
+# SPRING CORE
+# ==================================================
 spring:
   application:
-    name: catering-platform
+    name: ${APP_NAME}
 
+  # -------------------------
+  # DATABASE
+  # -------------------------
   data:
     mongodb:
-      uri: ${MONGODB_URI:mongodb://localhost:27017/catering_platform_db}
-      database: catering_platform_db
-      # Disable automatic index creation so app can start without a live MongoDB during development.
-      # In production, consider enabling or running index creation as a separate migration step.
+      uri: ${MONGODB_URI}
+      database: ${MONGODB_DATABASE}
       auto-index-creation: false
 
-  data.redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
-    password: ${REDIS_PASSWORD:}
-    timeout: 60000
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
+      timeout: ${REDIS_TIMEOUT}
 
+  # -------------------------
+  # CACHE
+  # -------------------------
   cache:
     type: redis
     redis:
-      time-to-live: 600000
+      time-to-live: ${REDIS_TTL}
 
+  # -------------------------
+  # FILE UPLOAD
+  # -------------------------
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 15MB
+      max-file-size: ${MAX_FILE_SIZE}
+      max-request-size: ${MAX_REQUEST_SIZE}
 
+  # -------------------------
+  # MAIL (SMTP)
+  # -------------------------
   mail:
-    host: smtp.sendgrid.net
-    port: 587
-    username: apikey
-    password: ${SENDGRID_API_KEY:}
+    host: ${SMTP_HOST}
+    port: ${SMTP_PORT}
+    username: ${SMTP_USERNAME}
+    password: ${SMTP_PASSWORD}
+    protocol: ${MAIL_PROTOCOL}
+    default-encoding: ${MAIL_ENCODING}
     properties:
       mail:
         smtp:
-          auth: true
+          auth: ${MAIL_SMTP_AUTH}
           starttls:
-            enable: true
+            enable: ${MAIL_SMTP_STARTTLS}
+            required: ${MAIL_SMTP_STARTTLS_REQUIRED}
+          ssl:
+            enable: ${MAIL_SMTP_SSL}
+            trust: ${MAIL_SMTP_SSL_TRUST}
+          debug: ${MAIL_DEBUG}
+          connectiontimeout: ${MAIL_SMTP_CONNECTION_TIMEOUT}
+          timeout: ${MAIL_SMTP_TIMEOUT}
+          writetimeout: ${MAIL_SMTP_WRITE_TIMEOUT}
 
-# JWT Configuration
+# ==================================================
+# SECURITY / JWT
+# ==================================================
 jwt:
-  secret: ${JWT_SECRET:mySecretKeyForJWTTokenGenerationWhichShouldBeVeryLongAndSecure123456789}
-  access-token-expiration: 900000
-  refresh-token-expiration: 604800000
+  secret: ${JWT_SECRET}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXP}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXP}
 
-# Razorpay Configuration
+# ==================================================
+# PAYMENT GATEWAY
+# ==================================================
 razorpay:
-  key-id: ${RAZORPAY_KEY_ID:}
-  key-secret: ${RAZORPAY_KEY_SECRET:}
-  webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
+  key-id: ${RAZORPAY_KEY_ID}
+  key-secret: ${RAZORPAY_KEY_SECRET}
+  webhook-secret: ${RAZORPAY_WEBHOOK_SECRET}
 
-# SendGrid Configuration
-sendgrid:
-  api-key: ${SENDGRID_API_KEY:}
-  from-email: ${SENDGRID_FROM_EMAIL:noreply@cateringplatform.com}
-  from-name: ${SENDGRID_FROM_NAME:Catering Platform}
-
-# Twilio Configuration
+# ==================================================
+# NOTIFICATIONS
+# ==================================================
 twilio:
-  account-sid: ${TWILIO_ACCOUNT_SID:}
-  auth-token: ${TWILIO_AUTH_TOKEN:}
-  phone-number: ${TWILIO_PHONE_NUMBER:}
-  whatsapp-number: ${TWILIO_WHATSAPP_NUMBER:}
+  account-sid: ${TWILIO_ACCOUNT_SID}
+  auth-token: ${TWILIO_AUTH_TOKEN}
+  phone-number: ${TWILIO_PHONE_NUMBER}
+  whatsapp-number: ${TWILIO_WHATSAPP_NUMBER}
 
-# Firebase Configuration
 firebase:
-  credentials-path: ${FIREBASE_CREDENTIALS_PATH:firebase-credentials.json}
-  project-id: ${FIREBASE_PROJECT_ID:}
+  credentials-path: ${FIREBASE_CREDENTIALS_PATH}
+  project-id: ${FIREBASE_PROJECT_ID}
 
-# Google Cloud Storage Configuration
+# ==================================================
+# CLOUD STORAGE
+# ==================================================
 gcp:
-  project-id: ${GCP_PROJECT_ID:}
-  storage-bucket: ${GCP_STORAGE_BUCKET:}
-  credentials-path: ${GCP_CREDENTIALS_PATH:gcp-credentials.json}
+  project-id: ${GCP_PROJECT_ID}
+  storage-bucket: ${GCP_STORAGE_BUCKET}
+  credentials-path: ${GCP_CREDENTIALS_PATH}
 
-# Application Configuration
+# ==================================================
+# APPLICATION SETTINGS
+# ==================================================
 app:
-  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  frontend-url: ${FRONTEND_URL}
+
   cors:
-    allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:8080}
-    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-    allowed-headers: "*"
-    allow-credentials: true
+    allowed-origins: ${CORS_ORIGINS}
+    allowed-methods: ${CORS_ALLOWED_METHODS}
+    allowed-headers: ${CORS_ALLOWED_HEADERS}
+    allow-credentials: ${CORS_ALLOW_CREDENTIALS}
+
   rate-limit:
-    enabled: true
-    requests-per-minute: 100
+    enabled: ${RATE_LIMIT_ENABLED}
+    requests-per-minute: ${RATE_LIMIT_RPM}
+
   otp:
-    expiry-minutes: 10
-    length: 6
+    expiry-minutes: ${OTP_EXPIRY_MINUTES}
+    length: ${OTP_LENGTH}
 
-# Bidding Configuration
+# ==================================================
+# BUSINESS RULES
+# ==================================================
 bidding:
-  competitive-period-hours: 72
-  cooling-period-hours: 24
-  payment-cooling-period-hours: 2
-  bid-expiry-hours: 168
-  min-vendors-for-competitive: 3
-  max-bid-revisions: 5
+  competitive-period-hours: ${BIDDING_COMPETITIVE_HOURS}
+  cooling-period-hours: ${BIDDING_COOLING_HOURS}
+  payment-cooling-period-hours: ${BIDDING_PAYMENT_COOLING_HOURS}
+  bid-expiry-hours: ${BIDDING_EXPIRY_HOURS}
+  min-vendors-for-competitive: ${BIDDING_MIN_VENDORS}
+  max-bid-revisions: ${BIDDING_MAX_REVISIONS}
 
-# Payment Configuration
 payment:
-  token-percentage: 25
-  platform-fee-percentage: 2
-  payment-gateway-fee-percentage: 2
-  auto-refund-enabled: true
-  payment-timeout-hours: 24
+  token-percentage: ${PAYMENT_TOKEN_PERCENT}
+  platform-fee-percentage: ${PAYMENT_PLATFORM_FEE_PERCENT}
+  payment-gateway-fee-percentage: ${PAYMENT_GATEWAY_FEE_PERCENT}
+  auto-refund-enabled: ${PAYMENT_AUTO_REFUND}
+  payment-timeout-hours: ${PAYMENT_TIMEOUT_HOURS}
 
-# Cancellation Policy
 cancellation:
-  window-days: 30
+  window-days: ${CANCELLATION_WINDOW_DAYS}
   tiers:
-    - days-before-event: 30
-      refund-percentage: 100
-    - days-before-event: 15
-      refund-percentage: 75
-    - days-before-event: 7
-      refund-percentage: 50
-    - days-before-event: 3
-      refund-percentage: 25
-    - days-before-event: 0
-      refund-percentage: 0
+    - days-before-event: ${CANCEL_TIER_1_DAYS}
+      refund-percentage: ${CANCEL_TIER_1_REFUND}
+    - days-before-event: ${CANCEL_TIER_2_DAYS}
+      refund-percentage: ${CANCEL_TIER_2_REFUND}
+    - days-before-event: ${CANCEL_TIER_3_DAYS}
+      refund-percentage: ${CANCEL_TIER_3_REFUND}
+    - days-before-event: ${CANCEL_TIER_4_DAYS}
+      refund-percentage: ${CANCEL_TIER_4_REFUND}
+    - days-before-event: ${CANCEL_TIER_5_DAYS}
+      refund-percentage: ${CANCEL_TIER_5_REFUND}
 
-# Loyalty Configuration
+# ==================================================
+# LOYALTY & REFERRALS
+# ==================================================
 loyalty:
-  points-per-rupee: 1
-  rupees-per-point: 0.25
-  max-redeem-percentage: 50
-  points-expiry-days: 365
-  signup-bonus: 100
+  points-per-rupee: ${LOYALTY_POINTS_PER_RUPEE}
+  rupees-per-point: ${LOYALTY_RUPEES_PER_POINT}
+  max-redeem-percentage: ${LOYALTY_MAX_REDEEM_PERCENT}
+  points-expiry-days: ${LOYALTY_EXPIRY_DAYS}
+  signup-bonus: ${LOYALTY_SIGNUP_BONUS}
 
-# Referral Configuration
 referral:
-  referrer-reward-points: 500
-  referred-reward-points: 200
-  enabled: true
+  referrer-reward-points: ${REFERRAL_REFERRER_POINTS}
+  referred-reward-points: ${REFERRAL_REFERRED_POINTS}
+  enabled: ${REFERRAL_ENABLED}
 
-# File Upload Configuration
-app.upload:
-  path: ${UPLOAD_PATH:./uploads}
-  base-url: ${UPLOAD_BASE_URL:http://localhost:8080/uploads}
-  max-image-size-mb: 5
-  max-document-size-mb: 10
+# ==================================================
+# FILE UPLOAD
+# ==================================================
+app-upload:
+  path: ${UPLOAD_PATH}
+  base-url: ${UPLOAD_BASE_URL}
+  max-image-size-mb: ${UPLOAD_MAX_IMAGE_MB}
+  max-document-size-mb: ${UPLOAD_MAX_DOC_MB}
 
-# Logging Configuration
+# ==================================================
+# LOGGING
+# ==================================================
 logging:
   level:
-    root: INFO
-    com.cateringmarketplace: DEBUG
-    org.springframework.security: DEBUG
-    org.springframework.data.mongodb: DEBUG
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    root: ${LOG_ROOT_LEVEL}
+    com.cateringmarketplace: ${LOG_APP_LEVEL}
+    org.springframework.security: ${LOG_SECURITY_LEVEL}
+    org.springframework.data.mongodb: ${LOG_MONGO_LEVEL}
 
-# Actuator Configuration
+# ==================================================
+# ACTUATOR / MONITORING
+# ==================================================
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
-  endpoint:
-    health:
-      show-details: when_authorized
-  metrics:
-    export:
-      prometheus:
-        enabled: true
+        include: ${ACTUATOR_EXPOSE_ENDPOINTS}
 
-# Springdoc OpenAPI Configuration
+# ==================================================
+# API DOCS
+# ==================================================
 springdoc:
   api-docs:
-    path: /api-docs
+    path: ${SWAGGER_API_DOCS_PATH}
   swagger-ui:
-    path: /swagger-ui.html
-    enabled: true
-    operationsSorter: method
-    tagsSorter: alpha
+    path: ${SWAGGER_UI_PATH}
+    enabled: ${SWAGGER_ENABLED}
+    operations-sorter: ${SWAGGER_OP_SORTER}
+    tags-sorter: ${SWAGGER_TAG_SORTER}

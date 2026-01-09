@@ -40,6 +40,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final PasswordUtil passwordUtil;
     private final OTPUtil otpUtil;
+    private final com.cateringmarketplace.module.notification.service.EmailService emailService;
 
     @Value("${jwt.access-token-expiration:900000}")
     private long accessTokenExpiration;
@@ -82,6 +83,13 @@ public class AuthService {
 
         user = userRepository.save(user);
         log.info("User registered successfully with ID: {}", user.getUserId());
+
+        // Send welcome email
+        try {
+            emailService.sendWelcomeEmail(user.getEmail(), user.getFirstName() + " " + user.getLastName());
+        } catch (Exception e) {
+            log.error("Failed to send welcome email: {}", e.getMessage(), e);
+        }
 
         // Generate tokens
         String accessToken = jwtUtil.generateAccessToken(
@@ -237,8 +245,27 @@ public class AuthService {
 
         verification = otpVerificationRepository.save(verification);
 
-        // TODO: Send OTP via email/SMS based on type
-        log.info("OTP generated for verification ID: {} (OTP: {})", verification.getVerificationId(), otp);
+        // Send OTP via email
+        try {
+            String purpose = switch (type) {
+                case EMAIL -> "Email Verification";
+                case PHONE -> "Phone Verification";
+                case PASSWORD_RESET -> "Password Reset";
+                case TWO_FACTOR -> "Two-Factor Authentication";
+            };
+
+            if (request.getIdentifier().contains("@")) {
+                // Send via email
+                emailService.sendOTPEmail(request.getIdentifier(), otp, purpose);
+            } else {
+                // For phone numbers, log for now (TODO: implement SMS)
+                log.info("SMS OTP for {}: {} (purpose: {})", request.getIdentifier(), otp, purpose);
+            }
+        } catch (Exception e) {
+            log.error("Failed to send OTP: {}", e.getMessage(), e);
+        }
+
+        log.info("OTP generated for verification ID: {}", verification.getVerificationId());
 
         return OTPResponse.sent(verification.getVerificationId(), otpExpiryMinutes * 60);
     }
