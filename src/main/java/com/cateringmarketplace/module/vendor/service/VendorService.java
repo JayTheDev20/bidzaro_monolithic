@@ -137,7 +137,7 @@ public class VendorService {
         if (request.getPricing() != null) {
             vendor.setPricing(Pricing.builder()
                     .currency(request.getPricing().getCurrency() != null ?
-                            request.getPricing().getCurrency() : "INR")
+                            request.getPricing().getCurrency() : "USD")
                     .startingPricePerPlate(request.getPricing().getStartingPricePerPlate())
                     .averagePricePerPlate(request.getPricing().getAveragePricePerPlate())
                     .build());

@@ -95,9 +95,10 @@ public class User {
 
     @Field("preferred_currency")
     @Builder.Default
-    private String preferredCurrency = "INR";
+    private String preferredCurrency = "USD";
 
-    private String country;
+    @Builder.Default
+    private String country = "USA";
 
     @Field("notification_preferences")
     private NotificationPreferences notificationPreferences;

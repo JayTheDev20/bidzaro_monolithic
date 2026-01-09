@@ -117,7 +117,7 @@ public class MenuService {
                 .customName(request.getCustomName() != null ? request.getCustomName() : masterItem.getItemName())
                 .customDescription(request.getCustomDescription())
                 .pricing(VendorMenuItem.VendorItemPricing.builder()
-                        .currency("INR")
+                        .currency("USD")
                         .pricePerPlate(request.getPricePerPlate())
                         .minimumOrderQuantity(request.getMinimumOrderQuantity() != null ? request.getMinimumOrderQuantity() : 1)
                         .discountPercentage(request.getDiscountPercentage())

@@ -252,6 +252,7 @@ public class AuthService {
                 case PHONE -> "Phone Verification";
                 case PASSWORD_RESET -> "Password Reset";
                 case TWO_FACTOR -> "Two-Factor Authentication";
+                default -> "Verification";
             };
 
             if (request.getIdentifier().contains("@")) {

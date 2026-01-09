@@ -2,31 +2,31 @@
 # SERVER CONFIG
 # ==================================================
 server:
-  port: ${SERVER_PORT}
+  port: ${SERVER_PORT:8080}
   servlet:
-    context-path: ${SERVER_CONTEXT_PATH}
+    context-path: ${SERVER_CONTEXT_PATH:/api/v1}
 
 # ==================================================
 # SPRING CORE
 # ==================================================
 spring:
   application:
-    name: ${APP_NAME}
+    name: ${APP_NAME:catering-platform}
 
   # -------------------------
   # DATABASE
   # -------------------------
   data:
     mongodb:
-      uri: ${MONGODB_URI}
-      database: ${MONGODB_DATABASE}
+      uri: ${MONGODB_URI:mongodb://localhost:27017}
+      database: ${MONGODB_DATABASE:catering_platform}
       auto-index-creation: false
 
     redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-      password: ${REDIS_PASSWORD}
-      timeout: ${REDIS_TIMEOUT}
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: ${REDIS_TIMEOUT:60000}
 
   # -------------------------
   # CACHE
@@ -34,163 +34,176 @@ spring:
   cache:
     type: redis
     redis:
-      time-to-live: ${REDIS_TTL}
+      time-to-live: ${REDIS_TTL:1800000}
 
   # -------------------------
   # FILE UPLOAD
   # -------------------------
   servlet:
     multipart:
-      max-file-size: ${MAX_FILE_SIZE}
-      max-request-size: ${MAX_REQUEST_SIZE}
+      max-file-size: ${MAX_FILE_SIZE:10MB}
+      max-request-size: ${MAX_REQUEST_SIZE:15MB}
 
   # -------------------------
   # MAIL (SMTP)
   # -------------------------
   mail:
-    host: ${SMTP_HOST}
-    port: ${SMTP_PORT}
-    username: ${SMTP_USERNAME}
-    password: ${SMTP_PASSWORD}
-    protocol: ${MAIL_PROTOCOL}
-    default-encoding: ${MAIL_ENCODING}
+    host: ${SMTP_HOST:smtp.hostinger.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    protocol: ${MAIL_PROTOCOL:smtp}
+    default-encoding: ${MAIL_ENCODING:UTF-8}
     properties:
       mail:
         smtp:
-          auth: ${MAIL_SMTP_AUTH}
+          auth: ${MAIL_SMTP_AUTH:true}
           starttls:
-            enable: ${MAIL_SMTP_STARTTLS}
-            required: ${MAIL_SMTP_STARTTLS_REQUIRED}
+            enable: ${MAIL_SMTP_STARTTLS:true}
+            required: ${MAIL_SMTP_STARTTLS_REQUIRED:true}
           ssl:
-            enable: ${MAIL_SMTP_SSL}
-            trust: ${MAIL_SMTP_SSL_TRUST}
-          debug: ${MAIL_DEBUG}
-          connectiontimeout: ${MAIL_SMTP_CONNECTION_TIMEOUT}
-          timeout: ${MAIL_SMTP_TIMEOUT}
-          writetimeout: ${MAIL_SMTP_WRITE_TIMEOUT}
+            enable: ${MAIL_SMTP_SSL:false}
+            trust: ${MAIL_SMTP_SSL_TRUST:*}
+          debug: ${MAIL_DEBUG:false}
+          connectiontimeout: ${MAIL_SMTP_CONNECTION_TIMEOUT:5000}
+          timeout: ${MAIL_SMTP_TIMEOUT:5000}
+          writetimeout: ${MAIL_SMTP_WRITE_TIMEOUT:5000}
 
 # ==================================================
 # SECURITY / JWT
 # ==================================================
 jwt:
-  secret: ${JWT_SECRET}
-  access-token-expiration: ${JWT_ACCESS_TOKEN_EXP}
-  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXP}
+  secret: ${JWT_SECRET:your-256-bit-secret-key-change-this-in-production}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXP:900000}
+  refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXP:604800000}
 
 # ==================================================
 # PAYMENT GATEWAY
 # ==================================================
 razorpay:
-  key-id: ${RAZORPAY_KEY_ID}
-  key-secret: ${RAZORPAY_KEY_SECRET}
-  webhook-secret: ${RAZORPAY_WEBHOOK_SECRET}
+  key-id: ${RAZORPAY_KEY_ID:}
+  key-secret: ${RAZORPAY_KEY_SECRET:}
+  webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
 
 # ==================================================
 # NOTIFICATIONS
 # ==================================================
+smtp:
+  from-email: ${SMTP_FROM_EMAIL:noreply@cateringplatform.com}
+  from-name: ${SMTP_FROM_NAME:Catering Platform}
+
 twilio:
-  account-sid: ${TWILIO_ACCOUNT_SID}
-  auth-token: ${TWILIO_AUTH_TOKEN}
-  phone-number: ${TWILIO_PHONE_NUMBER}
-  whatsapp-number: ${TWILIO_WHATSAPP_NUMBER}
+  account-sid: ${TWILIO_ACCOUNT_SID:}
+  auth-token: ${TWILIO_AUTH_TOKEN:}
+  phone-number: ${TWILIO_PHONE_NUMBER:}
+  whatsapp-number: ${TWILIO_WHATSAPP_NUMBER:}
 
 firebase:
-  credentials-path: ${FIREBASE_CREDENTIALS_PATH}
-  project-id: ${FIREBASE_PROJECT_ID}
+  credentials-path: ${FIREBASE_CREDENTIALS_PATH:}
+  project-id: ${FIREBASE_PROJECT_ID:}
 
 # ==================================================
 # CLOUD STORAGE
 # ==================================================
 gcp:
-  project-id: ${GCP_PROJECT_ID}
-  storage-bucket: ${GCP_STORAGE_BUCKET}
-  credentials-path: ${GCP_CREDENTIALS_PATH}
+  project-id: ${GCP_PROJECT_ID:}
+  storage-bucket: ${GCP_STORAGE_BUCKET:}
+  credentials-path: ${GCP_CREDENTIALS_PATH:gcp-credentials.json}
 
 # ==================================================
 # APPLICATION SETTINGS
 # ==================================================
 app:
-  frontend-url: ${FRONTEND_URL}
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+
+  # Platform defaults - USA focused
+  default-country: USA
+  default-currency: USD
+  location-based-features: true
 
   cors:
-    allowed-origins: ${CORS_ORIGINS}
-    allowed-methods: ${CORS_ALLOWED_METHODS}
-    allowed-headers: ${CORS_ALLOWED_HEADERS}
-    allow-credentials: ${CORS_ALLOW_CREDENTIALS}
+    allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:8080}
+    allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS}
+    allowed-headers: ${CORS_ALLOWED_HEADERS:*}
+    allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
 
   rate-limit:
-    enabled: ${RATE_LIMIT_ENABLED}
-    requests-per-minute: ${RATE_LIMIT_RPM}
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    requests-per-minute: ${RATE_LIMIT_RPM:100}
 
   otp:
-    expiry-minutes: ${OTP_EXPIRY_MINUTES}
-    length: ${OTP_LENGTH}
+    expiry-minutes: ${OTP_EXPIRY_MINUTES:10}
+    length: ${OTP_LENGTH:6}
 
 # ==================================================
 # BUSINESS RULES
 # ==================================================
 bidding:
-  competitive-period-hours: ${BIDDING_COMPETITIVE_HOURS}
-  cooling-period-hours: ${BIDDING_COOLING_HOURS}
-  payment-cooling-period-hours: ${BIDDING_PAYMENT_COOLING_HOURS}
-  bid-expiry-hours: ${BIDDING_EXPIRY_HOURS}
-  min-vendors-for-competitive: ${BIDDING_MIN_VENDORS}
-  max-bid-revisions: ${BIDDING_MAX_REVISIONS}
+  competitive-period-hours: ${BIDDING_COMPETITIVE_HOURS:72}
+  cooling-period-hours: ${BIDDING_COOLING_HOURS:24}
+  payment-cooling-period-hours: ${BIDDING_PAYMENT_COOLING_HOURS:2}
+  bid-expiry-hours: ${BIDDING_EXPIRY_HOURS:168}
+  min-vendors-for-competitive: ${BIDDING_MIN_VENDORS:3}
+  max-bid-revisions: ${BIDDING_MAX_REVISIONS:5}
 
 payment:
-  token-percentage: ${PAYMENT_TOKEN_PERCENT}
-  platform-fee-percentage: ${PAYMENT_PLATFORM_FEE_PERCENT}
-  payment-gateway-fee-percentage: ${PAYMENT_GATEWAY_FEE_PERCENT}
-  auto-refund-enabled: ${PAYMENT_AUTO_REFUND}
-  payment-timeout-hours: ${PAYMENT_TIMEOUT_HOURS}
+  token-percentage: ${PAYMENT_TOKEN_PERCENT:25}
+  platform-fee-percentage: ${PAYMENT_PLATFORM_FEE_PERCENT:2}
+  payment-gateway-fee-percentage: ${PAYMENT_GATEWAY_FEE_PERCENT:2}
+  auto-refund-enabled: ${PAYMENT_AUTO_REFUND:true}
+  payment-timeout-hours: ${PAYMENT_TIMEOUT_HOURS:24}
+  currency: USD  # Platform currency
 
+# ==================================================
+# CANCELLATION POLICY
+# ==================================================
 cancellation:
-  window-days: ${CANCELLATION_WINDOW_DAYS}
+  window-days: ${CANCELLATION_WINDOW_DAYS:30}
   tiers:
-    - days-before-event: ${CANCEL_TIER_1_DAYS}
-      refund-percentage: ${CANCEL_TIER_1_REFUND}
-    - days-before-event: ${CANCEL_TIER_2_DAYS}
-      refund-percentage: ${CANCEL_TIER_2_REFUND}
-    - days-before-event: ${CANCEL_TIER_3_DAYS}
-      refund-percentage: ${CANCEL_TIER_3_REFUND}
-    - days-before-event: ${CANCEL_TIER_4_DAYS}
-      refund-percentage: ${CANCEL_TIER_4_REFUND}
-    - days-before-event: ${CANCEL_TIER_5_DAYS}
-      refund-percentage: ${CANCEL_TIER_5_REFUND}
+    - days-before-event: ${CANCEL_TIER_1_DAYS:30}
+      refund-percentage: ${CANCEL_TIER_1_REFUND:100}
+    - days-before-event: ${CANCEL_TIER_2_DAYS:15}
+      refund-percentage: ${CANCEL_TIER_2_REFUND:75}
+    - days-before-event: ${CANCEL_TIER_3_DAYS:7}
+      refund-percentage: ${CANCEL_TIER_3_REFUND:50}
+    - days-before-event: ${CANCEL_TIER_4_DAYS:3}
+      refund-percentage: ${CANCEL_TIER_4_REFUND:25}
+    - days-before-event: ${CANCEL_TIER_5_DAYS:0}
+      refund-percentage: ${CANCEL_TIER_5_REFUND:0}
 
 # ==================================================
 # LOYALTY & REFERRALS
 # ==================================================
 loyalty:
-  points-per-rupee: ${LOYALTY_POINTS_PER_RUPEE}
-  rupees-per-point: ${LOYALTY_RUPEES_PER_POINT}
-  max-redeem-percentage: ${LOYALTY_MAX_REDEEM_PERCENT}
-  points-expiry-days: ${LOYALTY_EXPIRY_DAYS}
-  signup-bonus: ${LOYALTY_SIGNUP_BONUS}
+  points-per-rupee: ${LOYALTY_POINTS_PER_RUPEE:1}
+  rupees-per-point: ${LOYALTY_RUPEES_PER_POINT:0.25}
+  max-redeem-percentage: ${LOYALTY_MAX_REDEEM_PERCENT:50}
+  points-expiry-days: ${LOYALTY_EXPIRY_DAYS:365}
+  signup-bonus: ${LOYALTY_SIGNUP_BONUS:100}
 
 referral:
-  referrer-reward-points: ${REFERRAL_REFERRER_POINTS}
-  referred-reward-points: ${REFERRAL_REFERRED_POINTS}
-  enabled: ${REFERRAL_ENABLED}
+  referrer-reward-points: ${REFERRAL_REFERRER_POINTS:500}
+  referred-reward-points: ${REFERRAL_REFERRED_POINTS:200}
+  enabled: ${REFERRAL_ENABLED:true}
 
 # ==================================================
 # FILE UPLOAD
 # ==================================================
 app-upload:
-  path: ${UPLOAD_PATH}
-  base-url: ${UPLOAD_BASE_URL}
-  max-image-size-mb: ${UPLOAD_MAX_IMAGE_MB}
-  max-document-size-mb: ${UPLOAD_MAX_DOC_MB}
+  path: ${UPLOAD_PATH:./uploads}
+  base-url: ${UPLOAD_BASE_URL:http://localhost:8080/uploads}
+  max-image-size-mb: ${UPLOAD_MAX_IMAGE_MB:5}
+  max-document-size-mb: ${UPLOAD_MAX_DOC_MB:10}
 
 # ==================================================
 # LOGGING
 # ==================================================
 logging:
   level:
-    root: ${LOG_ROOT_LEVEL}
-    com.cateringmarketplace: ${LOG_APP_LEVEL}
-    org.springframework.security: ${LOG_SECURITY_LEVEL}
-    org.springframework.data.mongodb: ${LOG_MONGO_LEVEL}
+    root: ${LOG_ROOT_LEVEL:INFO}
+    com.cateringmarketplace: ${LOG_APP_LEVEL:DEBUG}
+    org.springframework.security: ${LOG_SECURITY_LEVEL:INFO}
+    org.springframework.data.mongodb: ${LOG_MONGO_LEVEL:INFO}
 
 # ==================================================
 # ACTUATOR / MONITORING
@@ -199,16 +212,16 @@ management:
   endpoints:
     web:
       exposure:
-        include: ${ACTUATOR_EXPOSE_ENDPOINTS}
+        include: ${ACTUATOR_EXPOSE_ENDPOINTS:health,info,metrics,prometheus}
 
 # ==================================================
 # API DOCS
 # ==================================================
 springdoc:
   api-docs:
-    path: ${SWAGGER_API_DOCS_PATH}
+    path: ${SWAGGER_API_DOCS_PATH:/api-docs}
   swagger-ui:
-    path: ${SWAGGER_UI_PATH}
-    enabled: ${SWAGGER_ENABLED}
-    operations-sorter: ${SWAGGER_OP_SORTER}
-    tags-sorter: ${SWAGGER_TAG_SORTER}
+    path: ${SWAGGER_UI_PATH:/swagger-ui.html}
+    enabled: ${SWAGGER_ENABLED:true}
+    operations-sorter: ${SWAGGER_OP_SORTER:method}
+    tags-sorter: ${SWAGGER_TAG_SORTER:alpha}

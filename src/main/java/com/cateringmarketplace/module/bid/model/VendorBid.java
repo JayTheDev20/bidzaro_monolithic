@@ -116,7 +116,7 @@ public class VendorBid {
     @AllArgsConstructor
     public static class QuotedPrice {
         @Builder.Default
-        private String currency = "INR";
+        private String currency = "USD";
         private BigDecimal subtotal;
         private BigDecimal serviceCharge;
         private BigDecimal taxPercentage;

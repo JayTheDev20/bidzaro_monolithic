@@ -86,7 +86,7 @@ public class VendorMenuItem {
     @AllArgsConstructor
     public static class VendorItemPricing {
         @Builder.Default
-        private String currency = "INR";
+        private String currency = "USD";
         private BigDecimal pricePerPlate;
         private Integer minimumOrderQuantity;
         private BigDecimal discountPercentage;

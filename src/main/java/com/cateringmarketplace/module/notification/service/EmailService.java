@@ -229,7 +229,7 @@ public class EmailService {
                 Your payment has been successfully processed.
                 
                 Transaction ID: %s
-                Amount: ₹%.2f
+                Amount: $%.2f USD
                 Payment Type: %s
                 
                 Thank you for your payment!
