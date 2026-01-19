@@ -93,7 +93,7 @@ public class AuthService {
 
         // Send welcome email
         try {
-            emailService.sendWelcomeEmail(user.getEmail(), user.getFirstName() + " " + user.getLastName());
+            emailService.sendWelcomeEmail(user.getEmail(), user.getFirstName() + " " + user.getLastName(), user.getUserType().name());
         } catch (Exception e) {
             log.error("Failed to send welcome email: {}", e.getMessage(), e);
         }
@@ -548,4 +548,3 @@ public class AuthService {
         }
     }
 }
-

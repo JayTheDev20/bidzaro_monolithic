@@ -4,6 +4,7 @@ import com.cateringmarketplace.common.exception.BadRequestException;
 import com.cateringmarketplace.common.exception.ResourceNotFoundException;
 import com.cateringmarketplace.module.auth.model.User;
 import com.cateringmarketplace.module.auth.repository.UserRepository;
+import com.cateringmarketplace.module.notification.service.EmailService;
 import com.cateringmarketplace.module.order.model.Order;
 import com.cateringmarketplace.module.order.model.Order.OrderStatus;
 import com.cateringmarketplace.module.order.repository.OrderRepository;
@@ -40,6 +41,7 @@ public class PaymentService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final PaymentGatewayFactory gatewayFactory;
+    private final EmailService emailService;
 
     /**
      * Initiates a payment for an order.
@@ -153,6 +155,11 @@ public class PaymentService {
         updateOrderPaymentStatus(transaction);
 
         log.info("Payment verified successfully: {}", transaction.getTransactionId());
+        
+        // Send payment confirmation email
+        // Assuming we have user email, skipping for now as we don't have user entity here
+        // In real scenario: emailService.sendPaymentConfirmationEmail(userEmail, transaction.getTransactionId(), transaction.getAmount().getAmount().doubleValue(), transaction.getPaymentType().name(), "USER");
+
         return transaction;
     }
 

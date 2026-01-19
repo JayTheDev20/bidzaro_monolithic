@@ -33,7 +33,7 @@ public class EmailService {
      * Sends a simple text email (wrapped in HTML template).
      */
     @Async("emailExecutor")
-    public boolean sendSimpleEmail(String to, String subject, String body) {
+    public boolean sendSimpleEmail(String to, String subject, String body, String role) {
         try {
             log.info("Sending simple email (as HTML) to: {}", to);
 
@@ -41,7 +41,7 @@ public class EmailService {
             boolean isHtml = body.trim().startsWith("<") && body.trim().endsWith(">");
             String content = isHtml ? body : body.replace("\n", "<br>");
 
-            String htmlBody = getHtmlTemplate(subject, content);
+            String htmlBody = getHtmlTemplate(subject, content, role);
 
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -64,9 +64,23 @@ public class EmailService {
     /**
      * Generates a beautiful HTML template with a logo.
      */
-    private String getHtmlTemplate(String title, String content) {
+    private String getHtmlTemplate(String title, String content, String role) {
         // Uses configured logoUrl (smtp.logo-url) or default if not set
         // Brand color: Orange (#F97316)
+
+        String roleBadge = "";
+        if (role != null && !role.isEmpty()) {
+            String badgeColor = "#64748b"; // Default gray
+            if (role.equalsIgnoreCase("VENDOR")) badgeColor = "#7c3aed"; // Purple
+            else if (role.equalsIgnoreCase("ADMIN")) badgeColor = "#dc2626"; // Red
+            else if (role.equalsIgnoreCase("USER")) badgeColor = "#2563eb"; // Blue
+
+            roleBadge = String.format("""
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <span style="background-color: %s; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: bold; text-transform: uppercase;">%s</span>
+                </div>
+            """, badgeColor, role);
+        }
 
         return String.format("""
             <!DOCTYPE html>
@@ -110,7 +124,7 @@ public class EmailService {
                         color: #1a1a1a;
                         font-size: 24px;
                         font-weight: 700;
-                        margin-bottom: 25px;
+                        margin-bottom: 10px;
                         text-align: center;
                     }
                     .email-content {
@@ -137,6 +151,16 @@ public class EmailService {
                         margin: 20px 0;
                         text-align: center;
                     }
+                    .cta-button {
+                        display: inline-block;
+                        background-color: #F97316;
+                        color: white;
+                        padding: 12px 24px;
+                        border-radius: 6px;
+                        text-decoration: none;
+                        font-weight: bold;
+                        margin-top: 20px;
+                    }
                 </style>
             </head>
             <body>
@@ -146,6 +170,7 @@ public class EmailService {
                     </div>
                     <div class="email-body">
                         <h1 class="email-title">%s</h1>
+                        %s
                         <div class="email-content">
                             %s
                         </div>
@@ -157,7 +182,7 @@ public class EmailService {
                 </div>
             </body>
             </html>
-            """, logoUrl, title, content);
+            """, logoUrl, title, roleBadge, content);
     }
 
     /**
@@ -190,7 +215,7 @@ public class EmailService {
      * Sends an email with CC and BCC.
      */
     @Async("emailExecutor")
-    public boolean sendEmailWithCopies(String to, String[] cc, String[] bcc, String subject, String body, boolean isHtml) {
+    public boolean sendEmailWithCopies(String to, String[] cc, String[] bcc, String subject, String body, boolean isHtml, String role) {
         try {
             log.info("Sending email with copies to: {}", to);
 
@@ -208,7 +233,7 @@ public class EmailService {
             helper.setSubject(subject);
 
             if (!isHtml) {
-                String htmlBody = getHtmlTemplate(subject, body.replace("\n", "<br>"));
+                String htmlBody = getHtmlTemplate(subject, body.replace("\n", "<br>"), role);
                 helper.setText(htmlBody, true);
             } else {
                 helper.setText(body, true);
@@ -227,7 +252,7 @@ public class EmailService {
     /**
      * Sends a welcome email to new users.
      */
-    public boolean sendWelcomeEmail(String to, String userName) {
+    public boolean sendWelcomeEmail(String to, String userName, String role) {
         String subject = "Welcome to Catering Platform!";
         String body = String.format("""
                 <p>Dear %s,</p>
@@ -247,7 +272,7 @@ public class EmailService {
                 <p style="margin-top: 20px;">Best regards,<br>The Catering Platform Team</p>
                 """, userName);
 
-        return sendSimpleEmail(to, subject, body);
+        return sendSimpleEmail(to, subject, body, role);
     }
 
     /**
@@ -272,7 +297,7 @@ public class EmailService {
                 <p style="margin:10px 0 0 0; font-size:14px; color:#999;">If you didn't request this code, please ignore this email.</p>
                 """, purpose, otp);
 
-        return sendSimpleEmail(to, subject, content);
+        return sendSimpleEmail(to, subject, content, null);
     }
 
     /**
@@ -286,8 +311,9 @@ public class EmailService {
                 We received a request to reset your password.
                 
                 Click the link below to reset your password:
-                %s
-                
+                <br><br>
+                <a href="%s" class="cta-button" style="color: white;">Reset Password</a>
+                <br><br>
                 This link will expire in 1 hour.
                 
                 If you didn't request this, please ignore this email.
@@ -296,18 +322,20 @@ public class EmailService {
                 The Catering Platform Team
                 """, resetLink);
 
-        return sendSimpleEmail(to, subject, body);
+        return sendSimpleEmail(to, subject, body, null);
     }
 
     /**
      * Sends an order confirmation email.
      */
-    public boolean sendOrderConfirmationEmail(String to, String orderId, String orderDetails) {
+    public boolean sendOrderConfirmationEmail(String to, String orderId, String orderDetails, String role) {
         String subject = "Order Confirmation - " + orderId;
         String body = String.format("""
                 Your order has been confirmed!
                 
-                Order ID: %s
+                <div class="highlight-box">
+                    <strong>Order ID: %s</strong>
+                </div>
                 
                 %s
                 
@@ -319,19 +347,21 @@ public class EmailService {
                 The Catering Platform Team
                 """, orderId, orderDetails);
 
-        return sendSimpleEmail(to, subject, body);
+        return sendSimpleEmail(to, subject, body, role);
     }
 
     /**
      * Sends a bid acceptance notification email.
      */
-    public boolean sendBidAcceptanceEmail(String to, String bidId, String vendorName) {
+    public boolean sendBidAcceptanceEmail(String to, String bidId, String vendorName, String role) {
         String subject = "Your Bid Has Been Accepted!";
         String body = String.format("""
                 Congratulations! Your bid has been accepted.
                 
-                Bid ID: %s
-                Vendor: %s
+                <div class="highlight-box">
+                    <strong>Bid ID: %s</strong><br>
+                    Vendor: %s
+                </div>
                 
                 Please proceed to make the token payment to confirm your order.
                 
@@ -339,20 +369,22 @@ public class EmailService {
                 The Catering Platform Team
                 """, bidId, vendorName);
 
-        return sendSimpleEmail(to, subject, body);
+        return sendSimpleEmail(to, subject, body, role);
     }
 
     /**
      * Sends a payment confirmation email.
      */
-    public boolean sendPaymentConfirmationEmail(String to, String transactionId, double amount, String paymentType) {
+    public boolean sendPaymentConfirmationEmail(String to, String transactionId, double amount, String paymentType, String role) {
         String subject = "Payment Confirmation - " + transactionId;
         String body = String.format("""
                 Your payment has been successfully processed.
                 
-                Transaction ID: %s
-                Amount: $%.2f USD
-                Payment Type: %s
+                <div class="highlight-box">
+                    Transaction ID: %s<br>
+                    Amount: $%.2f USD<br>
+                    Payment Type: %s
+                </div>
                 
                 Thank you for your payment!
                 
@@ -360,7 +392,7 @@ public class EmailService {
                 The Catering Platform Team
                 """, transactionId, amount, paymentType);
 
-        return sendSimpleEmail(to, subject, body);
+        return sendSimpleEmail(to, subject, body, role);
     }
 
     /**
@@ -372,18 +404,20 @@ public class EmailService {
                 Congratulations %s!
                 
                 Your vendor account has been approved. You can now:
-                - Add your menu items
-                - Receive and respond to bid requests
-                - Manage your orders
-                - Track your earnings
+                <ul>
+                    <li>Add your menu items</li>
+                    <li>Receive and respond to bid requests</li>
+                    <li>Manage your orders</li>
+                    <li>Track your earnings</li>
+                </ul>
                 
-                Log in to your account to get started.
+                <a href="https://vendor.cateringplatform.com/login" class="cta-button" style="color: white;">Go to Vendor Dashboard</a>
                 
                 Best regards,
                 The Catering Platform Team
                 """, vendorName);
 
-        return sendSimpleEmail(to, subject, body);
+        return sendSimpleEmail(to, subject, body, "VENDOR");
     }
 
     /**
@@ -398,7 +432,9 @@ public class EmailService {
                 
                 Unfortunately, we are unable to approve your vendor account at this time.
                 
-                Reason: %s
+                <div class="highlight-box" style="background-color: #FEF2F2; border-color: #F87171;">
+                    <strong>Reason:</strong> %s
+                </div>
                 
                 If you have any questions or would like to reapply, please contact our support team.
                 
@@ -406,13 +442,13 @@ public class EmailService {
                 The Catering Platform Team
                 """, vendorName, reason);
 
-        return sendSimpleEmail(to, subject, body);
+        return sendSimpleEmail(to, subject, body, "VENDOR");
     }
 
     /**
      * Sends a notification email (generic).
      */
-    public boolean sendNotificationEmail(String to, String title, String message) {
-        return sendSimpleEmail(to, title, message);
+    public boolean sendNotificationEmail(String to, String title, String message, String role) {
+        return sendSimpleEmail(to, title, message, role);
     }
 }

@@ -79,7 +79,7 @@ public class NotificationService {
 
             // Send through appropriate channel
             boolean sent = switch (channel) {
-                case EMAIL -> sendEmail(user.getEmail(), title, message);
+                case EMAIL -> sendEmail(user.getEmail(), title, message, user.getUserType().name());
                 case SMS -> sendSMS(user.getPhone(), message);
                 case PUSH -> sendPushNotification(user.getFcmToken(), title, message, data);
                 case IN_APP -> true; // Already saved
@@ -170,9 +170,9 @@ public class NotificationService {
         return true;
     }
 
-    private boolean sendEmail(String email, String subject, String body) {
+    private boolean sendEmail(String email, String subject, String body, String role) {
         try {
-            return emailService.sendNotificationEmail(email, subject, body);
+            return emailService.sendNotificationEmail(email, subject, body, role);
         } catch (Exception e) {
             log.error("Error sending email to {}: {}", email, e.getMessage(), e);
             return false;

@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -34,6 +35,8 @@ public class MenuItemResponse {
     private List<String> imageUrls;
     private Boolean isPopular;
     private String status;
+    private Instant createdAt;
+    private Instant updatedAt;
 
     @Data
     @Builder
@@ -63,7 +66,9 @@ public class MenuItemResponse {
                 .allergens(item.getAllergens())
                 .imageUrls(item.getImageUrls())
                 .isPopular(item.getIsPopular())
-                .status(item.getStatus() != null ? item.getStatus().name() : null);
+                .status(item.getStatus() != null ? item.getStatus().name() : null)
+                .createdAt(item.getCreatedAt())
+                .updatedAt(item.getUpdatedAt());
 
         if (item.getNutritionalInfo() != null) {
             builder.nutritionalInfo(NutritionalInfoDTO.builder()
@@ -78,4 +83,3 @@ public class MenuItemResponse {
         return builder.build();
     }
 }
-

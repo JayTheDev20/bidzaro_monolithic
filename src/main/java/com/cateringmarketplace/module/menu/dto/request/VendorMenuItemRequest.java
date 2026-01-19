@@ -5,6 +5,7 @@ import java.util.List;
 
 import jakarta.validation.constraints.*;
 
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -32,6 +33,8 @@ public class VendorMenuItemRequest {
     @Min(value = 1, message = "Minimum order quantity must be at least 1")
     private Integer minimumOrderQuantity;
 
+    @DecimalMin(value = "0.0", message = "Discount cannot be negative")
+    @DecimalMax(value = "100.0", message = "Discount cannot exceed 100%")
     private BigDecimal discountPercentage;
 
     private Boolean isAvailable;
@@ -46,6 +49,7 @@ public class VendorMenuItemRequest {
     @Min(value = 1, message = "Preparation time must be at least 1 minute")
     private Integer preparationTimeMinutes;
 
+    @Valid
     private List<CustomizationOptionDTO> customizationOptions;
 
     // =========================================================
@@ -60,8 +64,10 @@ public class VendorMenuItemRequest {
         @NotBlank(message = "Option name is required")
         private String optionName;
 
+        @NotEmpty(message = "Choices list cannot be empty")
         private List<String> choices;
 
+        @DecimalMin(value = "0.0", message = "Additional cost must be non-negative")
         private BigDecimal additionalCost;
 
         private Boolean isRequired;

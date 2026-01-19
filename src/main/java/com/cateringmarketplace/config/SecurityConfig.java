@@ -59,7 +59,8 @@ public class SecurityConfig {
             "/auth/resend-verification",
             "/auth/send-otp",
             "/auth/verify-otp",
-            "/vendors",
+            "/auth/recover/**",
+            "/vendors/auth/**",
             "/vendors/{id}",
             "/vendors/search",
             "/vendors/nearby",
@@ -81,7 +82,8 @@ public class SecurityConfig {
     };
 
     private static final String[] ADMIN_ENDPOINTS = {
-            "/admin/**"
+            "/admin/**",
+            "/api/v1/admin/**"
     };
 
     private static final String[] VENDOR_ENDPOINTS = {
@@ -98,8 +100,18 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Allow preflight requests (OPTIONS) through security so browser CORS works
+                        .requestMatchers(HttpMethod.OPTIONS, "**").permitAll()
+                        // Allow public GET access to vendor listing and search endpoints
+                        .requestMatchers(HttpMethod.GET,
+                                "/vendors",
+                                "/vendors/*",
+                                "/vendors/search",
+                                "/vendors/nearby",
+                                "/vendors/*/menu",
+                                "/vendors/*/reviews"
+                        ).permitAll()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/vendors/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/menu/**").permitAll()
                         .requestMatchers(ADMIN_ENDPOINTS).hasRole("ADMIN")
                         .requestMatchers("/support/tickets/{id}/assign").hasAnyRole("ADMIN", "SUPPORT_AGENT")
@@ -114,14 +126,27 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
-        configuration.setAllowedMethods(Arrays.asList(allowedMethods.split(",")));
+
+        // If allowedOrigins is set to '*' in env/config, allow all origins via origin patterns
+        if (allowedOrigins != null && allowedOrigins.trim().equals("*")) {
+            configuration.setAllowedOriginPatterns(List.of("*"));
+        } else {
+            // otherwise use configured allowed origins (comma separated)
+            configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+        }
+
+        // Allow all methods and headers from frontend
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(maxAge);
+        // Expose common headers including Authorization so frontend can read them
         configuration.setExposedHeaders(List.of("Authorization", "X-Total-Count", "X-Page-Number", "X-Page-Size"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // Apply to all API paths
+        source.registerCorsConfiguration("/api/**", configuration);
+        source.registerCorsConfiguration("/", configuration);
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
@@ -144,4 +169,3 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder(12);
     }
 }
-

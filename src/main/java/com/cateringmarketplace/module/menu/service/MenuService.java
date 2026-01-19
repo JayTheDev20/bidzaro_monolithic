@@ -3,6 +3,8 @@ package com.cateringmarketplace.module.menu.service;
 import com.cateringmarketplace.common.exception.BadRequestException;
 import com.cateringmarketplace.common.exception.ConflictException;
 import com.cateringmarketplace.common.exception.ResourceNotFoundException;
+import com.cateringmarketplace.module.menu.dto.request.CategoryRequest;
+import com.cateringmarketplace.module.menu.dto.request.MasterMenuItemRequest;
 import com.cateringmarketplace.module.menu.dto.request.VendorMenuItemRequest;
 import com.cateringmarketplace.module.menu.dto.response.CategoryResponse;
 import com.cateringmarketplace.module.menu.dto.response.MenuItemResponse;
@@ -56,6 +58,58 @@ public class MenuService {
         return CategoryResponse.fromEntity(category);
     }
 
+    @Transactional
+    public CategoryResponse createCategory(CategoryRequest request) {
+        log.info("Creating new category: {}", request.getCategoryName());
+
+        if (categoryRepository.existsByCategoryName(request.getCategoryName())) {
+            throw new ConflictException("CATEGORY_EXISTS", "Category with this name already exists");
+        }
+
+        Category category = Category.builder()
+                .categoryId(UUID.randomUUID().toString())
+                .categoryName(request.getCategoryName())
+                .categoryNameHindi(request.getCategoryNameHindi())
+                .description(request.getDescription())
+                .iconUrl(request.getIconUrl())
+                .displayOrder(request.getDisplayOrder() != null ? request.getDisplayOrder() : 0)
+                .status(CategoryStatus.ACTIVE)
+                .build();
+
+        category = categoryRepository.save(category);
+        return CategoryResponse.fromEntity(category);
+    }
+
+    @Transactional
+    public CategoryResponse updateCategory(String categoryId, CategoryRequest request) {
+        log.info("Updating category: {}", categoryId);
+
+        Category category = categoryRepository.findByCategoryId(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+
+        if (request.getCategoryName() != null) {
+            category.setCategoryName(request.getCategoryName());
+        }
+        if (request.getCategoryNameHindi() != null) {
+            category.setCategoryNameHindi(request.getCategoryNameHindi());
+        }
+        if (request.getDescription() != null) {
+            category.setDescription(request.getDescription());
+        }
+        if (request.getIconUrl() != null) {
+            category.setIconUrl(request.getIconUrl());
+        }
+        if (request.getDisplayOrder() != null) {
+            category.setDisplayOrder(request.getDisplayOrder());
+        }
+        if (request.getStatus() != null) {
+            category.setStatus(request.getStatus());
+        }
+
+        category = categoryRepository.save(category);
+        return CategoryResponse.fromEntity(category);
+    }
+
     // ==================== MASTER MENU ITEM OPERATIONS ====================
 
     public Page<MenuItemResponse> getAllMenuItems(Pageable pageable) {
@@ -84,6 +138,109 @@ public class MenuService {
                 .stream()
                 .map(MenuItemResponse::fromEntity)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public MenuItemResponse createMasterMenuItem(MasterMenuItemRequest request) {
+        log.info("Creating master menu item: {}", request.getItemName());
+
+        // Verify category exists
+        if (!categoryRepository.existsByCategoryId(request.getCategoryId())) {
+            throw new ResourceNotFoundException("Category not found");
+        }
+
+        // Map nutritional info
+        MenuItem.NutritionalInfo nutritionalInfo = null;
+        if (request.getNutritionalInfo() != null) {
+            nutritionalInfo = MenuItem.NutritionalInfo.builder()
+                    .calories(request.getNutritionalInfo().getCalories())
+                    .proteinGrams(request.getNutritionalInfo().getProteinGrams())
+                    .carbsGrams(request.getNutritionalInfo().getCarbsGrams())
+                    .fatGrams(request.getNutritionalInfo().getFatGrams())
+                    .servingSizeGrams(request.getNutritionalInfo().getServingSizeGrams())
+                    .build();
+        }
+
+        MenuItem item = MenuItem.builder()
+                .itemId(UUID.randomUUID().toString())
+                .itemName(request.getItemName())
+                .itemNameHindi(request.getItemNameHindi())
+                .description(request.getDescription())
+                .categoryId(request.getCategoryId())
+                .cuisineType(request.getCuisineType())
+                .foodType(request.getFoodType())
+                .spiceLevel(request.getSpiceLevel())
+                .dietaryTags(request.getDietaryTags())
+                .allergens(request.getAllergens())
+                .nutritionalInfo(nutritionalInfo)
+                .imageUrls(request.getImageUrls())
+                .isPopular(request.getIsPopular() != null ? request.getIsPopular() : false)
+                .status(ItemStatus.ACTIVE)
+                .build();
+
+        item = menuItemRepository.save(item);
+        return MenuItemResponse.fromEntity(item);
+    }
+
+    @Transactional
+    public MenuItemResponse updateMasterMenuItem(String itemId, MasterMenuItemRequest request) {
+        log.info("Updating master menu item: {}", itemId);
+
+        MenuItem item = menuItemRepository.findByItemId(itemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Menu item not found"));
+
+        if (request.getItemName() != null) {
+            item.setItemName(request.getItemName());
+        }
+        if (request.getItemNameHindi() != null) {
+            item.setItemNameHindi(request.getItemNameHindi());
+        }
+        if (request.getDescription() != null) {
+            item.setDescription(request.getDescription());
+        }
+        if (request.getCategoryId() != null) {
+            // Verify new category exists
+            if (!categoryRepository.existsByCategoryId(request.getCategoryId())) {
+                throw new ResourceNotFoundException("Category not found");
+            }
+            item.setCategoryId(request.getCategoryId());
+        }
+        if (request.getCuisineType() != null) {
+            item.setCuisineType(request.getCuisineType());
+        }
+        if (request.getFoodType() != null) {
+            item.setFoodType(request.getFoodType());
+        }
+        if (request.getSpiceLevel() != null) {
+            item.setSpiceLevel(request.getSpiceLevel());
+        }
+        if (request.getDietaryTags() != null) {
+            item.setDietaryTags(request.getDietaryTags());
+        }
+        if (request.getAllergens() != null) {
+            item.setAllergens(request.getAllergens());
+        }
+        if (request.getNutritionalInfo() != null) {
+            item.setNutritionalInfo(MenuItem.NutritionalInfo.builder()
+                    .calories(request.getNutritionalInfo().getCalories())
+                    .proteinGrams(request.getNutritionalInfo().getProteinGrams())
+                    .carbsGrams(request.getNutritionalInfo().getCarbsGrams())
+                    .fatGrams(request.getNutritionalInfo().getFatGrams())
+                    .servingSizeGrams(request.getNutritionalInfo().getServingSizeGrams())
+                    .build());
+        }
+        if (request.getImageUrls() != null) {
+            item.setImageUrls(request.getImageUrls());
+        }
+        if (request.getIsPopular() != null) {
+            item.setIsPopular(request.getIsPopular());
+        }
+        if (request.getStatus() != null) {
+            item.setStatus(request.getStatus());
+        }
+
+        item = menuItemRepository.save(item);
+        return MenuItemResponse.fromEntity(item);
     }
 
     // ==================== VENDOR MENU ITEM OPERATIONS ====================
@@ -191,8 +348,42 @@ public class MenuService {
                 item.getPricing().setDiscountedPrice(request.getPricePerPlate().subtract(discount));
             }
         }
+        if (request.getMinimumOrderQuantity() != null) {
+            item.getPricing().setMinimumOrderQuantity(request.getMinimumOrderQuantity());
+        }
+        if (request.getDiscountPercentage() != null) {
+            item.getPricing().setDiscountPercentage(request.getDiscountPercentage());
+            // Recalculate discounted price if price is also updated, otherwise use existing price
+            BigDecimal price = request.getPricePerPlate() != null ? request.getPricePerPlate() : item.getPricing().getPricePerPlate();
+            BigDecimal discount = price
+                    .multiply(request.getDiscountPercentage())
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            item.getPricing().setDiscountedPrice(price.subtract(discount));
+        }
+        if (request.getIsAvailable() != null) {
+            item.getAvailability().setIsAvailable(request.getIsAvailable());
+        }
+        if (request.getUnavailableReason() != null) {
+            item.getAvailability().setUnavailableReason(request.getUnavailableReason());
+        }
+        if (request.getAdvanceNoticeHours() != null) {
+            item.getAvailability().setAdvanceNoticeHours(request.getAdvanceNoticeHours());
+        }
+        if (request.getMaxDailyCapacity() != null) {
+            item.getAvailability().setMaxDailyCapacity(request.getMaxDailyCapacity());
+        }
         if (request.getPreparationTimeMinutes() != null) {
             item.setPreparationTimeMinutes(request.getPreparationTimeMinutes());
+        }
+        if (request.getCustomizationOptions() != null) {
+            item.setCustomizationOptions(request.getCustomizationOptions().stream()
+                    .map(opt -> VendorMenuItem.CustomizationOption.builder()
+                            .optionName(opt.getOptionName())
+                            .choices(opt.getChoices())
+                            .additionalCost(opt.getAdditionalCost())
+                            .isRequired(opt.getIsRequired())
+                            .build())
+                    .collect(Collectors.toList()));
         }
 
         item = vendorMenuItemRepository.save(item);
@@ -216,6 +407,13 @@ public class MenuService {
             item.getAvailability().setUnavailableReason(reason);
         }
 
+        // Update status to reflect availability: ACTIVE when available, INACTIVE when not
+        if (isAvailable) {
+            item.setStatus(VendorMenuItem.VendorItemStatus.ACTIVE);
+        } else {
+            item.setStatus(VendorMenuItem.VendorItemStatus.INACTIVE);
+        }
+
         item = vendorMenuItemRepository.save(item);
         return VendorMenuItemResponse.fromEntity(item);
     }
@@ -236,4 +434,3 @@ public class MenuService {
         vendorMenuItemRepository.save(item);
     }
 }
-

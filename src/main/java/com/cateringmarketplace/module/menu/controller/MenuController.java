@@ -196,6 +196,7 @@ public class MenuController {
         return ResponseEntity.ok(ApiResponse.success(item, "Availability updated"));
     }
 
+
     @DeleteMapping("/vendor-items/{vendorItemId}")
     @Operation(summary = "Delete vendor menu item", description = "Removes an item from vendor's menu")
     @SecurityRequirement(name = "bearerAuth")
@@ -210,4 +211,3 @@ public class MenuController {
         return ResponseEntity.ok(ApiResponse.success(null, "Item removed from menu"));
     }
 }
-
