@@ -17,6 +17,8 @@ import com.cateringmarketplace.module.auth.model.enums.UserType;
 import com.cateringmarketplace.module.auth.repository.*;
 import com.cateringmarketplace.module.notification.service.EmailService;
 import com.cateringmarketplace.module.notification.service.TwilioService;
+import com.cateringmarketplace.module.vendor.model.Vendor;
+import com.cateringmarketplace.module.vendor.repository.VendorRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Service class for authentication operations.
@@ -39,6 +42,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final OTPVerificationRepository otpVerificationRepository;
+    private final VendorRepository vendorRepository;
     private final JwtUtil jwtUtil;
     private final PasswordUtil passwordUtil;
     private final EmailService emailService;
@@ -139,6 +143,18 @@ public class AuthService {
         }
         if (user.getStatus() == UserStatus.DELETED) {
             throw new UnauthorizedException("ACCOUNT_DELETED", "Account not found");
+        }
+
+        // Check Vendor Approval Status
+        if (user.getUserType() == UserType.VENDOR) {
+            Optional<Vendor> vendorOpt = vendorRepository.findByUserId(user.getUserId());
+            if (vendorOpt.isPresent()) {
+                Vendor vendor = vendorOpt.get();
+                if (vendor.getApprovalStatus() != Vendor.ApprovalStatus.APPROVED) {
+                    throw new UnauthorizedException("VENDOR_NOT_APPROVED",
+                        "Your vendor account is currently " + vendor.getApprovalStatus() + ". Please wait for admin approval.");
+                }
+            }
         }
 
         // Reset failed login attempts and update last login
