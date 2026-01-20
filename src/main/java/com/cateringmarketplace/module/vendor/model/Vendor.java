@@ -151,6 +151,11 @@ public class Vendor {
         UNDER_REVIEW
     }
 
+    public enum Country {
+        USA,
+        INDIA
+    }
+
     // Embedded Documents
     @Data
     @Builder

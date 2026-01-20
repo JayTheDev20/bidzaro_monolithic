@@ -155,6 +155,12 @@ public class AnalyticsService {
         long completedOrders = 0; // TODO: Count by status for vendor
         long totalBids = vendorBidRepository.countByVendorId(vendorId);
 
+        // Determine currency based on vendor country
+        String currency = "USD";
+        if (Vendor.Country.INDIA.name().equalsIgnoreCase(vendor.getCountry())) {
+            currency = "INR";
+        }
+
         return VendorDashboardResponse.builder()
                 .vendorId(vendorId)
                 .vendorName(vendor.getBusinessName())
@@ -166,6 +172,7 @@ public class AnalyticsService {
                         .totalRevenue(BigDecimal.ZERO)
                         .pendingPayouts(BigDecimal.ZERO)
                         .thisMonthRevenue(BigDecimal.ZERO)
+                        .currency(currency)
                         .build())
                 .bidMetrics(BidMetrics.builder()
                         .totalBidsSubmitted(totalBids)
@@ -244,4 +251,3 @@ public class AnalyticsService {
         return new ArrayList<>();
     }
 }
-

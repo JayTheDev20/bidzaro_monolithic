@@ -37,6 +37,7 @@ public class VendorDashboardResponse {
         private BigDecimal totalRevenue;
         private BigDecimal pendingPayouts;
         private BigDecimal thisMonthRevenue;
+        private String currency;
     }
 
     @Data
@@ -90,4 +91,3 @@ public class VendorDashboardResponse {
         private int repeatCustomers;
     }
 }
-

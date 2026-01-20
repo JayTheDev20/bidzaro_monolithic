@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Response DTO for vendor information.
@@ -43,6 +44,8 @@ public class VendorResponse {
     private Boolean verified;
     private Boolean featured;
     private Instant createdAt;
+    private List<VendorDocumentResponse> documents;
+    private String country;
 
     @Data
     @Builder
@@ -94,6 +97,22 @@ public class VendorResponse {
         private Integer completedOrders;
     }
 
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class VendorDocumentResponse {
+        private String documentId;
+        private String documentType;
+        private String documentName;
+        private String documentUrl;
+        private String documentNumber;
+        private Instant issueDate;
+        private Instant expiryDate;
+        private String verificationStatus;
+        private Instant uploadedAt;
+    }
+
     /**
      * Creates a VendorResponse from a Vendor entity.
      */
@@ -117,7 +136,8 @@ public class VendorResponse {
                 .approvalStatus(vendor.getApprovalStatus() != null ? vendor.getApprovalStatus().name() : null)
                 .verified(vendor.getVerified())
                 .featured(vendor.getFeatured())
-                .createdAt(vendor.getCreatedAt());
+                .createdAt(vendor.getCreatedAt())
+                .country(vendor.getCountry());
 
         // Map business address
         if (vendor.getBusinessAddress() != null) {
@@ -164,7 +184,23 @@ public class VendorResponse {
                     .build());
         }
 
+        // Map documents
+        if (vendor.getDocuments() != null) {
+            builder.documents(vendor.getDocuments().stream()
+                    .map(doc -> VendorDocumentResponse.builder()
+                            .documentId(doc.getDocumentId())
+                            .documentType(doc.getDocumentType())
+                            .documentName(doc.getDocumentName())
+                            .documentUrl(doc.getDocumentUrl())
+                            .documentNumber(doc.getDocumentNumber())
+                            .issueDate(doc.getIssueDate())
+                            .expiryDate(doc.getExpiryDate())
+                            .verificationStatus(doc.getVerificationStatus() != null ? doc.getVerificationStatus().name() : null)
+                            .uploadedAt(doc.getUploadedAt())
+                            .build())
+                    .collect(Collectors.toList()));
+        }
+
         return builder.build();
     }
 }
-

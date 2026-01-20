@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -58,6 +59,16 @@ public class VendorService {
         if (vendorRepository.existsByBusinessEmail(request.getBusinessEmail())) {
             throw new ConflictException("EMAIL_EXISTS", "Business email is already registered");
         }
+
+        // Validate country
+        try {
+            Country.valueOf(request.getCountry().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("INVALID_COUNTRY", "Country must be either USA or INDIA");
+        }
+
+        // Validate country-specific documents
+        validateDocumentsForCountry(request.getCountry(), request.getDocuments());
 
         // Create vendor
         Vendor vendor = Vendor.builder()
@@ -143,6 +154,22 @@ public class VendorService {
                     .build());
         }
 
+        // Map documents
+        if (request.getDocuments() != null) {
+            vendor.setDocuments(request.getDocuments().stream()
+                    .map(doc -> VendorDocument.builder()
+                            .documentType(doc.getDocumentType())
+                            .documentName(doc.getDocumentName())
+                            .documentUrl(doc.getDocumentUrl())
+                            .documentNumber(doc.getDocumentNumber())
+                            .issueDate(doc.getIssueDate())
+                            .expiryDate(doc.getExpiryDate())
+                            .uploadedAt(Instant.now())
+                            .verificationStatus(DocumentVerificationStatus.PENDING)
+                            .build())
+                    .collect(Collectors.toList()));
+        }
+
         vendor = vendorRepository.save(vendor);
 
         // Update user type to VENDOR
@@ -151,6 +178,36 @@ public class VendorService {
 
         log.info("Vendor registered successfully with ID: {}", vendor.getVendorId());
         return VendorResponse.fromEntity(vendor);
+    }
+
+    private void validateDocumentsForCountry(String country, List<VendorRegistrationRequest.VendorDocumentDTO> documents) {
+        if (documents == null || documents.isEmpty()) {
+            throw new BadRequestException("MISSING_DOCUMENTS", "Documents are required for registration");
+        }
+
+        List<String> requiredDocs = new ArrayList<>();
+        if (Country.USA.name().equalsIgnoreCase(country)) {
+            requiredDocs.add("EIN"); // Employer Identification Number
+            requiredDocs.add("BUSINESS_LICENSE");
+            requiredDocs.add("INSURANCE");
+        } else if (Country.INDIA.name().equalsIgnoreCase(country)) {
+            requiredDocs.add("GST"); // Goods and Services Tax
+            requiredDocs.add("PAN"); // Permanent Account Number
+            requiredDocs.add("FSSAI"); // Food Safety and Standards Authority of India
+        } else {
+             throw new BadRequestException("INVALID_COUNTRY", "Country must be either USA or INDIA");
+        }
+
+        List<String> uploadedDocTypes = documents.stream()
+                .map(VendorRegistrationRequest.VendorDocumentDTO::getDocumentType)
+                .map(String::toUpperCase)
+                .collect(Collectors.toList());
+
+        for (String requiredDoc : requiredDocs) {
+            if (!uploadedDocTypes.contains(requiredDoc)) {
+                throw new BadRequestException("MISSING_DOCUMENT", "Missing required document: " + requiredDoc + " for country: " + country);
+            }
+        }
     }
 
     /**
@@ -308,4 +365,3 @@ public class VendorService {
         return vendors.map(VendorResponse::fromEntity);
     }
 }
-

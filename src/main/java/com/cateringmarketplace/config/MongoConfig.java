@@ -119,6 +119,10 @@ public class MongoConfig {
         MappingMongoConverter converter = new MappingMongoConverter(dbRefResolver, context);
         // Remove _class field from documents
         converter.setTypeMapper(new DefaultMongoTypeMapper(null));
+        
+        // Initialize the converter to register default conversions (including GeoJson)
+        converter.afterPropertiesSet();
+        
         return new MongoTemplate(mongoDbFactory, converter);
     }
 
