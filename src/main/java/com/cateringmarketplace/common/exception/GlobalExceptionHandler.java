@@ -405,8 +405,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleAllUncaughtException(
             Exception ex, HttpServletRequest request) {
-        log.error("Unexpected error occurred - Path: {} - Error: {}",
-                request.getRequestURI(), ex.getMessage(), ex);
+        log.error("Unexpected error occurred - Path: {} - Error: {} - Exception Class: {}",
+                request.getRequestURI(), ex.getMessage(), ex.getClass().getName(), ex);
 
         ErrorResponse error = ErrorResponse.builder()
                 .code("INTERNAL_SERVER_ERROR")
@@ -426,4 +426,3 @@ public class GlobalExceptionHandler {
         return lastDot > 0 ? propertyPath.substring(lastDot + 1) : propertyPath;
     }
 }
-

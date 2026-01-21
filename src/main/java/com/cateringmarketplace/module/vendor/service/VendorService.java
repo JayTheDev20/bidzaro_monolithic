@@ -71,6 +71,17 @@ public class VendorService {
         // Validate country-specific documents
         validateDocumentsForCountry(request.getCountry(), request.getDocuments());
 
+        // Determine currency based on country
+        String currency = "USD";
+        if (Country.INDIA.name().equalsIgnoreCase(request.getCountry())) {
+            currency = "INR";
+        }
+        
+        // Override if provided in request
+        if (request.getPricing() != null && request.getPricing().getCurrency() != null) {
+            currency = request.getPricing().getCurrency();
+        }
+
         // Create vendor
         Vendor vendor = Vendor.builder()
                 .userId(userId)
@@ -146,14 +157,15 @@ public class VendorService {
         }
 
         // Map pricing
+        Pricing pricing = Pricing.builder()
+                .currency(currency)
+                .build();
+                
         if (request.getPricing() != null) {
-            vendor.setPricing(Pricing.builder()
-                    .currency(request.getPricing().getCurrency() != null ?
-                            request.getPricing().getCurrency() : "USD")
-                    .startingPricePerPlate(request.getPricing().getStartingPricePerPlate())
-                    .averagePricePerPlate(request.getPricing().getAveragePricePerPlate())
-                    .build());
+            pricing.setStartingPricePerPlate(request.getPricing().getStartingPricePerPlate());
+            pricing.setAveragePricePerPlate(request.getPricing().getAveragePricePerPlate());
         }
+        vendor.setPricing(pricing);
 
         // Map documents
         if (request.getDocuments() != null) {

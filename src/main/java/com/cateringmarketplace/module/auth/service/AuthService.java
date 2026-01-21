@@ -84,6 +84,12 @@ public class AuthService {
             throw new ConflictException("PHONE_EXISTS", "Phone number is already registered");
         }
 
+        // Determine preferred currency based on country
+        String currency = "USD";
+        if ("INDIA".equalsIgnoreCase(request.getCountry())) {
+            currency = "INR";
+        }
+
         // Create user
         User user = User.builder()
                 .email(request.getEmail().toLowerCase().trim())
@@ -92,6 +98,7 @@ public class AuthService {
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .country(request.getCountry())
+                .preferredCurrency(currency)
                 .userType(parseUserType(request.getUserType()))
                 .status(UserStatus.PENDING_VERIFICATION)
                 .fcmToken(request.getFcmToken())

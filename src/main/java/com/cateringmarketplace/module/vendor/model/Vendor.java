@@ -210,8 +210,7 @@ public class Vendor {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Pricing {
-        @Builder.Default
-        private String currency = "USD";
+        private String currency;
         private BigDecimal startingPricePerPlate;
         private BigDecimal averagePricePerPlate;
     }
