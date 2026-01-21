@@ -41,12 +41,26 @@ public class Vendor {
     @Field("user_id")
     private String userId;
 
+    @Field("registered_email")
+    private String registeredEmail;
+
+    @Field("registered_phone")
+    private String registeredPhone;
+
     @Indexed(unique = true)
     @Field("business_email")
     private String businessEmail;
 
     @Field("business_phone")
     private String businessPhone;
+
+    @Field("business_email_verified")
+    @Builder.Default
+    private Boolean businessEmailVerified = false;
+
+    @Field("business_phone_verified")
+    @Builder.Default
+    private Boolean businessPhoneVerified = false;
 
     @Field("business_name")
     private String businessName;

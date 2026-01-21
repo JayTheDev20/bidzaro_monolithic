@@ -85,6 +85,8 @@ public class VendorService {
         // Create vendor
         Vendor vendor = Vendor.builder()
                 .userId(userId)
+                 .registeredEmail(user.getEmail()) // Populate from User
+                .registeredPhone(user.getPhone()) // Populate from User
                 .businessName(request.getBusinessName())
                 .businessEmail(request.getBusinessEmail())
                 .businessPhone(request.getBusinessPhone())

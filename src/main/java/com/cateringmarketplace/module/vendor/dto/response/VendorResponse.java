@@ -24,9 +24,13 @@ public class VendorResponse {
 
     private String vendorId;
     private String userId;
+    private String registeredEmail;
+    private String registeredPhone;
     private String businessName;
     private String businessEmail;
     private String businessPhone;
+    private Boolean businessEmailVerified;
+    private Boolean businessPhoneVerified;
     private String businessType;
     private String logoUrl;
     private String bannerUrl;
@@ -122,9 +126,13 @@ public class VendorResponse {
         VendorResponseBuilder builder = VendorResponse.builder()
                 .vendorId(vendor.getVendorId())
                 .userId(vendor.getUserId())
+                .registeredEmail(vendor.getRegisteredEmail())
+                .registeredPhone(vendor.getRegisteredPhone())
                 .businessName(vendor.getBusinessName())
                 .businessEmail(vendor.getBusinessEmail())
                 .businessPhone(vendor.getBusinessPhone())
+                .businessEmailVerified(vendor.getBusinessEmailVerified())
+                .businessPhoneVerified(vendor.getBusinessPhoneVerified())
                 .businessType(vendor.getBusinessType() != null ? vendor.getBusinessType().name() : null)
                 .logoUrl(vendor.getLogoUrl())
                 .bannerUrl(vendor.getBannerUrl())
