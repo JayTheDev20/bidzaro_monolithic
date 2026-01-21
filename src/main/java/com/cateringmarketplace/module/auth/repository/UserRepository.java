@@ -121,4 +121,10 @@ public interface UserRepository extends MongoRepository<User, String> {
      * Delete user by userId.
      */
     void deleteByUserId(String userId);
+
+    /**
+     * Find vendors who registered before a certain time but haven't received a profile reminder.
+     */
+    @Query("{ 'user_type': 'VENDOR', 'created_at': { $lt: ?0 }, 'profile_reminder_sent': false }")
+    List<User> findPendingVendorProfiles(Instant cutoffTime);
 }

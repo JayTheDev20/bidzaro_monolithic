@@ -117,6 +117,10 @@ public class User {
     @Field("device_info")
     private String deviceInfo;
 
+    @Field("profile_reminder_sent")
+    @Builder.Default
+    private Boolean profileReminderSent = false;
+
     @CreatedDate
     @Field("created_at")
     private Instant createdAt;

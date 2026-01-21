@@ -153,10 +153,16 @@ public class AuthService {
             Optional<Vendor> vendorOpt = vendorRepository.findByUserId(user.getUserId());
             if (vendorOpt.isPresent()) {
                 Vendor vendor = vendorOpt.get();
+                // If vendor profile exists but not approved, block login
                 if (vendor.getApprovalStatus() != Vendor.ApprovalStatus.APPROVED) {
                     throw new UnauthorizedException("VENDOR_NOT_APPROVED",
                         "Your vendor account is currently " + vendor.getApprovalStatus() + ". Please wait for admin approval.");
                 }
+            } else {
+                // Vendor profile does NOT exist yet.
+                // Allow login so they can create their profile.
+                // The frontend should detect this state (e.g., via a flag in UserResponse or by checking /vendors/me)
+                // and redirect them to the profile creation page.
             }
         }
 

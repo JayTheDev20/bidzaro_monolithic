@@ -445,4 +445,32 @@ public class EmailService {
     public void sendNotificationEmail(String to, String title, String message, String role) {
         sendSimpleEmail(to, title, message, role);
     }
+
+    /**
+     * Sends a profile completion reminder email.
+     */
+    public void sendProfileCompletionReminder(String to, String userName, String loginLink) {
+        String subject = "Complete Your Vendor Profile - Action Required";
+        String body = String.format("""
+                <p>Dear %s,</p>
+                
+                <p>We noticed you registered as a vendor but haven't completed your profile yet.</p>
+                
+                <p>To start receiving bid requests and growing your business, you need to complete your vendor profile setup.</p>
+                
+                <div class="highlight-box">
+                    <strong>Don't miss out on potential customers!</strong>
+                </div>
+                
+                <p>Click the button below to log in and complete your profile:</p>
+                
+                <a href="%s" class="cta-button" style="color: white;">Complete Profile Now</a>
+                
+                <p style="margin-top: 20px;">If you need any assistance, please contact our support team.</p>
+                
+                <p>Best regards,<br>The Catering Platform Team</p>
+                """, userName, loginLink);
+
+        sendSimpleEmail(to, subject, body, "VENDOR");
+    }
 }
