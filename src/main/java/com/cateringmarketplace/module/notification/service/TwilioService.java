@@ -247,9 +247,9 @@ public class TwilioService {
             else if (cleaned.startsWith("1") && cleaned.length() == 11) {
                 cleaned = "+" + cleaned;
             }
-            // If 10 digits, assume USA
+            // If 10 digits, assume India (Defaulting to +91 instead of +1)
             else if (cleaned.length() == 10) {
-                cleaned = "+1" + cleaned;
+                cleaned = "+91" + cleaned;
             }
             // If 10 digits starting with 9, assume India
             else if (cleaned.startsWith("9") && cleaned.length() == 10) {
@@ -269,4 +269,3 @@ public class TwilioService {
         return twilioReady;
     }
 }
-

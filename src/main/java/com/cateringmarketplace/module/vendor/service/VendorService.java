@@ -10,6 +10,7 @@ import com.cateringmarketplace.module.auth.model.User;
 import com.cateringmarketplace.module.auth.model.enums.UserType;
 import com.cateringmarketplace.module.auth.repository.UserRepository;
 import com.cateringmarketplace.module.vendor.dto.request.VendorRegistrationRequest;
+import com.cateringmarketplace.module.vendor.dto.request.VendorUpdateRequest;
 import com.cateringmarketplace.module.vendor.dto.response.VendorResponse;
 import com.cateringmarketplace.module.vendor.model.Vendor;
 import com.cateringmarketplace.module.vendor.model.Vendor.*;
@@ -247,7 +248,7 @@ public class VendorService {
      * Updates vendor profile.
      */
     @Transactional
-    public VendorResponse updateVendor(String vendorId, VendorRegistrationRequest request, String userId) {
+    public VendorResponse updateVendor(String vendorId, VendorUpdateRequest request, String userId) {
         log.info("Updating vendor: {} by user: {}", vendorId, userId);
 
         Vendor vendor = vendorRepository.findByVendorId(vendorId)
@@ -259,20 +260,92 @@ public class VendorService {
         }
 
         // Update fields
-        if (request.getBusinessName() != null) {
-            vendor.setBusinessName(request.getBusinessName());
+        if (request.getBusinessName() != null) vendor.setBusinessName(request.getBusinessName());
+        if (request.getBusinessPhone() != null) vendor.setBusinessPhone(request.getBusinessPhone());
+        if (request.getBusinessEmail() != null) vendor.setBusinessEmail(request.getBusinessEmail());
+        if (request.getBusinessType() != null) vendor.setBusinessType(BusinessType.valueOf(request.getBusinessType().toUpperCase()));
+        if (request.getBusinessRegistrationNumber() != null) vendor.setBusinessRegistrationNumber(request.getBusinessRegistrationNumber());
+        if (request.getTaxId() != null) vendor.setTaxId(request.getTaxId());
+        if (request.getDescription() != null) vendor.setDescription(request.getDescription());
+        if (request.getEstablishedYear() != null) vendor.setEstablishedYear(request.getEstablishedYear());
+        if (request.getCuisinesOffered() != null) vendor.setCuisinesOffered(request.getCuisinesOffered());
+        if (request.getSpecialties() != null) vendor.setSpecialties(request.getSpecialties());
+        if (request.getCountry() != null) vendor.setCountry(request.getCountry());
+
+        // Update Business Address
+        if (request.getBusinessAddress() != null) {
+            BusinessAddress address = vendor.getBusinessAddress() != null ? vendor.getBusinessAddress() : new BusinessAddress();
+            if (request.getBusinessAddress().getStreetAddress() != null) address.setStreetAddress(request.getBusinessAddress().getStreetAddress());
+            if (request.getBusinessAddress().getCity() != null) address.setCity(request.getBusinessAddress().getCity());
+            if (request.getBusinessAddress().getState() != null) address.setState(request.getBusinessAddress().getState());
+            if (request.getBusinessAddress().getPostalCode() != null) address.setPostalCode(request.getBusinessAddress().getPostalCode());
+            if (request.getBusinessAddress().getCountry() != null) address.setCountry(request.getBusinessAddress().getCountry());
+            
+            if (request.getBusinessAddress().getLatitude() != null && request.getBusinessAddress().getLongitude() != null) {
+                address.setGpsCoordinates(new GeoJsonPoint(
+                        request.getBusinessAddress().getLongitude(),
+                        request.getBusinessAddress().getLatitude()
+                ));
+            }
+            vendor.setBusinessAddress(address);
         }
-        if (request.getBusinessPhone() != null) {
-            vendor.setBusinessPhone(request.getBusinessPhone());
+
+        // Update Owner Info
+        if (request.getOwnerInfo() != null) {
+            OwnerInfo owner = vendor.getOwnerInfo() != null ? vendor.getOwnerInfo() : new OwnerInfo();
+            if (request.getOwnerInfo().getFirstName() != null) owner.setFirstName(request.getOwnerInfo().getFirstName());
+            if (request.getOwnerInfo().getLastName() != null) owner.setLastName(request.getOwnerInfo().getLastName());
+            if (request.getOwnerInfo().getPhone() != null) owner.setPhone(request.getOwnerInfo().getPhone());
+            if (request.getOwnerInfo().getEmail() != null) owner.setEmail(request.getOwnerInfo().getEmail());
+            if (request.getOwnerInfo().getIdProofType() != null) owner.setIdProofType(request.getOwnerInfo().getIdProofType());
+            if (request.getOwnerInfo().getIdProofNumber() != null) owner.setIdProofNumber(request.getOwnerInfo().getIdProofNumber());
+            vendor.setOwnerInfo(owner);
         }
-        if (request.getDescription() != null) {
-            vendor.setDescription(request.getDescription());
+
+        // Update Service Areas
+        if (request.getServiceAreas() != null) {
+            vendor.setServiceAreas(request.getServiceAreas().stream()
+                    .map(sa -> ServiceArea.builder()
+                            .city(sa.getCity())
+                            .state(sa.getState())
+                            .radiusKm(sa.getRadiusKm())
+                            .build())
+                    .collect(Collectors.toList()));
         }
-        if (request.getCuisinesOffered() != null) {
-            vendor.setCuisinesOffered(request.getCuisinesOffered());
+
+        // Update Capacity
+        if (request.getCapacity() != null) {
+            Capacity capacity = vendor.getCapacity() != null ? vendor.getCapacity() : new Capacity();
+            if (request.getCapacity().getMinGuests() != null) capacity.setMinGuests(request.getCapacity().getMinGuests());
+            if (request.getCapacity().getMaxGuests() != null) capacity.setMaxGuests(request.getCapacity().getMaxGuests());
+            if (request.getCapacity().getConcurrentEvents() != null) capacity.setConcurrentEvents(request.getCapacity().getConcurrentEvents());
+            vendor.setCapacity(capacity);
         }
-        if (request.getSpecialties() != null) {
-            vendor.setSpecialties(request.getSpecialties());
+
+        // Update Pricing
+        if (request.getPricing() != null) {
+            Pricing pricing = vendor.getPricing() != null ? vendor.getPricing() : new Pricing();
+            if (request.getPricing().getCurrency() != null) pricing.setCurrency(request.getPricing().getCurrency());
+            if (request.getPricing().getStartingPricePerPlate() != null) pricing.setStartingPricePerPlate(request.getPricing().getStartingPricePerPlate());
+            if (request.getPricing().getAveragePricePerPlate() != null) pricing.setAveragePricePerPlate(request.getPricing().getAveragePricePerPlate());
+            vendor.setPricing(pricing);
+        }
+
+        // Update Documents (Optional: usually handled via separate upload endpoints, but allowing metadata update here)
+        if (request.getDocuments() != null) {
+            // This replaces the entire document list. For appending, logic would be different.
+            vendor.setDocuments(request.getDocuments().stream()
+                    .map(doc -> VendorDocument.builder()
+                            .documentType(doc.getDocumentType())
+                            .documentName(doc.getDocumentName())
+                            .documentUrl(doc.getDocumentUrl())
+                            .documentNumber(doc.getDocumentNumber())
+                            .issueDate(doc.getIssueDate())
+                            .expiryDate(doc.getExpiryDate())
+                            .uploadedAt(Instant.now())
+                            .verificationStatus(DocumentVerificationStatus.PENDING)
+                            .build())
+                    .collect(Collectors.toList()));
         }
 
         vendor = vendorRepository.save(vendor);
