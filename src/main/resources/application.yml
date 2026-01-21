@@ -32,7 +32,7 @@ spring:
   # -------------------------
   data:
     mongodb:
-      uri: ${MONGODB_URI:mongodb://localhost:27017}
+      uri: ${MONGODB_URI}
       database: ${MONGODB_DATABASE:bidzaro_catering_platform_db}
       auto-index-creation: false
 
@@ -174,6 +174,7 @@ app:
   otp:
     expiry-minutes: ${OTP_EXPIRY_MINUTES:10}
     length: ${OTP_LENGTH:6}
+    log-plain: ${OTP_LOG_PLAIN:false}
 
 # ==================================================
 # BUSINESS RULES
@@ -319,4 +320,3 @@ springdoc:
     enabled: ${SWAGGER_ENABLED:true}
     operations-sorter: ${SWAGGER_OP_SORTER:method}
     tags-sorter: ${SWAGGER_TAG_SORTER:alpha}
-
