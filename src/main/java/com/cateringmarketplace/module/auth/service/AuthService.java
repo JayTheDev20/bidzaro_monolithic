@@ -309,6 +309,7 @@ public class AuthService {
                 case PHONE -> "Phone Verification";
                 case PASSWORD_RESET -> "Password Reset";
                 case TWO_FACTOR -> "Two-Factor Authentication";
+                case BUSINESS_EMAIL -> "Business Email Verification";
                 default -> "Verification";
             };
 
@@ -431,6 +432,20 @@ public class AuthService {
                             user.setStatus(UserStatus.ACTIVE);
                         }
                         userRepository.save(user);
+
+                        // Also update vendor registered email verification status if applicable
+                        vendorRepository.findByUserId(user.getUserId())
+                                .ifPresent(vendor -> {
+                                    // We don't have a direct field for registered email verified in Vendor entity
+                                    // but we can infer it from the user.
+                                    // However, if there was a field like registeredEmailVerified in Vendor, we would update it here.
+                                    // Based on Vendor model, there isn't one explicitly named 'registeredEmailVerified' that is persisted
+                                    // The VendorResponse maps it from User entity dynamically.
+                                    // But if the user wants to update something in vendor collection, let's check if there are any related fields.
+                                    // Vendor model has: businessEmailVerified, businessPhoneVerified.
+                                    // It does NOT have registeredEmailVerified stored in DB.
+                                    // But let's check if we need to sync anything else.
+                                });
                     });
         } else if (type == VerificationType.PHONE) {
             userRepository.findByPhone(request.getIdentifier())
@@ -440,6 +455,12 @@ public class AuthService {
                             user.setStatus(UserStatus.ACTIVE);
                         }
                         userRepository.save(user);
+                    });
+        } else if (type == VerificationType.BUSINESS_EMAIL) {
+            vendorRepository.findByBusinessEmail(request.getIdentifier().toLowerCase().trim())
+                    .ifPresent(vendor -> {
+                        vendor.setBusinessEmailVerified(true);
+                        vendorRepository.save(vendor);
                     });
         }
 

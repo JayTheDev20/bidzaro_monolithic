@@ -56,8 +56,10 @@ public class VendorService {
             throw new ConflictException("VENDOR_EXISTS", "Vendor profile already exists for this user");
         }
 
+        String businessEmail = request.getBusinessEmail().toLowerCase().trim();
+
         // Check if business email is already registered
-        if (vendorRepository.existsByBusinessEmail(request.getBusinessEmail())) {
+        if (vendorRepository.existsByBusinessEmail(businessEmail)) {
             throw new ConflictException("EMAIL_EXISTS", "Business email is already registered");
         }
 
@@ -85,10 +87,10 @@ public class VendorService {
         // Create vendor
         Vendor vendor = Vendor.builder()
                 .userId(userId)
-                 .registeredEmail(user.getEmail()) // Populate from User
+                .registeredEmail(user.getEmail()) // Populate from User
                 .registeredPhone(user.getPhone()) // Populate from User
                 .businessName(request.getBusinessName())
-                .businessEmail(request.getBusinessEmail())
+                .businessEmail(businessEmail)
                 .businessPhone(request.getBusinessPhone())
                 .businessType(BusinessType.valueOf(request.getBusinessType().toUpperCase()))
                 .businessRegistrationNumber(request.getBusinessRegistrationNumber())
@@ -192,7 +194,7 @@ public class VendorService {
         userRepository.save(user);
 
         log.info("Vendor registered successfully with ID: {}", vendor.getVendorId());
-        return VendorResponse.fromEntity(vendor);
+        return toVendorResponse(vendor);
     }
 
     private void validateDocumentsForCountry(String country, List<VendorRegistrationRequest.VendorDocumentDTO> documents) {
@@ -237,7 +239,7 @@ public class VendorService {
             vendors = vendorRepository.findByStatus(VendorStatus.ACTIVE, pageable);
         }
 
-        return vendors.map(VendorResponse::fromEntity);
+        return vendors.map(this::toVendorResponse);
     }
 
     /**
@@ -246,7 +248,7 @@ public class VendorService {
     public VendorResponse getVendorById(String vendorId) {
         Vendor vendor = vendorRepository.findByVendorId(vendorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
-        return VendorResponse.fromEntity(vendor);
+        return toVendorResponse(vendor);
     }
 
     /**
@@ -255,7 +257,7 @@ public class VendorService {
     public VendorResponse getVendorByUserId(String userId) {
         Vendor vendor = vendorRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor profile not found"));
-        return VendorResponse.fromEntity(vendor);
+        return toVendorResponse(vendor);
     }
 
     /**
@@ -276,7 +278,7 @@ public class VendorService {
         // Update fields
         if (request.getBusinessName() != null) vendor.setBusinessName(request.getBusinessName());
         if (request.getBusinessPhone() != null) vendor.setBusinessPhone(request.getBusinessPhone());
-        if (request.getBusinessEmail() != null) vendor.setBusinessEmail(request.getBusinessEmail());
+        if (request.getBusinessEmail() != null) vendor.setBusinessEmail(request.getBusinessEmail().toLowerCase().trim());
         if (request.getBusinessType() != null) vendor.setBusinessType(BusinessType.valueOf(request.getBusinessType().toUpperCase()));
         if (request.getBusinessRegistrationNumber() != null) vendor.setBusinessRegistrationNumber(request.getBusinessRegistrationNumber());
         if (request.getTaxId() != null) vendor.setTaxId(request.getTaxId());
@@ -365,7 +367,7 @@ public class VendorService {
         vendor = vendorRepository.save(vendor);
         log.info("Vendor updated successfully: {}", vendorId);
 
-        return VendorResponse.fromEntity(vendor);
+        return toVendorResponse(vendor);
     }
 
     /**
@@ -400,7 +402,7 @@ public class VendorService {
             log.error("Failed to send vendor approval email: {}", e.getMessage(), e);
         }
 
-        return VendorResponse.fromEntity(vendor);
+        return toVendorResponse(vendor);
     }
 
     /**
@@ -430,7 +432,7 @@ public class VendorService {
             log.error("Failed to send vendor rejection email: {}", e.getMessage(), e);
         }
 
-        return VendorResponse.fromEntity(vendor);
+        return toVendorResponse(vendor);
     }
 
     /**
@@ -438,7 +440,7 @@ public class VendorService {
      */
     public Page<VendorResponse> getPendingVendors(Pageable pageable) {
         Page<Vendor> vendors = vendorRepository.findByApprovalStatus(ApprovalStatus.PENDING, pageable);
-        return vendors.map(VendorResponse::fromEntity);
+        return vendors.map(this::toVendorResponse);
     }
 
     /**
@@ -449,6 +451,21 @@ public class VendorService {
         // For now, use basic search - can be enhanced with Elasticsearch later
         Page<Vendor> vendors = vendorRepository.findByBusinessNameContainingIgnoreCaseAndStatus(
                 query != null ? query : "", VendorStatus.ACTIVE, pageable);
-        return vendors.map(VendorResponse::fromEntity);
+        return vendors.map(this::toVendorResponse);
+    }
+
+    /**
+     * Helper method to convert Vendor entity to VendorResponse and populate verification status from User.
+     */
+    private VendorResponse toVendorResponse(Vendor vendor) {
+        VendorResponse response = VendorResponse.fromEntity(vendor);
+        
+        // Fetch user to get verification status
+        userRepository.findByUserId(vendor.getUserId()).ifPresent(user -> {
+            response.setRegisteredEmailVerified(user.getEmailVerified());
+            response.setRegisteredPhoneVerified(user.getPhoneVerified());
+        });
+        
+        return response;
     }
 }
