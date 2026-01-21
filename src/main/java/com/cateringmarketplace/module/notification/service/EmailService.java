@@ -473,4 +473,26 @@ public class EmailService {
 
         sendSimpleEmail(to, subject, body, "VENDOR");
     }
+
+    /**
+     * Sends an account locked email.
+     */
+    public void sendAccountLockedEmail(String to, String userName, String resetLink) {
+        String subject = "Account Locked - Action Required";
+        String body = String.format("""
+                <p>Dear %s,</p>
+                
+                <p>Your account has been temporarily locked due to multiple failed login attempts.</p>
+                
+                <p>To unlock your account, please reset your password using the link below:</p>
+                
+                <a href="%s" class="cta-button" style="color: white;">Reset Password</a>
+                
+                <p>If you did not attempt to log in, please contact our support team immediately.</p>
+                
+                <p>Best regards,<br>The Catering Platform Team</p>
+                """, userName, resetLink);
+
+        sendSimpleEmail(to, subject, body, null);
+    }
 }

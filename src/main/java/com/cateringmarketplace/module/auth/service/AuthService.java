@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Service class for authentication operations.
@@ -61,6 +62,9 @@ public class AuthService {
     // New property: whether to log plain OTPs (dev only). Default false.
     @Value("${app.otp.log-plain:false}")
     private boolean logPlainOtp;
+
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
 
     /**
      * Registers a new user.
@@ -126,18 +130,24 @@ public class AuthService {
         log.info("Login attempt for identifier: {}", request.getIdentifier());
 
         // Find user by email or phone
-        User user = findUserByIdentifier(request.getIdentifier());
+        Optional<User> userOpt = findUserByIdentifier(request.getIdentifier());
+
+        if (userOpt.isEmpty()) {
+            throw new UnauthorizedException("INVALID_CREDENTIALS", "Email or phone invalid");
+        }
+
+        User user = userOpt.get();
 
         // Check if account is locked
         if (user.isAccountLocked()) {
             throw new UnauthorizedException("ACCOUNT_LOCKED",
-                    "Account is temporarily locked. Please try again later.");
+                    "Account is temporarily locked due to multiple failed login attempts. Please check your email to reset your password.");
         }
 
         // Verify password
         if (!passwordUtil.verifyPassword(request.getPassword(), user.getPasswordHash())) {
             handleFailedLogin(user);
-            throw new UnauthorizedException("INVALID_CREDENTIALS", "Invalid email/phone or password");
+            throw new UnauthorizedException("INVALID_CREDENTIALS", "Password incorrect");
         }
 
         // Check if account is active
@@ -161,8 +171,6 @@ public class AuthService {
             } else {
                 // Vendor profile does NOT exist yet.
                 // Allow login so they can create their profile.
-                // The frontend should detect this state (e.g., via a flag in UserResponse or by checking /vendors/me)
-                // and redirect them to the profile creation page.
             }
         }
 
@@ -471,6 +479,11 @@ public class AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorMessages.USER_NOT_FOUND));
 
         user.setPasswordHash(passwordUtil.hashPassword(request.getNewPassword()));
+        
+        // Unlock account if it was locked
+        user.setLockedUntil(null);
+        user.setFailedLoginAttempts(0);
+        
         userRepository.save(user);
 
         // Revoke all refresh tokens for security
@@ -514,21 +527,26 @@ public class AuthService {
 
     // ==================== HELPER METHODS ====================
 
-    private User findUserByIdentifier(String identifier) {
+    private Optional<User> findUserByIdentifier(String identifier) {
         // Try to find by email first, then by phone
         return userRepository.findByEmail(identifier.toLowerCase())
-                .or(() -> userRepository.findByPhone(identifier))
-                .orElseThrow(() -> new UnauthorizedException("INVALID_CREDENTIALS",
-                        "Invalid email/phone or password"));
+                .or(() -> userRepository.findByPhone(identifier));
     }
 
     private void handleFailedLogin(User user) {
-        user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+        int attempts = user.getFailedLoginAttempts() + 1;
+        user.setFailedLoginAttempts(attempts);
 
-        if (user.getFailedLoginAttempts() >= 5) {
+        if (attempts >= 3) {
             // Lock account for 30 minutes
             user.setLockedUntil(Instant.now().plus(30, ChronoUnit.MINUTES));
-            log.warn("Account locked due to too many failed login attempts: {}", user.getUserId());
+            log.warn("Account locked due to 3 failed login attempts: {}", user.getUserId());
+            
+            // Send account locked email with reset link
+            // We need to generate a token or just send them to the forgot password page
+            // Since we use OTP for reset, we can just direct them to the reset page
+            String resetLink = frontendUrl + "/forgot-password";
+            emailService.sendAccountLockedEmail(user.getEmail(), user.getFirstName(), resetLink);
         }
 
         userRepository.save(user);
