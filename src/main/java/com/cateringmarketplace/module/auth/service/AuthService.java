@@ -69,18 +69,21 @@ public class AuthService {
     public AuthResponse register(RegisterRequest request, HttpServletRequest httpRequest) {
         log.info("Registering new user with email: {}", request.getEmail());
 
+        // Format phone number based on country
+        String formattedPhone = formatPhoneByCountry(request.getPhone(), request.getCountry());
+
         // Check if email or phone already exists
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new ConflictException("EMAIL_EXISTS", "Email is already registered");
         }
-        if (userRepository.existsByPhone(request.getPhone())) {
+        if (userRepository.existsByPhone(formattedPhone)) {
             throw new ConflictException("PHONE_EXISTS", "Phone number is already registered");
         }
 
         // Create user
         User user = User.builder()
                 .email(request.getEmail().toLowerCase().trim())
-                .phone(request.getPhone())
+                .phone(formattedPhone)
                 .passwordHash(passwordUtil.hashPassword(request.getPassword()))
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
@@ -562,5 +565,32 @@ public class AuthService {
         } catch (IllegalArgumentException e) {
             return UserType.USER;
         }
+    }
+
+    private String formatPhoneByCountry(String phone, String country) {
+        if (phone == null || phone.isEmpty()) return phone;
+        
+        // Remove spaces, dashes, parentheses
+        String cleaned = phone.replaceAll("[\\s\\-()]", "");
+        
+        // If already has +, assume it's correct
+        if (cleaned.startsWith("+")) return cleaned;
+        
+        if ("USA".equalsIgnoreCase(country)) {
+            // If 10 digits, add +1
+            if (cleaned.length() == 10) return "+1" + cleaned;
+            // If 11 digits starting with 1, add +
+            if (cleaned.length() == 11 && cleaned.startsWith("1")) return "+" + cleaned;
+        } else if ("INDIA".equalsIgnoreCase(country)) {
+            // If 10 digits, add +91
+            if (cleaned.length() == 10) return "+91" + cleaned;
+            // If 12 digits starting with 91, add +
+            if (cleaned.length() == 12 && cleaned.startsWith("91")) return "+" + cleaned;
+        }
+        
+        // Default fallback: if 10 digits, assume India (+91) as per previous logic, or just return as is
+        if (cleaned.length() == 10) return "+91" + cleaned;
+        
+        return cleaned;
     }
 }
