@@ -22,7 +22,7 @@ public class SendOTPRequest {
     private String identifier;
 
     /**
-     * Type of OTP: EMAIL, PHONE, PASSWORD_RESET, TWO_FACTOR, BUSINESS_EMAIL
+     * Type of OTP: EMAIL, PHONE, PASSWORD_RESET, TWO_FACTOR, BUSINESS_EMAIL, BUSINESS_PHONE
      */
     @NotBlank(message = "OTP type is required")
     private String type;

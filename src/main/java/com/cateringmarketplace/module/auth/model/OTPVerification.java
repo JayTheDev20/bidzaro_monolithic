@@ -98,7 +98,8 @@ public class OTPVerification {
         PASSWORD_RESET,
         TWO_FACTOR,
         LOGIN,
-        BUSINESS_EMAIL
+        BUSINESS_EMAIL,
+        BUSINESS_PHONE
     }
 
     /**

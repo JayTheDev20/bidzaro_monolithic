@@ -310,6 +310,7 @@ public class AuthService {
                 case PASSWORD_RESET -> "Password Reset";
                 case TWO_FACTOR -> "Two-Factor Authentication";
                 case BUSINESS_EMAIL -> "Business Email Verification";
+                case BUSINESS_PHONE -> "Business Phone Verification";
                 default -> "Verification";
             };
 
@@ -436,6 +437,7 @@ public class AuthService {
                         // Also update vendor registered email verification status if applicable
                         vendorRepository.findByUserId(user.getUserId())
                                 .ifPresent(vendor -> {
+                                    vendor.setRegisteredEmail(user.getEmail()); // Ensure email is synced
                                     // We don't have a direct field for registered email verified in Vendor entity
                                     // but we can infer it from the user.
                                     // However, if there was a field like registeredEmailVerified in Vendor, we would update it here.
@@ -460,6 +462,12 @@ public class AuthService {
             vendorRepository.findByBusinessEmail(request.getIdentifier().toLowerCase().trim())
                     .ifPresent(vendor -> {
                         vendor.setBusinessEmailVerified(true);
+                        vendorRepository.save(vendor);
+                    });
+        } else if (type == VerificationType.BUSINESS_PHONE) {
+            vendorRepository.findByBusinessPhone(request.getIdentifier())
+                    .ifPresent(vendor -> {
+                        vendor.setBusinessPhoneVerified(true);
                         vendorRepository.save(vendor);
                     });
         }

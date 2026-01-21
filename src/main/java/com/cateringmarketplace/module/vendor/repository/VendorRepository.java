@@ -36,6 +36,11 @@ public interface VendorRepository extends MongoRepository<Vendor, String> {
     Optional<Vendor> findByBusinessEmail(String businessEmail);
 
     /**
+     * Finds vendor by business phone.
+     */
+    Optional<Vendor> findByBusinessPhone(String businessPhone);
+
+    /**
      * Checks if vendor exists with business email.
      */
     boolean existsByBusinessEmail(String businessEmail);
@@ -158,4 +163,3 @@ public interface VendorRepository extends MongoRepository<Vendor, String> {
      */
     long countByCreatedAtAfter(java.time.Instant date);
 }
-
