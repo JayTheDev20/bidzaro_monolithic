@@ -1,22 +1,19 @@
 # Build stage
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM maven:3.9.6-eclipse-temurin-17-alpine AS build
 
 WORKDIR /app
 
-# Copy maven wrapper and pom.xml
-COPY mvnw .
-COPY .mvn .mvn
+# Copy pom.xml
 COPY pom.xml .
 
 # Download dependencies
-RUN chmod +x ./mvnw
-RUN ./mvnw dependency:go-offline -B
+RUN mvn dependency:go-offline -B
 
 # Copy source code
 COPY src src
 
 # Build the application
-RUN ./mvnw package -DskipTests
+RUN mvn package -DskipTests
 
 # Runtime stage
 FROM eclipse-temurin:17-jre-alpine
@@ -45,4 +42,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
 
 # Run the application
 ENTRYPOINT ["java", "-jar", "-Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-prod}", "app.jar"]
-
