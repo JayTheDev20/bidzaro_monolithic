@@ -117,9 +117,12 @@ public class User {
     @Field("device_info")
     private String deviceInfo;
 
-    @Field("profile_reminder_sent")
+    @Field("profile_reminder_count")
     @Builder.Default
-    private Boolean profileReminderSent = false;
+    private Integer profileReminderCount = 0;
+
+    @Field("last_reminder_sent_at")
+    private Instant lastReminderSentAt;
 
     @CreatedDate
     @Field("created_at")

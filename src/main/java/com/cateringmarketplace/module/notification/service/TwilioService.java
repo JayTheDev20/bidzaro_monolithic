@@ -223,6 +223,25 @@ public class TwilioService {
     }
 
     /**
+     * Sends profile completion reminder via WhatsApp/SMS.
+     */
+    public boolean sendProfileReminder(String to, String userName, String link) {
+        String message = String.format(
+                "Hello %s,\n\n" +
+                "You registered as a vendor on Bidzaro but haven't completed your profile yet.\n\n" +
+                "Complete it now to start receiving orders: %s\n\n" +
+                "Bidzaro Team",
+                userName, link
+        );
+        
+        // Try WhatsApp first, fallback to SMS
+        if (sendWhatsApp(to, message)) {
+            return true;
+        }
+        return sendSMS(to, message);
+    }
+
+    /**
      * Formats phone number to E.164 format if not already.
      * E.164 format: +[country code][number] (e.g., +919640206605)
      *
