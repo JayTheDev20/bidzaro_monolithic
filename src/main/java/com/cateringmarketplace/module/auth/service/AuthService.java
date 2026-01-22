@@ -148,7 +148,7 @@ public class AuthService {
         // Check if account is locked
         if (user.isAccountLocked()) {
             throw new UnauthorizedException("ACCOUNT_LOCKED",
-                    "Account is temporarily locked due to multiple failed login attempts. Please check your email to reset your password.");
+                    "Account is locked due to multiple failed login attempts. Please reset your password to unlock your account.");
         }
 
         // Verify password
@@ -525,6 +525,13 @@ public class AuthService {
         // Revoke all refresh tokens for security
         logoutAll(user.getUserId());
 
+        // Send account unlocked email
+        try {
+            emailService.sendAccountUnlockedEmail(user.getEmail(), user.getFirstName());
+        } catch (Exception e) {
+            log.error("Failed to send account unlocked email: {}", e.getMessage(), e);
+        }
+
         log.info("Password reset successfully for user: {}", user.getUserId());
     }
 
@@ -574,13 +581,16 @@ public class AuthService {
         user.setFailedLoginAttempts(attempts);
 
         if (attempts >= 3) {
-            // Lock account for 30 minutes
-            user.setLockedUntil(Instant.now().plus(30, ChronoUnit.MINUTES));
+            // Lock account indefinitely (until password reset)
+            // We can set a very far future date or handle it with a boolean flag if we had one.
+            // But since we use lockedUntil, let's set it to a far future date (e.g. year 9999)
+            // Or just rely on the logic that they must reset password.
+            // The requirement says "blocked only open when he is resets his password".
+            // So we can set lockedUntil to a very long time.
+            user.setLockedUntil(Instant.now().plus(36500, ChronoUnit.DAYS)); // ~100 years
             log.warn("Account locked due to 3 failed login attempts: {}", user.getUserId());
             
             // Send account locked email with reset link
-            // We need to generate a token or just send them to the forgot password page
-            // Since we use OTP for reset, we can just direct them to the reset page
             String resetLink = frontendUrl + "/forgot-password";
             emailService.sendAccountLockedEmail(user.getEmail(), user.getFirstName(), resetLink);
         }

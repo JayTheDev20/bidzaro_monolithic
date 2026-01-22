@@ -482,9 +482,9 @@ public class EmailService {
         String body = String.format("""
                 <p>Dear %s,</p>
                 
-                <p>Your account has been temporarily locked due to multiple failed login attempts.</p>
+                <p>Your account has been locked due to multiple failed login attempts.</p>
                 
-                <p>To unlock your account, please reset your password using the link below:</p>
+                <p>To unlock your account, you must reset your password using the link below:</p>
                 
                 <a href="%s" class="cta-button" style="color: white;">Reset Password</a>
                 
@@ -492,6 +492,26 @@ public class EmailService {
                 
                 <p>Best regards,<br>The Catering Platform Team</p>
                 """, userName, resetLink);
+
+        sendSimpleEmail(to, subject, body, null);
+    }
+
+    /**
+     * Sends an account unlocked email.
+     */
+    public void sendAccountUnlockedEmail(String to, String userName) {
+        String subject = "Account Unlocked";
+        String body = String.format("""
+                <p>Dear %s,</p>
+                
+                <p>Your account has been successfully unlocked.</p>
+                
+                <p>You can now log in to your account.</p>
+                
+                <p>If you did not request this, please contact our support team immediately.</p>
+                
+                <p>Best regards,<br>The Catering Platform Team</p>
+                """, userName);
 
         sendSimpleEmail(to, subject, body, null);
     }
