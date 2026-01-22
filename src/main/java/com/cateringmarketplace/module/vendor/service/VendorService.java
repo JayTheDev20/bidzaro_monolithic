@@ -10,6 +10,7 @@ import com.cateringmarketplace.module.auth.model.User;
 import com.cateringmarketplace.module.auth.model.enums.UserType;
 import com.cateringmarketplace.module.auth.repository.UserRepository;
 import com.cateringmarketplace.module.vendor.dto.request.VendorRegistrationRequest;
+import com.cateringmarketplace.module.vendor.dto.request.VendorUpdateRequest;
 import com.cateringmarketplace.module.vendor.dto.response.VendorResponse;
 import com.cateringmarketplace.module.vendor.model.Vendor;
 import com.cateringmarketplace.module.vendor.model.Vendor.*;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -54,16 +56,41 @@ public class VendorService {
             throw new ConflictException("VENDOR_EXISTS", "Vendor profile already exists for this user");
         }
 
+        String businessEmail = request.getBusinessEmail().toLowerCase().trim();
+
         // Check if business email is already registered
-        if (vendorRepository.existsByBusinessEmail(request.getBusinessEmail())) {
+        if (vendorRepository.existsByBusinessEmail(businessEmail)) {
             throw new ConflictException("EMAIL_EXISTS", "Business email is already registered");
+        }
+
+        // Validate country
+        try {
+            Country.valueOf(request.getCountry().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new BadRequestException("INVALID_COUNTRY", "Country must be either USA or INDIA");
+        }
+
+        // Validate country-specific documents
+        validateDocumentsForCountry(request.getCountry(), request.getDocuments());
+
+        // Determine currency based on country
+        String currency = "USD";
+        if (Country.INDIA.name().equalsIgnoreCase(request.getCountry())) {
+            currency = "INR";
+        }
+        
+        // Override if provided in request
+        if (request.getPricing() != null && request.getPricing().getCurrency() != null) {
+            currency = request.getPricing().getCurrency();
         }
 
         // Create vendor
         Vendor vendor = Vendor.builder()
                 .userId(userId)
+                .registeredEmail(user.getEmail()) // Populate from User
+                .registeredPhone(user.getPhone()) // Populate from User
                 .businessName(request.getBusinessName())
-                .businessEmail(request.getBusinessEmail())
+                .businessEmail(businessEmail)
                 .businessPhone(request.getBusinessPhone())
                 .businessType(BusinessType.valueOf(request.getBusinessType().toUpperCase()))
                 .businessRegistrationNumber(request.getBusinessRegistrationNumber())
@@ -134,13 +161,30 @@ public class VendorService {
         }
 
         // Map pricing
+        Pricing pricing = Pricing.builder()
+                .currency(currency)
+                .build();
+                
         if (request.getPricing() != null) {
-            vendor.setPricing(Pricing.builder()
-                    .currency(request.getPricing().getCurrency() != null ?
-                            request.getPricing().getCurrency() : "USD")
-                    .startingPricePerPlate(request.getPricing().getStartingPricePerPlate())
-                    .averagePricePerPlate(request.getPricing().getAveragePricePerPlate())
-                    .build());
+            pricing.setStartingPricePerPlate(request.getPricing().getStartingPricePerPlate());
+            pricing.setAveragePricePerPlate(request.getPricing().getAveragePricePerPlate());
+        }
+        vendor.setPricing(pricing);
+
+        // Map documents
+        if (request.getDocuments() != null) {
+            vendor.setDocuments(request.getDocuments().stream()
+                    .map(doc -> VendorDocument.builder()
+                            .documentType(doc.getDocumentType())
+                            .documentName(doc.getDocumentName())
+                            .documentUrl(doc.getDocumentUrl())
+                            .documentNumber(doc.getDocumentNumber())
+                            .issueDate(doc.getIssueDate())
+                            .expiryDate(doc.getExpiryDate())
+                            .uploadedAt(Instant.now())
+                            .verificationStatus(DocumentVerificationStatus.PENDING)
+                            .build())
+                    .collect(Collectors.toList()));
         }
 
         vendor = vendorRepository.save(vendor);
@@ -150,7 +194,37 @@ public class VendorService {
         userRepository.save(user);
 
         log.info("Vendor registered successfully with ID: {}", vendor.getVendorId());
-        return VendorResponse.fromEntity(vendor);
+        return toVendorResponse(vendor);
+    }
+
+    private void validateDocumentsForCountry(String country, List<VendorRegistrationRequest.VendorDocumentDTO> documents) {
+        if (documents == null || documents.isEmpty()) {
+            throw new BadRequestException("MISSING_DOCUMENTS", "Documents are required for registration");
+        }
+
+        List<String> requiredDocs = new ArrayList<>();
+        if (Country.USA.name().equalsIgnoreCase(country)) {
+            requiredDocs.add("EIN"); // Employer Identification Number
+            requiredDocs.add("BUSINESS_LICENSE");
+            requiredDocs.add("INSURANCE");
+        } else if (Country.INDIA.name().equalsIgnoreCase(country)) {
+            requiredDocs.add("GST"); // Goods and Services Tax
+            requiredDocs.add("PAN"); // Permanent Account Number
+            requiredDocs.add("FSSAI"); // Food Safety and Standards Authority of India
+        } else {
+             throw new BadRequestException("INVALID_COUNTRY", "Country must be either USA or INDIA");
+        }
+
+        List<String> uploadedDocTypes = documents.stream()
+                .map(VendorRegistrationRequest.VendorDocumentDTO::getDocumentType)
+                .map(String::toUpperCase)
+                .collect(Collectors.toList());
+
+        for (String requiredDoc : requiredDocs) {
+            if (!uploadedDocTypes.contains(requiredDoc)) {
+                throw new BadRequestException("MISSING_DOCUMENT", "Missing required document: " + requiredDoc + " for country: " + country);
+            }
+        }
     }
 
     /**
@@ -165,7 +239,7 @@ public class VendorService {
             vendors = vendorRepository.findByStatus(VendorStatus.ACTIVE, pageable);
         }
 
-        return vendors.map(VendorResponse::fromEntity);
+        return vendors.map(this::toVendorResponse);
     }
 
     /**
@@ -174,7 +248,7 @@ public class VendorService {
     public VendorResponse getVendorById(String vendorId) {
         Vendor vendor = vendorRepository.findByVendorId(vendorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
-        return VendorResponse.fromEntity(vendor);
+        return toVendorResponse(vendor);
     }
 
     /**
@@ -183,14 +257,14 @@ public class VendorService {
     public VendorResponse getVendorByUserId(String userId) {
         Vendor vendor = vendorRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor profile not found"));
-        return VendorResponse.fromEntity(vendor);
+        return toVendorResponse(vendor);
     }
 
     /**
      * Updates vendor profile.
      */
     @Transactional
-    public VendorResponse updateVendor(String vendorId, VendorRegistrationRequest request, String userId) {
+    public VendorResponse updateVendor(String vendorId, VendorUpdateRequest request, String userId) {
         log.info("Updating vendor: {} by user: {}", vendorId, userId);
 
         Vendor vendor = vendorRepository.findByVendorId(vendorId)
@@ -202,26 +276,98 @@ public class VendorService {
         }
 
         // Update fields
-        if (request.getBusinessName() != null) {
-            vendor.setBusinessName(request.getBusinessName());
+        if (request.getBusinessName() != null) vendor.setBusinessName(request.getBusinessName());
+        if (request.getBusinessPhone() != null) vendor.setBusinessPhone(request.getBusinessPhone());
+        if (request.getBusinessEmail() != null) vendor.setBusinessEmail(request.getBusinessEmail().toLowerCase().trim());
+        if (request.getBusinessType() != null) vendor.setBusinessType(BusinessType.valueOf(request.getBusinessType().toUpperCase()));
+        if (request.getBusinessRegistrationNumber() != null) vendor.setBusinessRegistrationNumber(request.getBusinessRegistrationNumber());
+        if (request.getTaxId() != null) vendor.setTaxId(request.getTaxId());
+        if (request.getDescription() != null) vendor.setDescription(request.getDescription());
+        if (request.getEstablishedYear() != null) vendor.setEstablishedYear(request.getEstablishedYear());
+        if (request.getCuisinesOffered() != null) vendor.setCuisinesOffered(request.getCuisinesOffered());
+        if (request.getSpecialties() != null) vendor.setSpecialties(request.getSpecialties());
+        if (request.getCountry() != null) vendor.setCountry(request.getCountry());
+
+        // Update Business Address
+        if (request.getBusinessAddress() != null) {
+            BusinessAddress address = vendor.getBusinessAddress() != null ? vendor.getBusinessAddress() : new BusinessAddress();
+            if (request.getBusinessAddress().getStreetAddress() != null) address.setStreetAddress(request.getBusinessAddress().getStreetAddress());
+            if (request.getBusinessAddress().getCity() != null) address.setCity(request.getBusinessAddress().getCity());
+            if (request.getBusinessAddress().getState() != null) address.setState(request.getBusinessAddress().getState());
+            if (request.getBusinessAddress().getPostalCode() != null) address.setPostalCode(request.getBusinessAddress().getPostalCode());
+            if (request.getBusinessAddress().getCountry() != null) address.setCountry(request.getBusinessAddress().getCountry());
+            
+            if (request.getBusinessAddress().getLatitude() != null && request.getBusinessAddress().getLongitude() != null) {
+                address.setGpsCoordinates(new GeoJsonPoint(
+                        request.getBusinessAddress().getLongitude(),
+                        request.getBusinessAddress().getLatitude()
+                ));
+            }
+            vendor.setBusinessAddress(address);
         }
-        if (request.getBusinessPhone() != null) {
-            vendor.setBusinessPhone(request.getBusinessPhone());
+
+        // Update Owner Info
+        if (request.getOwnerInfo() != null) {
+            OwnerInfo owner = vendor.getOwnerInfo() != null ? vendor.getOwnerInfo() : new OwnerInfo();
+            if (request.getOwnerInfo().getFirstName() != null) owner.setFirstName(request.getOwnerInfo().getFirstName());
+            if (request.getOwnerInfo().getLastName() != null) owner.setLastName(request.getOwnerInfo().getLastName());
+            if (request.getOwnerInfo().getPhone() != null) owner.setPhone(request.getOwnerInfo().getPhone());
+            if (request.getOwnerInfo().getEmail() != null) owner.setEmail(request.getOwnerInfo().getEmail());
+            if (request.getOwnerInfo().getIdProofType() != null) owner.setIdProofType(request.getOwnerInfo().getIdProofType());
+            if (request.getOwnerInfo().getIdProofNumber() != null) owner.setIdProofNumber(request.getOwnerInfo().getIdProofNumber());
+            vendor.setOwnerInfo(owner);
         }
-        if (request.getDescription() != null) {
-            vendor.setDescription(request.getDescription());
+
+        // Update Service Areas
+        if (request.getServiceAreas() != null) {
+            vendor.setServiceAreas(request.getServiceAreas().stream()
+                    .map(sa -> ServiceArea.builder()
+                            .city(sa.getCity())
+                            .state(sa.getState())
+                            .radiusKm(sa.getRadiusKm())
+                            .build())
+                    .collect(Collectors.toList()));
         }
-        if (request.getCuisinesOffered() != null) {
-            vendor.setCuisinesOffered(request.getCuisinesOffered());
+
+        // Update Capacity
+        if (request.getCapacity() != null) {
+            Capacity capacity = vendor.getCapacity() != null ? vendor.getCapacity() : new Capacity();
+            if (request.getCapacity().getMinGuests() != null) capacity.setMinGuests(request.getCapacity().getMinGuests());
+            if (request.getCapacity().getMaxGuests() != null) capacity.setMaxGuests(request.getCapacity().getMaxGuests());
+            if (request.getCapacity().getConcurrentEvents() != null) capacity.setConcurrentEvents(request.getCapacity().getConcurrentEvents());
+            vendor.setCapacity(capacity);
         }
-        if (request.getSpecialties() != null) {
-            vendor.setSpecialties(request.getSpecialties());
+
+        // Update Pricing
+        if (request.getPricing() != null) {
+            Pricing pricing = vendor.getPricing() != null ? vendor.getPricing() : new Pricing();
+            if (request.getPricing().getCurrency() != null) pricing.setCurrency(request.getPricing().getCurrency());
+            if (request.getPricing().getStartingPricePerPlate() != null) pricing.setStartingPricePerPlate(request.getPricing().getStartingPricePerPlate());
+            if (request.getPricing().getAveragePricePerPlate() != null) pricing.setAveragePricePerPlate(request.getPricing().getAveragePricePerPlate());
+            vendor.setPricing(pricing);
+        }
+
+        // Update Documents (Optional: usually handled via separate upload endpoints, but allowing metadata update here)
+        if (request.getDocuments() != null) {
+            // This replaces the entire document list. For appending, logic would be different.
+            vendor.setDocuments(request.getDocuments().stream()
+                    .map(doc -> VendorDocument.builder()
+                            .documentType(doc.getDocumentType())
+                            .documentName(doc.getDocumentName())
+                            .documentUrl(doc.getDocumentUrl())
+                            .documentNumber(doc.getDocumentNumber())
+                            .issueDate(doc.getIssueDate())
+                            .expiryDate(doc.getExpiryDate())
+                            .uploadedAt(Instant.now())
+                            .verificationStatus(DocumentVerificationStatus.PENDING)
+                            .build())
+                    .collect(Collectors.toList()));
         }
 
         vendor = vendorRepository.save(vendor);
         log.info("Vendor updated successfully: {}", vendorId);
 
-        return VendorResponse.fromEntity(vendor);
+        return toVendorResponse(vendor);
     }
 
     /**
@@ -256,7 +402,7 @@ public class VendorService {
             log.error("Failed to send vendor approval email: {}", e.getMessage(), e);
         }
 
-        return VendorResponse.fromEntity(vendor);
+        return toVendorResponse(vendor);
     }
 
     /**
@@ -286,7 +432,7 @@ public class VendorService {
             log.error("Failed to send vendor rejection email: {}", e.getMessage(), e);
         }
 
-        return VendorResponse.fromEntity(vendor);
+        return toVendorResponse(vendor);
     }
 
     /**
@@ -294,7 +440,7 @@ public class VendorService {
      */
     public Page<VendorResponse> getPendingVendors(Pageable pageable) {
         Page<Vendor> vendors = vendorRepository.findByApprovalStatus(ApprovalStatus.PENDING, pageable);
-        return vendors.map(VendorResponse::fromEntity);
+        return vendors.map(this::toVendorResponse);
     }
 
     /**
@@ -305,7 +451,21 @@ public class VendorService {
         // For now, use basic search - can be enhanced with Elasticsearch later
         Page<Vendor> vendors = vendorRepository.findByBusinessNameContainingIgnoreCaseAndStatus(
                 query != null ? query : "", VendorStatus.ACTIVE, pageable);
-        return vendors.map(VendorResponse::fromEntity);
+        return vendors.map(this::toVendorResponse);
+    }
+
+    /**
+     * Helper method to convert Vendor entity to VendorResponse and populate verification status from User.
+     */
+    private VendorResponse toVendorResponse(Vendor vendor) {
+        VendorResponse response = VendorResponse.fromEntity(vendor);
+        
+        // Fetch user to get verification status
+        userRepository.findByUserId(vendor.getUserId()).ifPresent(user -> {
+            response.setRegisteredEmailVerified(user.getEmailVerified());
+            response.setRegisteredPhoneVerified(user.getPhoneVerified());
+        });
+        
+        return response;
     }
 }
-

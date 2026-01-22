@@ -78,13 +78,25 @@ public class NotificationService {
             notification = notificationRepository.save(notification);
 
             // Send through appropriate channel
-            boolean sent = switch (channel) {
-                case EMAIL -> sendEmail(user.getEmail(), title, message, user.getUserType().name());
-                case SMS -> sendSMS(user.getPhone(), message);
-                case PUSH -> sendPushNotification(user.getFcmToken(), title, message, data);
-                case IN_APP -> true; // Already saved
-                case WHATSAPP -> sendWhatsApp(user.getPhone(), message);
-            };
+            boolean sent = false;
+            switch (channel) {
+                case EMAIL:
+                    sendEmail(user.getEmail(), title, message, user.getUserType().name());
+                    sent = true; // EmailService is async void, assume sent for now or track separately
+                    break;
+                case SMS:
+                    sent = sendSMS(user.getPhone(), message);
+                    break;
+                case PUSH:
+                    sent = sendPushNotification(user.getFcmToken(), title, message, data);
+                    break;
+                case IN_APP:
+                    sent = true; // Already saved
+                    break;
+                case WHATSAPP:
+                    sent = sendWhatsApp(user.getPhone(), message);
+                    break;
+            }
 
             if (sent) {
                 notification.setStatus(NotificationStatus.SENT);
@@ -170,12 +182,11 @@ public class NotificationService {
         return true;
     }
 
-    private boolean sendEmail(String email, String subject, String body, String role) {
+    private void sendEmail(String email, String subject, String body, String role) {
         try {
-            return emailService.sendNotificationEmail(email, subject, body, role);
+            emailService.sendNotificationEmail(email, subject, body, role);
         } catch (Exception e) {
             log.error("Error sending email to {}: {}", email, e.getMessage(), e);
-            return false;
         }
     }
 
@@ -207,4 +218,3 @@ public class NotificationService {
         }
     }
 }
-

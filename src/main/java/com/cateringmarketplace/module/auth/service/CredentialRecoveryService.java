@@ -44,10 +44,15 @@ public class CredentialRecoveryService {
         );
 
         // Try WhatsApp first, fallback to SMS
-        boolean sent = twilioService.sendWhatsApp(phone, message);
-        if (!sent) {
-            log.warn("WhatsApp failed, falling back to SMS for phone: {}", phone);
-            twilioService.sendSMS(phone, "Your registered email is: " + user.getEmail());
+        boolean sent = false;
+        if (twilioService.isConfigured()) {
+            sent = twilioService.sendWhatsApp(phone, message);
+            if (!sent) {
+                log.warn("WhatsApp failed, falling back to SMS for phone: {}", phone);
+                twilioService.sendSMS(phone, "Your registered email is: " + user.getEmail());
+            }
+        } else {
+            log.warn("Twilio not configured. Cannot send recovery message to phone: {}", phone);
         }
         log.info("Email credential sent to phone: {}", phone);
 
@@ -119,4 +124,3 @@ public class CredentialRecoveryService {
         return localPart.charAt(0) + "***" + localPart.charAt(localPart.length() - 1) + "@" + domain;
     }
 }
-

@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -38,6 +39,8 @@ public class VendorRegistrationRequest {
     private Integer establishedYear;
     private List<String> cuisinesOffered;
     private List<String> specialties;
+
+    @NotBlank(message = "Country is required")
     private String country;
 
     private BusinessAddressDTO businessAddress;
@@ -45,6 +48,7 @@ public class VendorRegistrationRequest {
     private List<ServiceAreaDTO> serviceAreas;
     private CapacityDTO capacity;
     private PricingDTO pricing;
+    private List<VendorDocumentDTO> documents;
 
     @Data
     @Builder
@@ -111,5 +115,20 @@ public class VendorRegistrationRequest {
         private BigDecimal startingPricePerPlate;
         private BigDecimal averagePricePerPlate;
     }
-}
 
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class VendorDocumentDTO {
+        @NotBlank(message = "Document type is required")
+        private String documentType;
+        @NotBlank(message = "Document name is required")
+        private String documentName;
+        @NotBlank(message = "Document URL is required")
+        private String documentUrl;
+        private String documentNumber;
+        private Instant issueDate;
+        private Instant expiryDate;
+    }
+}

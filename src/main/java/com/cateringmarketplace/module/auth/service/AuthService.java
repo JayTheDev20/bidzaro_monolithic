@@ -17,6 +17,8 @@ import com.cateringmarketplace.module.auth.model.enums.UserType;
 import com.cateringmarketplace.module.auth.repository.*;
 import com.cateringmarketplace.module.notification.service.EmailService;
 import com.cateringmarketplace.module.notification.service.TwilioService;
+import com.cateringmarketplace.module.vendor.model.Vendor;
+import com.cateringmarketplace.module.vendor.repository.VendorRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Service class for authentication operations.
@@ -39,6 +43,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final OTPVerificationRepository otpVerificationRepository;
+    private final VendorRepository vendorRepository;
     private final JwtUtil jwtUtil;
     private final PasswordUtil passwordUtil;
     private final EmailService emailService;
@@ -58,6 +63,9 @@ public class AuthService {
     @Value("${app.otp.log-plain:false}")
     private boolean logPlainOtp;
 
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
+
     /**
      * Registers a new user.
      */
@@ -65,22 +73,32 @@ public class AuthService {
     public AuthResponse register(RegisterRequest request, HttpServletRequest httpRequest) {
         log.info("Registering new user with email: {}", request.getEmail());
 
+        // Format phone number based on country
+        String formattedPhone = formatPhoneByCountry(request.getPhone(), request.getCountry());
+
         // Check if email or phone already exists
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new ConflictException("EMAIL_EXISTS", "Email is already registered");
         }
-        if (userRepository.existsByPhone(request.getPhone())) {
+        if (userRepository.existsByPhone(formattedPhone)) {
             throw new ConflictException("PHONE_EXISTS", "Phone number is already registered");
+        }
+
+        // Determine preferred currency based on country
+        String currency = "USD";
+        if ("INDIA".equalsIgnoreCase(request.getCountry())) {
+            currency = "INR";
         }
 
         // Create user
         User user = User.builder()
                 .email(request.getEmail().toLowerCase().trim())
-                .phone(request.getPhone())
+                .phone(formattedPhone)
                 .passwordHash(passwordUtil.hashPassword(request.getPassword()))
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
                 .country(request.getCountry())
+                .preferredCurrency(currency)
                 .userType(parseUserType(request.getUserType()))
                 .status(UserStatus.PENDING_VERIFICATION)
                 .fcmToken(request.getFcmToken())
@@ -119,18 +137,24 @@ public class AuthService {
         log.info("Login attempt for identifier: {}", request.getIdentifier());
 
         // Find user by email or phone
-        User user = findUserByIdentifier(request.getIdentifier());
+        Optional<User> userOpt = findUserByIdentifier(request.getIdentifier());
+
+        if (userOpt.isEmpty()) {
+            throw new UnauthorizedException("INVALID_CREDENTIALS", "Email or phone invalid");
+        }
+
+        User user = userOpt.get();
 
         // Check if account is locked
         if (user.isAccountLocked()) {
             throw new UnauthorizedException("ACCOUNT_LOCKED",
-                    "Account is temporarily locked. Please try again later.");
+                    "Account is locked due to multiple failed login attempts. Please reset your password to unlock your account.");
         }
 
         // Verify password
         if (!passwordUtil.verifyPassword(request.getPassword(), user.getPasswordHash())) {
             handleFailedLogin(user);
-            throw new UnauthorizedException("INVALID_CREDENTIALS", "Invalid email/phone or password");
+            throw new UnauthorizedException("INVALID_CREDENTIALS", "Password incorrect");
         }
 
         // Check if account is active
@@ -139,6 +163,22 @@ public class AuthService {
         }
         if (user.getStatus() == UserStatus.DELETED) {
             throw new UnauthorizedException("ACCOUNT_DELETED", "Account not found");
+        }
+
+        // Check Vendor Approval Status
+        if (user.getUserType() == UserType.VENDOR) {
+            Optional<Vendor> vendorOpt = vendorRepository.findByUserId(user.getUserId());
+            if (vendorOpt.isPresent()) {
+                Vendor vendor = vendorOpt.get();
+                // If vendor profile exists but not approved, block login
+                if (vendor.getApprovalStatus() != Vendor.ApprovalStatus.APPROVED) {
+                    throw new UnauthorizedException("VENDOR_NOT_APPROVED",
+                        "Your vendor account is currently " + vendor.getApprovalStatus() + ". Please wait for admin approval.");
+                }
+            } else {
+                // Vendor profile does NOT exist yet.
+                // Allow login so they can create their profile.
+            }
         }
 
         // Reset failed login attempts and update last login
@@ -269,6 +309,8 @@ public class AuthService {
                 case PHONE -> "Phone Verification";
                 case PASSWORD_RESET -> "Password Reset";
                 case TWO_FACTOR -> "Two-Factor Authentication";
+                case BUSINESS_EMAIL -> "Business Email Verification";
+                case BUSINESS_PHONE -> "Business Phone Verification";
                 default -> "Verification";
             };
 
@@ -391,6 +433,21 @@ public class AuthService {
                             user.setStatus(UserStatus.ACTIVE);
                         }
                         userRepository.save(user);
+
+                        // Also update vendor registered email verification status if applicable
+                        vendorRepository.findByUserId(user.getUserId())
+                                .ifPresent(vendor -> {
+                                    vendor.setRegisteredEmail(user.getEmail()); // Ensure email is synced
+                                    // We don't have a direct field for registered email verified in Vendor entity
+                                    // but we can infer it from the user.
+                                    // However, if there was a field like registeredEmailVerified in Vendor, we would update it here.
+                                    // Based on Vendor model, there isn't one explicitly named 'registeredEmailVerified' that is persisted
+                                    // The VendorResponse maps it from User entity dynamically.
+                                    // But if the user wants to update something in vendor collection, let's check if there are any related fields.
+                                    // Vendor model has: businessEmailVerified, businessPhoneVerified.
+                                    // It does NOT have registeredEmailVerified stored in DB.
+                                    // But let's check if we need to sync anything else.
+                                });
                     });
         } else if (type == VerificationType.PHONE) {
             userRepository.findByPhone(request.getIdentifier())
@@ -400,6 +457,18 @@ public class AuthService {
                             user.setStatus(UserStatus.ACTIVE);
                         }
                         userRepository.save(user);
+                    });
+        } else if (type == VerificationType.BUSINESS_EMAIL) {
+            vendorRepository.findByBusinessEmail(request.getIdentifier().toLowerCase().trim())
+                    .ifPresent(vendor -> {
+                        vendor.setBusinessEmailVerified(true);
+                        vendorRepository.save(vendor);
+                    });
+        } else if (type == VerificationType.BUSINESS_PHONE) {
+            vendorRepository.findByBusinessPhone(request.getIdentifier())
+                    .ifPresent(vendor -> {
+                        vendor.setBusinessPhoneVerified(true);
+                        vendorRepository.save(vendor);
                     });
         }
 
@@ -446,10 +515,22 @@ public class AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorMessages.USER_NOT_FOUND));
 
         user.setPasswordHash(passwordUtil.hashPassword(request.getNewPassword()));
+        
+        // Unlock account if it was locked
+        user.setLockedUntil(null);
+        user.setFailedLoginAttempts(0);
+        
         userRepository.save(user);
 
         // Revoke all refresh tokens for security
         logoutAll(user.getUserId());
+
+        // Send account unlocked email
+        try {
+            emailService.sendAccountUnlockedEmail(user.getEmail(), user.getFirstName());
+        } catch (Exception e) {
+            log.error("Failed to send account unlocked email: {}", e.getMessage(), e);
+        }
 
         log.info("Password reset successfully for user: {}", user.getUserId());
     }
@@ -489,21 +570,29 @@ public class AuthService {
 
     // ==================== HELPER METHODS ====================
 
-    private User findUserByIdentifier(String identifier) {
+    private Optional<User> findUserByIdentifier(String identifier) {
         // Try to find by email first, then by phone
         return userRepository.findByEmail(identifier.toLowerCase())
-                .or(() -> userRepository.findByPhone(identifier))
-                .orElseThrow(() -> new UnauthorizedException("INVALID_CREDENTIALS",
-                        "Invalid email/phone or password"));
+                .or(() -> userRepository.findByPhone(identifier));
     }
 
     private void handleFailedLogin(User user) {
-        user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+        int attempts = user.getFailedLoginAttempts() + 1;
+        user.setFailedLoginAttempts(attempts);
 
-        if (user.getFailedLoginAttempts() >= 5) {
-            // Lock account for 30 minutes
-            user.setLockedUntil(Instant.now().plus(30, ChronoUnit.MINUTES));
-            log.warn("Account locked due to too many failed login attempts: {}", user.getUserId());
+        if (attempts >= 3) {
+            // Lock account indefinitely (until password reset)
+            // We can set a very far future date or handle it with a boolean flag if we had one.
+            // But since we use lockedUntil, let's set it to a far future date (e.g. year 9999)
+            // Or just rely on the logic that they must reset password.
+            // The requirement says "blocked only open when he is resets his password".
+            // So we can set lockedUntil to a very long time.
+            user.setLockedUntil(Instant.now().plus(36500, ChronoUnit.DAYS)); // ~100 years
+            log.warn("Account locked due to 3 failed login attempts: {}", user.getUserId());
+            
+            // Send account locked email with reset link
+            String resetLink = frontendUrl + "/forgot-password";
+            emailService.sendAccountLockedEmail(user.getEmail(), user.getFirstName(), resetLink);
         }
 
         userRepository.save(user);
@@ -546,5 +635,32 @@ public class AuthService {
         } catch (IllegalArgumentException e) {
             return UserType.USER;
         }
+    }
+
+    private String formatPhoneByCountry(String phone, String country) {
+        if (phone == null || phone.isEmpty()) return phone;
+        
+        // Remove spaces, dashes, parentheses
+        String cleaned = phone.replaceAll("[\\s\\-()]", "");
+        
+        // If already has +, assume it's correct
+        if (cleaned.startsWith("+")) return cleaned;
+        
+        if ("USA".equalsIgnoreCase(country)) {
+            // If 10 digits, add +1
+            if (cleaned.length() == 10) return "+1" + cleaned;
+            // If 11 digits starting with 1, add +
+            if (cleaned.length() == 11 && cleaned.startsWith("1")) return "+" + cleaned;
+        } else if ("INDIA".equalsIgnoreCase(country)) {
+            // If 10 digits, add +91
+            if (cleaned.length() == 10) return "+91" + cleaned;
+            // If 12 digits starting with 91, add +
+            if (cleaned.length() == 12 && cleaned.startsWith("91")) return "+" + cleaned;
+        }
+        
+        // Default fallback: if 10 digits, assume India (+91) as per previous logic, or just return as is
+        if (cleaned.length() == 10) return "+91" + cleaned;
+        
+        return cleaned;
     }
 }

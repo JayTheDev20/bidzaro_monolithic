@@ -223,6 +223,25 @@ public class TwilioService {
     }
 
     /**
+     * Sends profile completion reminder via WhatsApp/SMS.
+     */
+    public boolean sendProfileReminder(String to, String userName, String link) {
+        String message = String.format(
+                "Hello %s,\n\n" +
+                "You registered as a vendor on Bidzaro but haven't completed your profile yet.\n\n" +
+                "Complete it now to start receiving orders: %s\n\n" +
+                "Bidzaro Team",
+                userName, link
+        );
+        
+        // Try WhatsApp first, fallback to SMS
+        if (sendWhatsApp(to, message)) {
+            return true;
+        }
+        return sendSMS(to, message);
+    }
+
+    /**
      * Formats phone number to E.164 format if not already.
      * E.164 format: +[country code][number] (e.g., +919640206605)
      *
@@ -247,9 +266,9 @@ public class TwilioService {
             else if (cleaned.startsWith("1") && cleaned.length() == 11) {
                 cleaned = "+" + cleaned;
             }
-            // If 10 digits, assume USA
+            // If 10 digits, assume India (Defaulting to +91 instead of +1)
             else if (cleaned.length() == 10) {
-                cleaned = "+1" + cleaned;
+                cleaned = "+91" + cleaned;
             }
             // If 10 digits starting with 9, assume India
             else if (cleaned.startsWith("9") && cleaned.length() == 10) {
@@ -269,4 +288,3 @@ public class TwilioService {
         return twilioReady;
     }
 }
-

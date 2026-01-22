@@ -41,12 +41,26 @@ public class Vendor {
     @Field("user_id")
     private String userId;
 
+    @Field("registered_email")
+    private String registeredEmail;
+
+    @Field("registered_phone")
+    private String registeredPhone;
+
     @Indexed(unique = true)
     @Field("business_email")
     private String businessEmail;
 
     @Field("business_phone")
     private String businessPhone;
+
+    @Field("business_email_verified")
+    @Builder.Default
+    private Boolean businessEmailVerified = false;
+
+    @Field("business_phone_verified")
+    @Builder.Default
+    private Boolean businessPhoneVerified = false;
 
     @Field("business_name")
     private String businessName;
@@ -151,6 +165,11 @@ public class Vendor {
         UNDER_REVIEW
     }
 
+    public enum Country {
+        USA,
+        INDIA
+    }
+
     // Embedded Documents
     @Data
     @Builder
@@ -205,8 +224,7 @@ public class Vendor {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class Pricing {
-        @Builder.Default
-        private String currency = "USD";
+        private String currency;
         private BigDecimal startingPricePerPlate;
         private BigDecimal averagePricePerPlate;
     }

@@ -33,7 +33,7 @@ public class EmailService {
      * Sends a simple text email (wrapped in HTML template).
      */
     @Async("emailExecutor")
-    public boolean sendSimpleEmail(String to, String subject, String body, String role) {
+    public void sendSimpleEmail(String to, String subject, String body, String role) {
         try {
             log.info("Sending simple email (as HTML) to: {}", to);
 
@@ -54,10 +54,8 @@ public class EmailService {
             mailSender.send(message);
 
             log.info("Email sent successfully to: {}", to);
-            return true;
         } catch (Exception e) {
             log.error("Failed to send email to {}: {}", to, e.getMessage(), e);
-            return false;
         }
     }
 
@@ -189,7 +187,7 @@ public class EmailService {
      * Sends an HTML email.
      */
     @Async("emailExecutor")
-    public boolean sendHtmlEmail(String to, String subject, String htmlBody) {
+    public void sendHtmlEmail(String to, String subject, String htmlBody) {
         try {
             log.info("Sending HTML email to: {}", to);
 
@@ -204,10 +202,8 @@ public class EmailService {
             mailSender.send(message);
 
             log.info("HTML email sent successfully to: {}", to);
-            return true;
         } catch (MessagingException e) {
             log.error("Failed to send HTML email to {}: {}", to, e.getMessage(), e);
-            return false;
         }
     }
 
@@ -215,7 +211,7 @@ public class EmailService {
      * Sends an email with CC and BCC.
      */
     @Async("emailExecutor")
-    public boolean sendEmailWithCopies(String to, String[] cc, String[] bcc, String subject, String body, boolean isHtml, String role) {
+    public void sendEmailWithCopies(String to, String[] cc, String[] bcc, String subject, String body, boolean isHtml, String role) {
         try {
             log.info("Sending email with copies to: {}", to);
 
@@ -242,17 +238,15 @@ public class EmailService {
             mailSender.send(message);
 
             log.info("Email with copies sent successfully to: {}", to);
-            return true;
         } catch (MessagingException e) {
             log.error("Failed to send email with copies to {}: {}", to, e.getMessage(), e);
-            return false;
         }
     }
 
     /**
      * Sends a welcome email to new users.
      */
-    public boolean sendWelcomeEmail(String to, String userName, String role) {
+    public void sendWelcomeEmail(String to, String userName, String role) {
         String subject = "Welcome to Catering Platform!";
         String body = String.format("""
                 <p>Dear %s,</p>
@@ -272,13 +266,13 @@ public class EmailService {
                 <p style="margin-top: 20px;">Best regards,<br>The Catering Platform Team</p>
                 """, userName);
 
-        return sendSimpleEmail(to, subject, body, role);
+        sendSimpleEmail(to, subject, body, role);
     }
 
     /**
      * Sends an OTP email for verification.
      */
-    public boolean sendOTPEmail(String to, String otp, String purpose) {
+    public void sendOTPEmail(String to, String otp, String purpose) {
         String subject = "Your OTP Code - Catering Platform";
 
         // Create an HTML content block where the OTP is visually highlighted and centered
@@ -297,13 +291,13 @@ public class EmailService {
                 <p style="margin:10px 0 0 0; font-size:14px; color:#999;">If you didn't request this code, please ignore this email.</p>
                 """, purpose, otp);
 
-        return sendSimpleEmail(to, subject, content, null);
+        sendSimpleEmail(to, subject, content, null);
     }
 
     /**
      * Sends a password reset email.
      */
-    public boolean sendPasswordResetEmail(String to, String resetToken) {
+    public void sendPasswordResetEmail(String to, String resetToken) {
         String subject = "Password Reset Request - Catering Platform";
         String resetLink = "https://cateringplatform.com/reset-password?token=" + resetToken;
 
@@ -322,13 +316,13 @@ public class EmailService {
                 The Catering Platform Team
                 """, resetLink);
 
-        return sendSimpleEmail(to, subject, body, null);
+        sendSimpleEmail(to, subject, body, null);
     }
 
     /**
      * Sends an order confirmation email.
      */
-    public boolean sendOrderConfirmationEmail(String to, String orderId, String orderDetails, String role) {
+    public void sendOrderConfirmationEmail(String to, String orderId, String orderDetails, String role) {
         String subject = "Order Confirmation - " + orderId;
         String body = String.format("""
                 Your order has been confirmed!
@@ -347,13 +341,13 @@ public class EmailService {
                 The Catering Platform Team
                 """, orderId, orderDetails);
 
-        return sendSimpleEmail(to, subject, body, role);
+        sendSimpleEmail(to, subject, body, role);
     }
 
     /**
      * Sends a bid acceptance notification email.
      */
-    public boolean sendBidAcceptanceEmail(String to, String bidId, String vendorName, String role) {
+    public void sendBidAcceptanceEmail(String to, String bidId, String vendorName, String role) {
         String subject = "Your Bid Has Been Accepted!";
         String body = String.format("""
                 Congratulations! Your bid has been accepted.
@@ -369,13 +363,13 @@ public class EmailService {
                 The Catering Platform Team
                 """, bidId, vendorName);
 
-        return sendSimpleEmail(to, subject, body, role);
+        sendSimpleEmail(to, subject, body, role);
     }
 
     /**
      * Sends a payment confirmation email.
      */
-    public boolean sendPaymentConfirmationEmail(String to, String transactionId, double amount, String paymentType, String role) {
+    public void sendPaymentConfirmationEmail(String to, String transactionId, double amount, String paymentType, String role) {
         String subject = "Payment Confirmation - " + transactionId;
         String body = String.format("""
                 Your payment has been successfully processed.
@@ -392,13 +386,13 @@ public class EmailService {
                 The Catering Platform Team
                 """, transactionId, amount, paymentType);
 
-        return sendSimpleEmail(to, subject, body, role);
+        sendSimpleEmail(to, subject, body, role);
     }
 
     /**
      * Sends a vendor approval email.
      */
-    public boolean sendVendorApprovalEmail(String to, String vendorName) {
+    public void sendVendorApprovalEmail(String to, String vendorName) {
         String subject = "Vendor Account Approved!";
         String body = String.format("""
                 Congratulations %s!
@@ -417,13 +411,13 @@ public class EmailService {
                 The Catering Platform Team
                 """, vendorName);
 
-        return sendSimpleEmail(to, subject, body, "VENDOR");
+        sendSimpleEmail(to, subject, body, "VENDOR");
     }
 
     /**
      * Sends a vendor rejection email.
      */
-    public boolean sendVendorRejectionEmail(String to, String vendorName, String reason) {
+    public void sendVendorRejectionEmail(String to, String vendorName, String reason) {
         String subject = "Vendor Account Application Status";
         String body = String.format("""
                 Dear %s,
@@ -442,13 +436,83 @@ public class EmailService {
                 The Catering Platform Team
                 """, vendorName, reason);
 
-        return sendSimpleEmail(to, subject, body, "VENDOR");
+        sendSimpleEmail(to, subject, body, "VENDOR");
     }
 
     /**
      * Sends a notification email (generic).
      */
-    public boolean sendNotificationEmail(String to, String title, String message, String role) {
-        return sendSimpleEmail(to, title, message, role);
+    public void sendNotificationEmail(String to, String title, String message, String role) {
+        sendSimpleEmail(to, title, message, role);
+    }
+
+    /**
+     * Sends a profile completion reminder email.
+     */
+    public void sendProfileCompletionReminder(String to, String userName, String loginLink) {
+        String subject = "Complete Your Vendor Profile - Action Required";
+        String body = String.format("""
+                <p>Dear %s,</p>
+                
+                <p>We noticed you registered as a vendor but haven't completed your profile yet.</p>
+                
+                <p>To start receiving bid requests and growing your business, you need to complete your vendor profile setup.</p>
+                
+                <div class="highlight-box">
+                    <strong>Don't miss out on potential customers!</strong>
+                </div>
+                
+                <p>Click the button below to log in and complete your profile:</p>
+                
+                <a href="%s" class="cta-button" style="color: white;">Complete Profile Now</a>
+                
+                <p style="margin-top: 20px;">If you need any assistance, please contact our support team.</p>
+                
+                <p>Best regards,<br>The Catering Platform Team</p>
+                """, userName, loginLink);
+
+        sendSimpleEmail(to, subject, body, "VENDOR");
+    }
+
+    /**
+     * Sends an account locked email.
+     */
+    public void sendAccountLockedEmail(String to, String userName, String resetLink) {
+        String subject = "Account Locked - Action Required";
+        String body = String.format("""
+                <p>Dear %s,</p>
+                
+                <p>Your account has been locked due to multiple failed login attempts.</p>
+                
+                <p>To unlock your account, you must reset your password using the link below:</p>
+                
+                <a href="%s" class="cta-button" style="color: white;">Reset Password</a>
+                
+                <p>If you did not attempt to log in, please contact our support team immediately.</p>
+                
+                <p>Best regards,<br>The Catering Platform Team</p>
+                """, userName, resetLink);
+
+        sendSimpleEmail(to, subject, body, null);
+    }
+
+    /**
+     * Sends an account unlocked email.
+     */
+    public void sendAccountUnlockedEmail(String to, String userName) {
+        String subject = "Account Unlocked";
+        String body = String.format("""
+                <p>Dear %s,</p>
+                
+                <p>Your account has been successfully unlocked.</p>
+                
+                <p>You can now log in to your account.</p>
+                
+                <p>If you did not request this, please contact our support team immediately.</p>
+                
+                <p>Best regards,<br>The Catering Platform Team</p>
+                """, userName);
+
+        sendSimpleEmail(to, subject, body, null);
     }
 }

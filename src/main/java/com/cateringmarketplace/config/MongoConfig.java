@@ -37,7 +37,7 @@ public class MongoConfig {
     @Value("${SPRING_DATA_MONGODB_URI:}")
     private String mongoUriEnv;
 
-    @Value("${spring.data.mongodb.uri:mongodb://localhost:27017/catering_platform_db}")
+    @Value("${spring.data.mongodb.uri:}")
     private String mongoUriDefault;
 
     @Value("${SPRING_DATA_MONGODB_SERVER_SELECTION_TIMEOUT_MS:10000}")
@@ -119,6 +119,10 @@ public class MongoConfig {
         MappingMongoConverter converter = new MappingMongoConverter(dbRefResolver, context);
         // Remove _class field from documents
         converter.setTypeMapper(new DefaultMongoTypeMapper(null));
+        
+        // Initialize the converter to register default conversions (including GeoJson)
+        converter.afterPropertiesSet();
+        
         return new MongoTemplate(mongoDbFactory, converter);
     }
 

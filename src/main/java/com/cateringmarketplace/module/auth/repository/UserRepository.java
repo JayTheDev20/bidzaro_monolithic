@@ -121,4 +121,11 @@ public interface UserRepository extends MongoRepository<User, String> {
      * Delete user by userId.
      */
     void deleteByUserId(String userId);
+
+    /**
+     * Find vendors who are eligible for a profile reminder check.
+     * Fetches vendors with reminder count <= 7 (includes those ready for deletion).
+     */
+    @Query("{ 'user_type': 'VENDOR', 'profile_reminder_count': { $lte: 7 } }")
+    List<User> findVendorsEligibleForReminderCheck();
 }

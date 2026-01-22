@@ -4,6 +4,7 @@ import com.cateringmarketplace.common.response.ApiResponse;
 import com.cateringmarketplace.common.response.PageInfo;
 import com.cateringmarketplace.module.auth.security.CustomUserDetails;
 import com.cateringmarketplace.module.vendor.dto.request.VendorRegistrationRequest;
+import com.cateringmarketplace.module.vendor.dto.request.VendorUpdateRequest;
 import com.cateringmarketplace.module.vendor.dto.response.VendorResponse;
 import com.cateringmarketplace.module.vendor.service.VendorService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -93,7 +94,7 @@ public class VendorController {
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<VendorResponse>> updateVendor(
             @PathVariable String vendorId,
-            @Valid @RequestBody VendorRegistrationRequest request,
+            @Valid @RequestBody VendorUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         log.info("Vendor update request: {} by user: {}", vendorId, userDetails.getUserId());
         VendorResponse response = vendorService.updateVendor(vendorId, request, userDetails.getUserId());
@@ -165,4 +166,3 @@ public class VendorController {
         return ResponseEntity.ok(ApiResponse.success(response, "Vendor rejected"));
     }
 }
-
