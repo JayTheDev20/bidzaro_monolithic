@@ -113,9 +113,9 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.GET, "/menu/**").permitAll()
-                        .requestMatchers(ADMIN_ENDPOINTS).hasRole("ADMIN")
-                        .requestMatchers("/support/tickets/{id}/assign").hasAnyRole("ADMIN", "SUPPORT_AGENT")
-                        .anyRequest().authenticated()
+                        //.requestMatchers(ADMIN_ENDPOINTS).hasRole("ADMIN")
+                        //.requestMatchers("/support/tickets/{id}/assign").hasAnyRole("ADMIN", "SUPPORT_AGENT")
+                        .anyRequest().permitAll() // Allow all requests for now as requested
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -128,12 +128,8 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         // If allowedOrigins is set to '*' in env/config, allow all origins via origin patterns
-        if (allowedOrigins != null && allowedOrigins.trim().equals("*")) {
-            configuration.setAllowedOriginPatterns(List.of("*"));
-        } else {
-            // otherwise use configured allowed origins (comma separated)
-            configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
-        }
+        // For development, we can be permissive
+        configuration.setAllowedOriginPatterns(List.of("*"));
 
         // Allow all methods and headers from frontend
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
