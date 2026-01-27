@@ -18,12 +18,14 @@
           <entry name="$MAVEN_REPOSITORY$/org/mapstruct/mapstruct-processor/1.5.5.Final/mapstruct-processor-1.5.5.Final.jar" />
         </processorPath>
         <module name="bidzaro_monolithic" />
+        <module name="catering-platform" />
       </profile>
     </annotationProcessing>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="bidzaro_monolithic" options="-parameters -parameters" />
+      <module name="catering-platform" options="-parameters -parameters" />
     </option>
   </component>
 </project>
