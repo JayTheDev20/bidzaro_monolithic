@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +19,7 @@ import com.cateringmarketplace.module.auth.dto.response.UserResponse;
 import com.cateringmarketplace.module.auth.model.NotificationPreferences;
 import com.cateringmarketplace.module.auth.model.User;
 import com.cateringmarketplace.module.auth.model.enums.Gender;
+import com.cateringmarketplace.module.auth.model.enums.UserType;
 import com.cateringmarketplace.module.auth.repository.UserRepository;
 import com.cateringmarketplace.module.user.dto.request.AddressRequest;
 import com.cateringmarketplace.module.user.dto.request.UpdateProfileRequest;
@@ -44,6 +47,21 @@ public class UserService {
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return UserResponse.fromEntity(user);
+    }
+
+    public Page<UserResponse> getAllUsers(Pageable pageable, String role) {
+        Page<User> users;
+        if (role != null && !role.isEmpty()) {
+            try {
+                UserType userType = UserType.valueOf(role.toUpperCase());
+                users = userRepository.findByUserType(userType, pageable);
+            } catch (IllegalArgumentException e) {
+                users = userRepository.findAll(pageable);
+            }
+        } else {
+            users = userRepository.findAll(pageable);
+        }
+        return users.map(UserResponse::fromEntity);
     }
 
     @Transactional

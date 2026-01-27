@@ -1,6 +1,7 @@
 package com.cateringmarketplace.module.user.controller;
 
 import com.cateringmarketplace.common.response.ApiResponse;
+import com.cateringmarketplace.common.response.PageInfo;
 import com.cateringmarketplace.module.auth.dto.response.UserResponse;
 import com.cateringmarketplace.module.auth.model.NotificationPreferences;
 import com.cateringmarketplace.module.auth.security.CustomUserDetails;
@@ -14,8 +15,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,6 +41,24 @@ public class UserController {
     private final UserService userService;
 
     // ==================== PROFILE ENDPOINTS ====================
+
+    @GetMapping
+    @Operation(summary = "Get all users", description = "Returns list of all users (Admin only)")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String role) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<UserResponse> users = userService.getAllUsers(pageable, role);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                users.getContent(),
+                "Users retrieved",
+                PageInfo.from(users)
+        ));
+    }
 
     @GetMapping("/profile")
     @Operation(summary = "Get profile", description = "Returns current user's profile")
@@ -138,4 +162,3 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(response, "Default address set"));
     }
 }
-
