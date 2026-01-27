@@ -54,6 +54,17 @@ public class BidController {
                 .body(ApiResponse.created(response, "Bid request created successfully"));
     }
 
+    @PostMapping("/requests/from-cart")
+    @Operation(summary = "Create bid requests from cart", description = "Creates bid requests based on items in the user's cart")
+    public ResponseEntity<ApiResponse<List<BidRequestResponse>>> createBidRequestsFromCart(
+            @Valid @RequestBody CreateBidRequestDTO request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Creating bid requests from cart for user: {}", userDetails.getUserId());
+        List<BidRequestResponse> responses = bidService.createBidRequestsFromCart(request, userDetails.getUserId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created(responses, "Bid requests created successfully from cart"));
+    }
+
     @GetMapping("/requests")
     @Operation(summary = "Get user's bid requests", description = "Returns paginated list of user's bid requests")
     public ResponseEntity<ApiResponse<List<BidRequestResponse>>> getUserBidRequests(
@@ -212,4 +223,3 @@ public class BidController {
         ));
     }
 }
-

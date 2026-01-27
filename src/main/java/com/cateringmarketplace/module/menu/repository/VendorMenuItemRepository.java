@@ -27,7 +27,8 @@ public interface VendorMenuItemRepository extends MongoRepository<VendorMenuItem
 
     boolean existsByVendorIdAndMasterItemId(String vendorId, String masterItemId);
 
-    @Query("{'vendor_id': ?0, 'status': 'ACTIVE', 'availability.is_available': true}")
+    // Updated query to match Java field name (camelCase) which is the default mapping
+    @Query("{'vendor_id': ?0, 'status': 'ACTIVE', 'availability.isAvailable': true}")
     List<VendorMenuItem> findAvailableItemsByVendor(String vendorId);
 
     @Query("{'vendor_id': ?0, 'status': 'ACTIVE'}")
@@ -37,4 +38,3 @@ public interface VendorMenuItemRepository extends MongoRepository<VendorMenuItem
 
     void deleteByVendorItemId(String vendorItemId);
 }
-

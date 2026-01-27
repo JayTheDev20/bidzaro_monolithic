@@ -5,6 +5,7 @@ import com.cateringmarketplace.common.exception.ResourceNotFoundException;
 import com.cateringmarketplace.module.cart.dto.BatchAddToCartRequest;
 import com.cateringmarketplace.module.cart.model.CartItem;
 import com.cateringmarketplace.module.cart.repository.CartRepository;
+import com.cateringmarketplace.module.cart.repository.DraftCartRepository;
 import com.cateringmarketplace.module.menu.model.VendorMenuItem;
 import com.cateringmarketplace.module.menu.repository.VendorMenuItemRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ import java.util.stream.Collectors;
 public class CartService {
 
     private final CartRepository cartRepository;
+    private final DraftCartRepository draftCartRepository;
     private final VendorMenuItemRepository vendorMenuItemRepository;
 
     /**
@@ -139,6 +141,9 @@ public class CartService {
                 cartItem.calculateTotalPrice();
                 addedItems.add(cartRepository.save(cartItem));
             }
+
+            // Remove from Draft Cart if it exists
+            draftCartRepository.deleteByUserIdAndMasterItemId(userId, itemRequest.getMasterItemId());
         }
 
         return addedItems;

@@ -3,7 +3,9 @@ package com.cateringmarketplace.module.payment.controller;
 import com.cateringmarketplace.common.response.ApiResponse;
 import com.cateringmarketplace.common.response.PageInfo;
 import com.cateringmarketplace.module.auth.security.CustomUserDetails;
+import com.cateringmarketplace.module.payment.dto.PaymentInitiationRequest;
 import com.cateringmarketplace.module.payment.dto.PaymentInitiationResponse;
+import com.cateringmarketplace.module.payment.dto.PaymentVerificationRequest;
 import com.cateringmarketplace.module.payment.model.Transaction;
 import com.cateringmarketplace.module.payment.model.Transaction.PaymentType;
 import com.cateringmarketplace.module.payment.service.PaymentService;
@@ -36,18 +38,23 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping("/initiate")
-    @Operation(summary = "Initiate payment", description = "Initiates a payment for an order")
+    @Operation(summary = "Initiate payment", description = "Initiates a payment for an order or bid")
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<PaymentInitiationResponse>> initiatePayment(
-            @RequestParam String orderId,
-            @RequestParam String paymentType,
-            @RequestParam BigDecimal amount,
+            @RequestBody PaymentInitiationRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        log.info("Initiating payment for order: {} by user: {}", orderId, userDetails.getUserId());
-        PaymentType type = PaymentType.valueOf(paymentType.toUpperCase());
+        log.info("Initiating payment for order: {} / bid: {} by user: {}", 
+                request.getOrderId(), request.getBidId(), userDetails.getUserId());
+        
+        PaymentType type = PaymentType.valueOf(request.getPaymentType().toUpperCase());
+        
         PaymentInitiationResponse response = paymentService.initiatePayment(
-                orderId, type, amount, userDetails.getUserId());
+                request.getOrderId(), 
+                request.getBidId(), 
+                type, 
+                request.getAmount(), 
+                userDetails.getUserId());
 
         return ResponseEntity.ok(ApiResponse.success(response, "Payment initiated"));
     }
@@ -56,12 +63,13 @@ public class PaymentController {
     @Operation(summary = "Verify payment", description = "Verifies payment after completion")
     @SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<Transaction>> verifyPayment(
-            @RequestParam String gatewayOrderId,
-            @RequestParam String gatewayPaymentId,
-            @RequestParam String signature) {
+            @RequestBody PaymentVerificationRequest request) {
 
-        log.info("Verifying payment. Order: {}, Payment: {}", gatewayOrderId, gatewayPaymentId);
-        Transaction transaction = paymentService.verifyPayment(gatewayOrderId, gatewayPaymentId, signature);
+        log.info("Verifying payment. Order: {}, Payment: {}", request.getGatewayOrderId(), request.getGatewayPaymentId());
+        Transaction transaction = paymentService.verifyPayment(
+                request.getGatewayOrderId(), 
+                request.getGatewayPaymentId(), 
+                request.getSignature());
 
         return ResponseEntity.ok(ApiResponse.success(transaction, "Payment verified successfully"));
     }
@@ -126,4 +134,3 @@ public class PaymentController {
         return ResponseEntity.ok("OK");
     }
 }
-

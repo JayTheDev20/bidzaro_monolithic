@@ -35,6 +35,10 @@ public class Transaction {
     private String orderId;
 
     @Indexed
+    @Field("bid_id")
+    private String bidId; // Added to support payment before order creation
+
+    @Indexed
     @Field("user_id")
     private String userId;
 
@@ -183,4 +187,3 @@ public class Transaction {
         this.processedAt = Instant.now();
     }
 }
-

@@ -148,6 +148,7 @@ public class Order {
 
         public enum VendorOrderStatus {
             PENDING,
+            ACCEPTED, // Added ACCEPTED status
             CONFIRMED,
             IN_PREPARATION,
             READY,
@@ -318,4 +319,3 @@ public class Order {
         return BigDecimal.ZERO;
     }
 }
-

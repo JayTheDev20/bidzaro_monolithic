@@ -28,20 +28,25 @@ public class VendorMatchingService {
      * Finds vendors matching the requested items and location.
      */
     public List<VendorMatchResponse> findMatchingVendors(VendorMatchRequest request) {
-        log.info("Matching vendors for {} items in {}", request.getMasterItemIds().size(), request.getCity());
+        log.info("Matching vendors for {} items. Location: City={}, Lat={}, Lng={}", 
+                request.getMasterItemIds().size(), request.getCity(), request.getLatitude(), request.getLongitude());
 
         // 1. Find candidate vendors based on location
         List<Vendor> candidateVendors;
         if (request.getLatitude() != null && request.getLongitude() != null) {
             double radius = request.getRadiusKm() != null ? request.getRadiusKm() * 1000 : 50000; // Default 50km
+            log.info("Searching by coordinates with radius {}m", radius);
             candidateVendors = vendorRepository.findNearbyVendors(
                     request.getLongitude(), request.getLatitude(), radius);
         } else if (request.getCity() != null) {
-            // Fetch a reasonable number of vendors in the city
+            log.info("Searching by city: {}", request.getCity());
             candidateVendors = vendorRepository.findByCity(request.getCity(), PageRequest.of(0, 100)).getContent();
         } else {
+            log.warn("No location provided (City or Lat/Lng required)");
             return Collections.emptyList();
         }
+
+        log.info("Found {} candidate vendors in the area.", candidateVendors.size());
 
         if (candidateVendors.isEmpty()) {
             return Collections.emptyList();
@@ -53,6 +58,8 @@ public class VendorMatchingService {
         for (Vendor vendor : candidateVendors) {
             // Get all active items for this vendor
             List<VendorMenuItem> vendorItems = vendorMenuItemRepository.findAvailableItemsByVendor(vendor.getVendorId());
+            
+            log.debug("Vendor {} ({}) has {} active menu items.", vendor.getBusinessName(), vendor.getVendorId(), vendorItems.size());
             
             // Map masterItemId -> VendorMenuItem for quick lookup
             Map<String, VendorMenuItem> vendorItemMap = vendorItems.stream()
@@ -74,6 +81,8 @@ public class VendorMatchingService {
                 }
             }
 
+            log.debug("Vendor {} matched {}/{} items.", vendor.getBusinessName(), matchedIds.size(), request.getMasterItemIds().size());
+
             // Calculate match percentage
             double matchPercentage = 0;
             if (!request.getMasterItemIds().isEmpty()) {
@@ -83,7 +92,6 @@ public class VendorMatchingService {
             // Only include if they have at least one item
             if (matchPercentage > 0) {
                 // Create VendorResponse manually or via mapper if available in context
-                // Using a simplified mapping here for the DTO
                 VendorResponse vendorResponse = VendorResponse.fromEntity(vendor);
 
                 results.add(VendorMatchResponse.builder()
@@ -101,6 +109,8 @@ public class VendorMatchingService {
         // 3. Sort by Match Percentage (DESC), then by Price (ASC)
         results.sort(Comparator.comparingDouble(VendorMatchResponse::getMatchPercentage).reversed()
                 .thenComparing(VendorMatchResponse::getEstimatedTotalPrice));
+        
+        log.info("Returning {} matching vendors.", results.size());
 
         return results;
     }
