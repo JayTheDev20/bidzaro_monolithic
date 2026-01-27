@@ -40,10 +40,10 @@ public class UserController {
 
     private final UserService userService;
 
-    // ==================== PROFILE ENDPOINTS ====================
+    // ==================== ADMIN: USER MANAGEMENT ENDPOINTS ====================
 
     @GetMapping
-    @Operation(summary = "Get all users", description = "Returns list of all users (Admin only)")
+    @Operation(summary = "Get all users", description = "Returns list of all users (Admin only). Filter by role using ?role=VENDOR")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<UserResponse>>> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
@@ -59,6 +59,8 @@ public class UserController {
                 PageInfo.from(users)
         ));
     }
+
+    // ==================== PROFILE ENDPOINTS ====================
 
     @GetMapping("/profile")
     @Operation(summary = "Get profile", description = "Returns current user's profile")
