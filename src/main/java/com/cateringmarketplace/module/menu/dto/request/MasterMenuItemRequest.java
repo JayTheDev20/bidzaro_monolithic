@@ -22,8 +22,7 @@ import java.util.List;
 @AllArgsConstructor
 public class MasterMenuItemRequest {
 
-    @NotBlank(message = "Item ID is required")
-    private String itemId;
+    // Removed itemId as it should be auto-generated
 
     @NotBlank(message = "Item name is required")
     private String itemName;
