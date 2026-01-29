@@ -3,8 +3,8 @@ package com.cateringmarketplace.module.wishlist.service;
 import com.cateringmarketplace.common.exception.BadRequestException;
 import com.cateringmarketplace.common.exception.ConflictException;
 import com.cateringmarketplace.common.exception.ResourceNotFoundException;
-import com.cateringmarketplace.module.menu.model.VendorMenuItem;
-import com.cateringmarketplace.module.menu.repository.VendorMenuItemRepository;
+import com.cateringmarketplace.module.menu.model.MenuItem;
+import com.cateringmarketplace.module.menu.repository.MenuItemRepository;
 import com.cateringmarketplace.module.wishlist.model.WishlistItem;
 import com.cateringmarketplace.module.wishlist.repository.WishlistRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,7 +27,7 @@ import java.util.UUID;
 public class WishlistService {
 
     private final WishlistRepository wishlistRepository;
-    private final VendorMenuItemRepository vendorMenuItemRepository;
+    private final MenuItemRepository menuItemRepository;
 
     /**
      * Gets wishlist items for a user.
@@ -43,27 +44,31 @@ public class WishlistService {
     }
 
     /**
-     * Adds item to wishlist.
+     * Adds master item to wishlist.
      */
     @Transactional
-    public WishlistItem addToWishlist(String userId, String vendorItemId) {
-        log.info("Adding item {} to wishlist for user {}", vendorItemId, userId);
+    public WishlistItem addToWishlist(String userId, String masterItemId) {
+        log.info("Adding master item {} to wishlist for user {}", masterItemId, userId);
 
         // Check if already in wishlist
-        if (wishlistRepository.existsByUserIdAndVendorItemId(userId, vendorItemId)) {
+        if (wishlistRepository.existsByUserIdAndMasterItemId(userId, masterItemId)) {
             throw new ConflictException("ALREADY_IN_WISHLIST", "Item is already in your wishlist");
         }
 
-        VendorMenuItem vendorItem = vendorMenuItemRepository.findByVendorItemId(vendorItemId)
-                .orElseThrow(() -> new ResourceNotFoundException("Menu item not found"));
+        MenuItem masterItem = menuItemRepository.findByMasterItemId(masterItemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Master menu item not found"));
 
         WishlistItem wishlistItem = WishlistItem.builder()
                 .wishlistItemId(UUID.randomUUID().toString())
                 .userId(userId)
-                .vendorId(vendorItem.getVendorId())
-                .vendorItemId(vendorItemId)
-                .itemName(vendorItem.getCustomName())
-                .pricePerPlate(vendorItem.getEffectivePrice())
+                .masterItemId(masterItemId)
+                .itemName(masterItem.getItemName())
+                .description(masterItem.getDescription())
+                .categoryId(masterItem.getCategoryId())
+                .cuisineType(masterItem.getCuisineType())
+                .foodType(masterItem.getFoodType() != null ? masterItem.getFoodType().name() : null)
+                .imageUrl(masterItem.getPrimaryImageUrl())
+                .addedAt(Instant.now())
                 .build();
 
         wishlistItem = wishlistRepository.save(wishlistItem);
@@ -90,11 +95,11 @@ public class WishlistService {
     }
 
     /**
-     * Removes item from wishlist by vendor item ID.
+     * Removes item from wishlist by master item ID.
      */
     @Transactional
-    public void removeFromWishlistByVendorItem(String vendorItemId, String userId) {
-        WishlistItem item = wishlistRepository.findByUserIdAndVendorItemId(userId, vendorItemId)
+    public void removeFromWishlistByMasterItem(String masterItemId, String userId) {
+        WishlistItem item = wishlistRepository.findByUserIdAndMasterItemId(userId, masterItemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Wishlist item not found"));
         wishlistRepository.delete(item);
     }
@@ -111,8 +116,8 @@ public class WishlistService {
     /**
      * Checks if item is in wishlist.
      */
-    public boolean isInWishlist(String userId, String vendorItemId) {
-        return wishlistRepository.existsByUserIdAndVendorItemId(userId, vendorItemId);
+    public boolean isInWishlist(String userId, String masterItemId) {
+        return wishlistRepository.existsByUserIdAndMasterItemId(userId, masterItemId);
     }
 
     /**
@@ -122,4 +127,3 @@ public class WishlistService {
         return wishlistRepository.countByUserId(userId);
     }
 }
-

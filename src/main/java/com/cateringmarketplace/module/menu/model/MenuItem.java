@@ -30,8 +30,8 @@ public class MenuItem {
     private String id;
 
     @Indexed(unique = true)
-    @Field("item_id")
-    private String itemId;
+    @Field("master_item_id") // Renamed from item_id
+    private String masterItemId; // Renamed from itemId
 
     @TextIndexed
     @Field("item_name")
@@ -132,4 +132,3 @@ public class MenuItem {
         return imageUrls != null && !imageUrls.isEmpty() ? imageUrls.get(0) : null;
     }
 }
-

@@ -11,7 +11,6 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -22,7 +21,7 @@ import java.time.Instant;
 @NoArgsConstructor
 @AllArgsConstructor
 @Document(collection = "wishlist_items")
-@CompoundIndex(name = "user_item_idx", def = "{'user_id': 1, 'vendor_item_id': 1}", unique = true)
+@CompoundIndex(name = "user_master_item_idx", def = "{'user_id': 1, 'master_item_id': 1}", unique = true)
 public class WishlistItem {
 
     @Id
@@ -36,17 +35,23 @@ public class WishlistItem {
     @Field("user_id")
     private String userId;
 
-    @Field("vendor_id")
-    private String vendorId;
-
-    @Field("vendor_item_id")
-    private String vendorItemId;
+    @Field("master_item_id")
+    private String masterItemId;
 
     @Field("item_name")
     private String itemName;
 
-    @Field("price_per_plate")
-    private BigDecimal pricePerPlate;
+    @Field("description")
+    private String description;
+
+    @Field("category_id")
+    private String categoryId;
+
+    @Field("cuisine_type")
+    private String cuisineType;
+
+    @Field("food_type")
+    private String foodType;
 
     @Field("image_url")
     private String imageUrl;

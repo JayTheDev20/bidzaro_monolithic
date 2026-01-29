@@ -34,7 +34,7 @@ public class DraftCartService {
     public DraftCartItem addToDraftCart(String userId, String masterItemId, int quantity) {
         log.info("Adding item {} to draft cart for user {}", masterItemId, userId);
 
-        MenuItem masterItem = menuItemRepository.findByItemId(masterItemId)
+        MenuItem masterItem = menuItemRepository.findByMasterItemId(masterItemId) // FIX
                 .orElseThrow(() -> new ResourceNotFoundException("Master menu item not found"));
 
         DraftCartItem existingItem = draftCartRepository.findByUserIdAndMasterItemId(userId, masterItemId)

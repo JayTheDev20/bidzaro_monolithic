@@ -27,7 +27,7 @@ public class MasterCartService {
 
     @Transactional
     public MasterCartItem addToMasterCart(String userId, String masterItemId, int quantity) {
-        MenuItem masterItem = menuItemRepository.findByItemId(masterItemId)
+        MenuItem masterItem = menuItemRepository.findByMasterItemId(masterItemId) // FIX
                 .orElseThrow(() -> new ResourceNotFoundException("Master menu item not found"));
 
         MasterCartItem cartItem = masterCartRepository.findByUserIdAndMasterItemId(userId, masterItemId)
