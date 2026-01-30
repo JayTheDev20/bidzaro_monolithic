@@ -86,10 +86,10 @@ public interface VendorRepository extends MongoRepository<Vendor, String> {
     List<Vendor> findNearbyVendors(double longitude, double latitude, double maxDistanceMeters);
 
     /**
-     * Finds vendors by city.
+     * Finds vendors by city (Case Insensitive).
      */
     @Query("{'status': 'ACTIVE', 'approval_status': 'APPROVED', " +
-           "'$or': [{'business_address.city': ?0}, {'service_areas.city': ?0}]}")
+           "'$or': [{'business_address.city': {'$regex': ?0, '$options': 'i'}}, {'service_areas.city': {'$regex': ?0, '$options': 'i'}}]}")
     Page<Vendor> findByCity(String city, Pageable pageable);
 
     /**
