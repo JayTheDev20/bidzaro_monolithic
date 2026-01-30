@@ -34,6 +34,10 @@ public interface VendorMenuItemRepository extends MongoRepository<VendorMenuItem
     @Query("{'vendor_id': ?0, 'status': 'ACTIVE'}")
     Page<VendorMenuItem> findActiveItemsByVendor(String vendorId, Pageable pageable);
 
+    // Find items by master item IDs (for matching without location)
+    @Query("{'master_item_id': {'$in': ?0}, 'status': 'ACTIVE', 'availability.isAvailable': true}")
+    List<VendorMenuItem> findByMasterItemIdInAndStatusActive(List<String> masterItemIds);
+
     long countByVendorIdAndStatus(String vendorId, VendorItemStatus status);
 
     void deleteByVendorItemId(String vendorItemId);

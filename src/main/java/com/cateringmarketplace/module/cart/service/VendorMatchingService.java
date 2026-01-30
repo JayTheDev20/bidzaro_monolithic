@@ -28,25 +28,57 @@ public class VendorMatchingService {
      * Finds vendors matching the requested items and location.
      */
     public List<VendorMatchResponse> findMatchingVendors(VendorMatchRequest request) {
+        // Validate request
+        if (request.getMasterItemIds() == null || request.getMasterItemIds().isEmpty()) {
+            log.warn("No master item IDs provided for matching.");
+            return Collections.emptyList();
+        }
+
         log.info("Matching vendors for {} items. Location: City={}, Lat={}, Lng={}", 
                 request.getMasterItemIds().size(), request.getCity(), request.getLatitude(), request.getLongitude());
 
-        // 1. Find candidate vendors based on location
+        // 1. Find candidate vendors
         List<Vendor> candidateVendors;
+        
         if (request.getLatitude() != null && request.getLongitude() != null) {
+            // Case 1: Search by Coordinates
             double radius = request.getRadiusKm() != null ? request.getRadiusKm() * 1000 : 50000; // Default 50km
             log.info("Searching by coordinates with radius {}m", radius);
             candidateVendors = vendorRepository.findNearbyVendors(
                     request.getLongitude(), request.getLatitude(), radius);
+            
         } else if (request.getCity() != null) {
+            // Case 2: Search by City
             log.info("Searching by city: {}", request.getCity());
             candidateVendors = vendorRepository.findByCity(request.getCity(), PageRequest.of(0, 100)).getContent();
+            
         } else {
-            log.warn("No location provided (City or Lat/Lng required)");
-            return Collections.emptyList();
+            // Case 3: Search by Items only (No location filter)
+            log.info("No location provided. Searching for vendors who have the requested items.");
+            
+            // Find all vendor items that match the requested master items
+            List<VendorMenuItem> matchingItems = vendorMenuItemRepository.findByMasterItemIdInAndStatusActive(request.getMasterItemIds());
+            
+            // Extract unique vendor IDs
+            Set<String> vendorIds = matchingItems.stream()
+                    .map(VendorMenuItem::getVendorId)
+                    .collect(Collectors.toSet());
+            
+            if (vendorIds.isEmpty()) {
+                log.info("No vendors found for the requested items.");
+                return Collections.emptyList();
+            }
+            
+            // Fetch active vendors using custom vendor_id
+            candidateVendors = new ArrayList<>();
+            vendorRepository.findByVendorIdIn(vendorIds).forEach(vendor -> {
+                if (vendor.isActive()) {
+                    candidateVendors.add(vendor);
+                }
+            });
         }
 
-        log.info("Found {} candidate vendors in the area.", candidateVendors.size());
+        log.info("Found {} candidate vendors.", candidateVendors.size());
 
         if (candidateVendors.isEmpty()) {
             return Collections.emptyList();
@@ -54,7 +86,7 @@ public class VendorMatchingService {
 
         List<VendorMatchResponse> results = new ArrayList<>();
 
-        // 2. For each vendor, check item availability
+        // 2. For each vendor, check item availability and calculate match
         for (Vendor vendor : candidateVendors) {
             // Get all active items for this vendor
             List<VendorMenuItem> vendorItems = vendorMenuItemRepository.findAvailableItemsByVendor(vendor.getVendorId());
