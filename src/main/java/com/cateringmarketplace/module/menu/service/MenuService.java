@@ -122,8 +122,8 @@ public class MenuService {
                 .map(MenuItemResponse::fromEntity);
     }
 
-    public MenuItemResponse getMenuItemById(String itemId) {
-        MenuItem item = menuItemRepository.findByItemId(itemId)
+    public MenuItemResponse getMenuItemById(String masterItemId) {
+        MenuItem item = menuItemRepository.findByMasterItemId(masterItemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Menu item not found"));
         return MenuItemResponse.fromEntity(item);
     }
@@ -162,7 +162,7 @@ public class MenuService {
         }
 
         MenuItem item = MenuItem.builder()
-                .itemId(UUID.randomUUID().toString())
+                .masterItemId(UUID.randomUUID().toString())
                 .itemName(request.getItemName())
                 .itemNameHindi(request.getItemNameHindi())
                 .description(request.getDescription())
@@ -183,10 +183,10 @@ public class MenuService {
     }
 
     @Transactional
-    public MenuItemResponse updateMasterMenuItem(String itemId, MasterMenuItemRequest request) {
-        log.info("Updating master menu item: {}", itemId);
+    public MenuItemResponse updateMasterMenuItem(String masterItemId, MasterMenuItemRequest request) {
+        log.info("Updating master menu item: {}", masterItemId);
 
-        MenuItem item = menuItemRepository.findByItemId(itemId)
+        MenuItem item = menuItemRepository.findByMasterItemId(masterItemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Menu item not found"));
 
         if (request.getItemName() != null) {
@@ -250,7 +250,7 @@ public class MenuService {
         log.info("Adding menu item for vendor: {}", vendorId);
 
         // Check if master item exists
-        MenuItem masterItem = menuItemRepository.findByItemId(request.getMasterItemId())
+        MenuItem masterItem = menuItemRepository.findByMasterItemId(request.getMasterItemId())
                 .orElseThrow(() -> new ResourceNotFoundException("Master menu item not found"));
 
         // Check if vendor already has this item

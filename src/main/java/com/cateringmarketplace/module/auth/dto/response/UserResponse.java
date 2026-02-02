@@ -22,6 +22,7 @@ import java.time.LocalDate;
 public class UserResponse {
 
     private String userId;
+    private String vendorId; // Added vendorId
     private String email;
     private String phone;
     private String userType;
@@ -73,4 +74,3 @@ public class UserResponse {
                 .build();
     }
 }
-

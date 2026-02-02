@@ -16,7 +16,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -38,16 +37,7 @@ public class OrderController {
     private final OrderService orderService;
     private final VendorService vendorService;
 
-    @PostMapping
-    @Operation(summary = "Create order from bid", description = "Creates an order from an accepted bid request")
-    public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
-            @RequestParam String bidRequestId,
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        log.info("Creating order from bid request: {} by user: {}", bidRequestId, userDetails.getUserId());
-        OrderResponse response = orderService.createOrderFromBid(bidRequestId, userDetails.getUserId());
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.created(response, "Order created. Please complete token payment."));
-    }
+    // Removed manual createOrder endpoint as order creation is now handled automatically after payment
 
     @GetMapping
     @Operation(summary = "Get user's orders", description = "Returns paginated list of user's orders")
@@ -154,4 +144,3 @@ public class OrderController {
         ));
     }
 }
-

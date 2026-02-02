@@ -14,6 +14,8 @@ import com.cateringmarketplace.module.bid.model.VendorBid;
 import com.cateringmarketplace.module.bid.model.VendorBid.BidStatus;
 import com.cateringmarketplace.module.bid.repository.BidRequestRepository;
 import com.cateringmarketplace.module.bid.repository.VendorBidRepository;
+import com.cateringmarketplace.module.cart.model.CartItem;
+import com.cateringmarketplace.module.cart.repository.CartRepository;
 import com.cateringmarketplace.module.notification.service.EmailService;
 import com.cateringmarketplace.module.vendor.model.Vendor;
 import com.cateringmarketplace.module.vendor.repository.VendorRepository;
@@ -29,9 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -45,6 +45,7 @@ public class BidService {
     private final BidRequestRepository bidRequestRepository;
     private final VendorBidRepository vendorBidRepository;
     private final VendorRepository vendorRepository;
+    private final CartRepository cartRepository;
     private final EmailService emailService;
 
     @Value("${bidding.competitive-period-hours:72}")
@@ -153,6 +154,58 @@ public class BidService {
         // TODO: Notify targeted vendors or vendors in service area
 
         return BidRequestResponse.fromEntity(request);
+    }
+
+    /**
+     * Creates bid requests from the user's cart.
+     * Groups items by vendor and creates a separate bid request for each vendor.
+     */
+    @Transactional
+    public List<BidRequestResponse> createBidRequestsFromCart(CreateBidRequestDTO dto, String userId) {
+        log.info("Creating bid requests from cart for user: {}", userId);
+
+        // 1. Fetch cart items
+        List<CartItem> cartItems = cartRepository.findByUserIdOrderByAddedAtDesc(userId);
+        if (cartItems.isEmpty()) {
+            throw new BadRequestException("CART_EMPTY", "Cannot create bid request from empty cart");
+        }
+
+        // 2. Group items by Vendor
+        Map<String, List<CartItem>> itemsByVendor = cartItems.stream()
+                .collect(Collectors.groupingBy(CartItem::getVendorId));
+
+        List<BidRequestResponse> createdRequests = new ArrayList<>();
+
+        // 3. Create a Bid Request for each vendor
+        for (Map.Entry<String, List<CartItem>> entry : itemsByVendor.entrySet()) {
+            String vendorId = entry.getKey();
+            List<CartItem> vendorItems = entry.getValue();
+
+            // Create DTO for this specific request
+            CreateBidRequestDTO vendorRequestDTO = CreateBidRequestDTO.builder()
+                    .eventDetails(dto.getEventDetails())
+                    .additionalRequirements(dto.getAdditionalRequirements())
+                    .budget(dto.getBudget())
+                    .targetedVendors(Collections.singletonList(vendorId)) // Target ONLY this vendor
+                    .menuItems(vendorItems.stream()
+                            .map(item -> CreateBidRequestDTO.MenuItemDTO.builder()
+                                    .vendorItemId(item.getVendorItemId())
+                                    .masterItemId(null) // Can be populated if needed, but vendorItemId is key
+                                    .itemName(item.getItemName())
+                                    .quantity(item.getQuantity())
+                                    .build())
+                            .collect(Collectors.toList()))
+                    .build();
+
+            // Call the standard create method
+            createdRequests.add(createBidRequest(vendorRequestDTO, userId));
+        }
+
+        // 4. Clear the cart
+        cartRepository.deleteByUserId(userId);
+        log.info("Cart cleared for user: {}", userId);
+
+        return createdRequests;
     }
 
     /**
@@ -516,4 +569,3 @@ public class BidService {
         }
     }
 }
-

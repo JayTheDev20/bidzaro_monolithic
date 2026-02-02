@@ -1,4 +1,4 @@
-package com.cateringmarketplace.module.wishlist.model;
+package com.cateringmarketplace.module.cart.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,22 +14,18 @@ import org.springframework.data.mongodb.core.mapping.Field;
 import java.time.Instant;
 
 /**
- * WishlistItem entity for user wishlists.
+ * Represents an item selected from the Master Menu, before a vendor is chosen.
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "wishlist_items")
+@Document(collection = "master_cart_items")
 @CompoundIndex(name = "user_master_item_idx", def = "{'user_id': 1, 'master_item_id': 1}", unique = true)
-public class WishlistItem {
+public class MasterCartItem {
 
     @Id
     private String id;
-
-    @Indexed(unique = true)
-    @Field("wishlist_item_id")
-    private String wishlistItemId;
 
     @Indexed
     @Field("user_id")
@@ -41,20 +37,10 @@ public class WishlistItem {
     @Field("item_name")
     private String itemName;
 
-    @Field("description")
-    private String description;
-
-    @Field("category_id")
-    private String categoryId;
-
-    @Field("cuisine_type")
-    private String cuisineType;
-
-    @Field("food_type")
-    private String foodType;
-
     @Field("image_url")
     private String imageUrl;
+
+    private Integer quantity;
 
     @CreatedDate
     @Field("added_at")

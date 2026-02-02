@@ -2,28 +2,41 @@ package com.cateringmarketplace.module.auth.security;
 
 import com.cateringmarketplace.module.auth.model.User;
 import com.cateringmarketplace.module.auth.model.enums.UserStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Custom UserDetails implementation for Spring Security.
  */
 @Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class CustomUserDetails implements UserDetails {
 
-    private final String id;
-    private final String userId;
-    private final String email;
-    private final String password;
-    private final String userType;
-    private final boolean enabled;
-    private final boolean accountNonLocked;
-    private final Collection<? extends GrantedAuthority> authorities;
+    private String id;
+    private String userId;
+    private String email;
+    private String password;
+    private String userType;
+    private boolean enabled;
+    private boolean accountNonLocked;
+    
+    private List<String> roles = new ArrayList<>();
 
     public CustomUserDetails(User user) {
         this.id = user.getId();
@@ -33,14 +46,18 @@ public class CustomUserDetails implements UserDetails {
         this.userType = user.getUserType().name();
         this.enabled = user.getStatus() == UserStatus.ACTIVE;
         this.accountNonLocked = !user.isAccountLocked();
-        this.authorities = Collections.singletonList(
-                new SimpleGrantedAuthority("ROLE_" + user.getUserType().name())
-        );
+        this.roles = Collections.singletonList("ROLE_" + user.getUserType().name());
     }
 
     @Override
+    @JsonIgnore
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return authorities;
+        if (roles == null) {
+            return Collections.emptyList();
+        }
+        return roles.stream()
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -54,6 +71,7 @@ public class CustomUserDetails implements UserDetails {
     }
 
     @Override
+    @JsonIgnore
     public boolean isAccountNonExpired() {
         return true;
     }
@@ -64,6 +82,7 @@ public class CustomUserDetails implements UserDetails {
     }
 
     @Override
+    @JsonIgnore
     public boolean isCredentialsNonExpired() {
         return true;
     }
@@ -73,4 +92,3 @@ public class CustomUserDetails implements UserDetails {
         return enabled;
     }
 }
-

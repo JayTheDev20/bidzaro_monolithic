@@ -21,9 +21,9 @@ public interface WishlistRepository extends MongoRepository<WishlistItem, String
 
     Page<WishlistItem> findByUserId(String userId, Pageable pageable);
 
-    Optional<WishlistItem> findByUserIdAndVendorItemId(String userId, String vendorItemId);
+    Optional<WishlistItem> findByUserIdAndMasterItemId(String userId, String masterItemId); // Updated
 
-    boolean existsByUserIdAndVendorItemId(String userId, String vendorItemId);
+    boolean existsByUserIdAndMasterItemId(String userId, String masterItemId); // Updated
 
     long countByUserId(String userId);
 
@@ -31,4 +31,3 @@ public interface WishlistRepository extends MongoRepository<WishlistItem, String
 
     void deleteByUserId(String userId);
 }
-

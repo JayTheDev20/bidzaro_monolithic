@@ -54,39 +54,26 @@ public class OrderService {
     private double platformFeePercentage;
 
     /**
-     * Creates an order from an accepted bid.
+     * Creates an order from an accepted bid after token payment.
+     * This method is called by PaymentService after successful payment verification.
      */
     @Transactional
-    public OrderResponse createOrderFromBid(String bidRequestId, String userId) {
-        log.info("Creating order from bid request: {} for user: {}", bidRequestId, userId);
-
-        // Get bid request
-        BidRequest bidRequest = bidRequestRepository.findByBidRequestId(bidRequestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Bid request not found"));
-
-        // Validate ownership
-        if (!bidRequest.getUserId().equals(userId)) {
-            throw new ForbiddenException("FORBIDDEN", "You cannot create order for this bid request");
-        }
-
-        // Check if already has an order
-        if (orderRepository.findByBidRequestId(bidRequestId).isPresent()) {
-            throw new BadRequestException("ORDER_EXISTS", "Order already exists for this bid request");
-        }
-
-        // Check if bid is accepted and cooling period ended
-        if (bidRequest.getStatus() != BidRequestStatus.COOLING &&
-            bidRequest.getStatus() != BidRequestStatus.ACCEPTED) {
-            throw new BadRequestException("INVALID_STATUS", "Bid request is not ready for order creation");
-        }
-
-        if (bidRequest.getAcceptedBid() == null) {
-            throw new BadRequestException("NO_ACCEPTED_BID", "No bid has been accepted for this request");
-        }
+    public Order createOrderFromBid(String bidId, String transactionId, BigDecimal tokenAmountPaid) {
+        log.info("Creating order from accepted bid: {} with token payment: {}", bidId, transactionId);
 
         // Get accepted bid
-        VendorBid acceptedBid = vendorBidRepository.findByBidId(bidRequest.getAcceptedBid().getBidId())
+        VendorBid acceptedBid = vendorBidRepository.findByBidId(bidId)
                 .orElseThrow(() -> new ResourceNotFoundException("Accepted bid not found"));
+
+        // Get bid request
+        BidRequest bidRequest = bidRequestRepository.findByBidRequestId(acceptedBid.getBidRequestId())
+                .orElseThrow(() -> new ResourceNotFoundException("Bid request not found"));
+
+        // Check if already has an order
+        if (orderRepository.findByBidRequestId(bidRequest.getBidRequestId()).isPresent()) {
+            log.warn("Order already exists for bid request: {}", bidRequest.getBidRequestId());
+            return orderRepository.findByBidRequestId(bidRequest.getBidRequestId()).get();
+        }
 
         // Get vendor
         Vendor vendor = vendorRepository.findByVendorId(acceptedBid.getVendorId())
@@ -95,9 +82,10 @@ public class OrderService {
         // Create order
         Order order = Order.builder()
                 .orderId(UUID.randomUUID().toString())
-                .userId(userId)
-                .bidRequestId(bidRequestId)
-                .status(OrderStatus.PENDING_TOKEN_PAYMENT)
+                .userId(bidRequest.getUserId())
+                .bidRequestId(bidRequest.getBidRequestId())
+                .status(OrderStatus.CONFIRMED) // Order is confirmed immediately as token is paid
+                .confirmedAt(Instant.now())
                 .build();
 
         // Map event details from bid request
@@ -129,7 +117,7 @@ public class OrderService {
                 .vendorOrderId(UUID.randomUUID().toString())
                 .vendorId(vendor.getVendorId())
                 .vendorName(vendor.getBusinessName())
-                .vendorStatus(VendorOrder.VendorOrderStatus.PENDING)
+                .vendorStatus(VendorOrder.VendorOrderStatus.ACCEPTED)
                 .deliveryStatus(VendorOrder.DeliveryStatus.PENDING)
                 .build();
 
@@ -172,17 +160,15 @@ public class OrderService {
                 .totalAmount(totalAmount.add(platformFee))
                 .build());
 
-        // Calculate token amount
-        BigDecimal tokenAmount = totalAmount.add(platformFee)
-                .multiply(BigDecimal.valueOf(tokenPercentage / 100))
-                .setScale(2, RoundingMode.HALF_UP);
-
+        // Set Payment Details (Token Paid)
         order.setPaymentDetails(PaymentDetails.builder()
-                .tokenAmount(tokenAmount)
-                .tokenPaid(false)
-                .totalPaid(BigDecimal.ZERO)
-                .balanceDue(totalAmount.add(platformFee))
-                .paymentStatus(PaymentDetails.PaymentStatus.TOKEN_PENDING)
+                .tokenAmount(tokenAmountPaid)
+                .tokenPaid(true)
+                .tokenPaymentId(transactionId)
+                .tokenPaidAt(Instant.now())
+                .totalPaid(tokenAmountPaid)
+                .balanceDue(totalAmount.add(platformFee).subtract(tokenAmountPaid))
+                .paymentStatus(PaymentDetails.PaymentStatus.TOKEN_PAID)
                 .build());
 
         // Map additional requirements as special instructions
@@ -192,17 +178,14 @@ public class OrderService {
 
         order = orderRepository.save(order);
 
-        // Update bid request status
+        // Update bid request status to indicate order created
+        // Note: Status might already be ACCEPTED, but this confirms the order exists
         bidRequest.setStatus(BidRequestStatus.ACCEPTED);
         bidRequestRepository.save(bidRequest);
 
         log.info("Order created successfully: {}", order.getOrderId());
 
-        // Send order confirmation notification
-        // Assuming we have user email from somewhere, for now skipping as we don't have user entity here
-        // In a real scenario, we would fetch user details to send email
-
-        return OrderResponse.fromEntity(order);
+        return order;
     }
 
     /**

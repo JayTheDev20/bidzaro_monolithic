@@ -2,8 +2,10 @@ package com.cateringmarketplace.module.cart.service;
 
 import com.cateringmarketplace.common.exception.BadRequestException;
 import com.cateringmarketplace.common.exception.ResourceNotFoundException;
+import com.cateringmarketplace.module.cart.dto.BatchAddToCartRequest;
 import com.cateringmarketplace.module.cart.model.CartItem;
 import com.cateringmarketplace.module.cart.repository.CartRepository;
+import com.cateringmarketplace.module.cart.repository.DraftCartRepository;
 import com.cateringmarketplace.module.menu.model.VendorMenuItem;
 import com.cateringmarketplace.module.menu.repository.VendorMenuItemRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +31,7 @@ import java.util.stream.Collectors;
 public class CartService {
 
     private final CartRepository cartRepository;
+    private final DraftCartRepository draftCartRepository;
     private final VendorMenuItemRepository vendorMenuItemRepository;
 
     /**
@@ -90,6 +94,59 @@ public class CartService {
 
         log.info("Added cart item: {}", cartItem.getCartItemId());
         return cartItem;
+    }
+
+    /**
+     * Batch adds items to cart for a specific vendor.
+     * This is used after the user selects a vendor from the matching screen.
+     */
+    @Transactional
+    public List<CartItem> batchAddToCart(String userId, BatchAddToCartRequest request) {
+        log.info("Batch adding {} items to cart for user {} and vendor {}", 
+                request.getItems().size(), userId, request.getVendorId());
+
+        List<CartItem> addedItems = new ArrayList<>();
+
+        for (BatchAddToCartRequest.ItemRequest itemRequest : request.getItems()) {
+            // Find the specific VendorMenuItem using VendorId + MasterItemId
+            VendorMenuItem vendorItem = vendorMenuItemRepository.findByVendorIdAndMasterItemId(
+                    request.getVendorId(), itemRequest.getMasterItemId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Item " + itemRequest.getMasterItemId() + " not found for this vendor"));
+
+            if (!vendorItem.isAvailable()) {
+                throw new BadRequestException("ITEM_UNAVAILABLE", 
+                        "Item " + vendorItem.getCustomName() + " is currently unavailable from this vendor");
+            }
+
+            // Check if item already in cart
+            CartItem existingItem = cartRepository.findByUserIdAndVendorItemId(userId, vendorItem.getVendorItemId())
+                    .orElse(null);
+
+            if (existingItem != null) {
+                existingItem.updateQuantity(existingItem.getQuantity() + itemRequest.getQuantity());
+                addedItems.add(cartRepository.save(existingItem));
+            } else {
+                CartItem cartItem = CartItem.builder()
+                        .cartItemId(UUID.randomUUID().toString())
+                        .userId(userId)
+                        .vendorId(request.getVendorId())
+                        .vendorItemId(vendorItem.getVendorItemId())
+                        .itemName(vendorItem.getCustomName())
+                        .quantity(itemRequest.getQuantity())
+                        .pricePerPlate(vendorItem.getEffectivePrice())
+                        .expiresAt(Instant.now().plus(30, ChronoUnit.DAYS))
+                        .build();
+
+                cartItem.calculateTotalPrice();
+                addedItems.add(cartRepository.save(cartItem));
+            }
+
+            // Remove from Draft Cart if it exists
+            draftCartRepository.deleteByUserIdAndMasterItemId(userId, itemRequest.getMasterItemId());
+        }
+
+        return addedItems;
     }
 
     /**
@@ -157,4 +214,3 @@ public class CartService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }
-

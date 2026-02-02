@@ -16,8 +16,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CategoryRequest {
 
-    @NotBlank(message = "Category ID is required")
-    private String categoryId;
+    // Removed categoryId as it should be auto-generated or passed in path for updates
 
     @NotBlank(message = "Category name is required")
     private String categoryName;

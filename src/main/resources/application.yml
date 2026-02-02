@@ -34,7 +34,7 @@ spring:
     mongodb:
       uri: ${MONGODB_URI:mongodb+srv://bidzaronew:bidzaronew123@bidzaronew.1ot9fox.mongodb.net/?appName=bidzaronew}
       database: ${MONGODB_DATABASE:bidzaro_catering_platform_db}
-      auto-index-creation: false
+      auto-index-creation: true
 
     # -------------------------
     # CACHE - REDIS
@@ -97,7 +97,7 @@ spring:
 # ==================================================
 jwt:
   secret: ${JWT_SECRET:mySecretKeyForJWTTokenGenerationWhichShouldBeVeryLongAndSecure123456789}
-  access-token-expiration: ${JWT_ACCESS_TOKEN_EXP:900000}
+  access-token-expiration: ${JWT_ACCESS_TOKEN_EXP:604800000}
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXP:604800000}
 
 # ==================================================

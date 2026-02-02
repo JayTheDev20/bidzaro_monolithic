@@ -52,12 +52,12 @@ public class WishlistController {
     }
 
     @PostMapping("/items")
-    @Operation(summary = "Add to wishlist", description = "Adds an item to the wishlist")
+    @Operation(summary = "Add to wishlist", description = "Adds a master item to the wishlist")
     public ResponseEntity<ApiResponse<WishlistItem>> addToWishlist(
-            @RequestParam String vendorItemId,
+            @RequestParam String masterItemId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        log.info("Adding to wishlist: {} for user {}", vendorItemId, userDetails.getUserId());
-        WishlistItem item = wishlistService.addToWishlist(userDetails.getUserId(), vendorItemId);
+        log.info("Adding to wishlist: {} for user {}", masterItemId, userDetails.getUserId());
+        WishlistItem item = wishlistService.addToWishlist(userDetails.getUserId(), masterItemId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created(item, "Item added to wishlist"));
     }
@@ -79,12 +79,12 @@ public class WishlistController {
         return ResponseEntity.ok(ApiResponse.success(null, "Wishlist cleared"));
     }
 
-    @GetMapping("/check/{vendorItemId}")
-    @Operation(summary = "Check if in wishlist", description = "Checks if an item is in the wishlist")
+    @GetMapping("/check/{masterItemId}")
+    @Operation(summary = "Check if in wishlist", description = "Checks if a master item is in the wishlist")
     public ResponseEntity<ApiResponse<Map<String, Boolean>>> isInWishlist(
-            @PathVariable String vendorItemId,
+            @PathVariable String masterItemId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        boolean inWishlist = wishlistService.isInWishlist(userDetails.getUserId(), vendorItemId);
+        boolean inWishlist = wishlistService.isInWishlist(userDetails.getUserId(), masterItemId);
         return ResponseEntity.ok(ApiResponse.success(Map.of("inWishlist", inWishlist)));
     }
 
@@ -96,4 +96,3 @@ public class WishlistController {
         return ResponseEntity.ok(ApiResponse.success(Map.of("count", count)));
     }
 }
-

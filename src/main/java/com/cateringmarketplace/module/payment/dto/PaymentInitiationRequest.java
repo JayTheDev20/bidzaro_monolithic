@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class PaymentInitiationRequest {
     private String orderId;
+    private String bidId; // Added to support payment before order creation
     private String userId;
     private String transactionId;
     private BigDecimal amount;
@@ -25,4 +26,3 @@ public class PaymentInitiationRequest {
     private String customerName;
     private String country;
 }
-

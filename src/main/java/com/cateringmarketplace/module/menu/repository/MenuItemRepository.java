@@ -25,7 +25,7 @@ public interface MenuItemRepository extends MongoRepository<MenuItem, String> {
     long countByStatus(ItemStatus status);
 
     // ---------- EXISTS ----------
-    boolean existsByItemId(String itemId);
+    boolean existsByMasterItemId(String masterItemId); // Renamed from existsByItemId
 
     // ---------- FIND BY TAGS ----------
     @Query("{'status': 'ACTIVE', 'dietary_tags': {'$in': ?0}}")
@@ -53,5 +53,5 @@ public interface MenuItemRepository extends MongoRepository<MenuItem, String> {
     Page<MenuItem> findByStatus(ItemStatus status, Pageable pageable);
 
     // ---------- SINGLE ITEM ----------
-    Optional<MenuItem> findByItemId(String itemId);
+    Optional<MenuItem> findByMasterItemId(String masterItemId); // Renamed from findByItemId
 }

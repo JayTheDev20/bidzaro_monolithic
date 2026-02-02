@@ -20,7 +20,7 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class MenuItemResponse {
 
-    private String itemId;
+    private String masterItemId; // Renamed from itemId
     private String itemName;
     private String itemNameHindi;
     private String description;
@@ -54,7 +54,7 @@ public class MenuItemResponse {
         if (item == null) return null;
 
         MenuItemResponseBuilder builder = MenuItemResponse.builder()
-                .itemId(item.getItemId())
+                .masterItemId(item.getMasterItemId()) // Updated getter
                 .itemName(item.getItemName())
                 .itemNameHindi(item.getItemNameHindi())
                 .description(item.getDescription())
