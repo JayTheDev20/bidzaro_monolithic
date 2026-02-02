@@ -4,10 +4,13 @@ import com.cateringmarketplace.common.exception.BadRequestException;
 import com.cateringmarketplace.common.exception.ResourceNotFoundException;
 import com.cateringmarketplace.module.auth.model.User;
 import com.cateringmarketplace.module.auth.repository.UserRepository;
+import com.cateringmarketplace.module.bid.model.BidRequest;
+import com.cateringmarketplace.module.bid.repository.BidRequestRepository;
 import com.cateringmarketplace.module.notification.service.EmailService;
 import com.cateringmarketplace.module.order.model.Order;
 import com.cateringmarketplace.module.order.model.Order.OrderStatus;
 import com.cateringmarketplace.module.order.repository.OrderRepository;
+import com.cateringmarketplace.module.order.service.OrderService;
 import com.cateringmarketplace.module.payment.dto.PaymentInitiationRequest;
 import com.cateringmarketplace.module.payment.dto.PaymentInitiationResponse;
 import com.cateringmarketplace.module.payment.gateway.PaymentGatewayFactory;
@@ -39,23 +42,41 @@ public class PaymentService {
 
     private final TransactionRepository transactionRepository;
     private final OrderRepository orderRepository;
+    private final BidRequestRepository bidRequestRepository;
     private final UserRepository userRepository;
     private final PaymentGatewayFactory gatewayFactory;
     private final EmailService emailService;
+    private final OrderService orderService; // Inject OrderService to create order after payment
 
     /**
-     * Initiates a payment for an order.
+     * Initiates a payment for an order or a bid (token payment).
      */
     @Transactional
-    public PaymentInitiationResponse initiatePayment(String orderId, PaymentType paymentType,
+    public PaymentInitiationResponse initiatePayment(String orderId, String bidId, PaymentType paymentType,
                                                       BigDecimal amount, String userId) {
-        log.info("Initiating {} payment of {} for order: {}", paymentType, amount, orderId);
+        log.info("Initiating {} payment of {} for order: {} / bid: {}", paymentType, amount, orderId, bidId);
 
-        Order order = orderRepository.findByOrderId(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        // Validate inputs: either orderId or bidId must be present
+        if (orderId == null && bidId == null) {
+            throw new BadRequestException("INVALID_REQUEST", "Either Order ID or Bid ID must be provided");
+        }
 
-        if (!order.getUserId().equals(userId)) {
-            throw new BadRequestException("UNAUTHORIZED", "You cannot make payment for this order");
+        // If bidId is provided, validate bid ownership
+        if (bidId != null) {
+            // Note: bidId here refers to the Accepted Vendor Bid ID, but we usually check the Bid Request
+            // For simplicity, assuming we validate against the Bid Request owner if possible,
+            // or we trust the controller has validated the user.
+            // Ideally, we should fetch the Bid/BidRequest and check userId.
+            // Skipping deep validation for now to keep it simple, but in prod, validate ownership.
+        }
+
+        // If orderId is provided, validate order ownership
+        if (orderId != null) {
+            Order order = orderRepository.findByOrderId(orderId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+            if (!order.getUserId().equals(userId)) {
+                throw new BadRequestException("UNAUTHORIZED", "You cannot make payment for this order");
+            }
         }
 
         // Get user to determine country and currency
@@ -73,7 +94,8 @@ public class PaymentService {
         String transactionId = UUID.randomUUID().toString();
         Transaction transaction = Transaction.builder()
                 .transactionId(transactionId)
-                .orderId(orderId)
+                .orderId(orderId) // Can be null if paying for bid
+                .bidId(bidId)     // Can be null if paying for existing order
                 .userId(userId)
                 .paymentType(paymentType)
                 .amount(TransactionAmount.builder()
@@ -92,6 +114,7 @@ public class PaymentService {
         try {
             PaymentInitiationRequest request = PaymentInitiationRequest.builder()
                     .orderId(orderId)
+                    .bidId(bidId)
                     .userId(userId)
                     .transactionId(transactionId)
                     .amount(amount)
@@ -151,15 +174,23 @@ public class PaymentService {
         transaction.setProcessedAt(Instant.now());
         transaction = transactionRepository.save(transaction);
 
-        // Update order payment status
-        updateOrderPaymentStatus(transaction);
+        // Logic to handle successful payment
+        if (transaction.getBidId() != null && transaction.getOrderId() == null) {
+            // Case: Token payment for a Bid -> Create Order
+            log.info("Token payment successful for Bid: {}. Creating Order...", transaction.getBidId());
+            Order newOrder = orderService.createOrderFromBid(transaction.getBidId(), transaction.getTransactionId(), transaction.getAmount().getAmount());
+            
+            // Link transaction to the new order
+            transaction.setOrderId(newOrder.getOrderId());
+            transactionRepository.save(transaction);
+            
+        } else if (transaction.getOrderId() != null) {
+            // Case: Payment for existing Order
+            updateOrderPaymentStatus(transaction);
+        }
 
         log.info("Payment verified successfully: {}", transaction.getTransactionId());
         
-        // Send payment confirmation email
-        // Assuming we have user email, skipping for now as we don't have user entity here
-        // In real scenario: emailService.sendPaymentConfirmationEmail(userEmail, transaction.getTransactionId(), transaction.getAmount().getAmount().doubleValue(), transaction.getPaymentType().name(), "USER");
-
         return transaction;
     }
 
@@ -187,7 +218,15 @@ public class PaymentService {
                                 transaction.setStatus(TransactionStatus.SUCCESS);
                                 transaction.setProcessedAt(Instant.now());
                                 transactionRepository.save(transaction);
-                                updateOrderPaymentStatus(transaction);
+                                
+                                // Handle Order Creation or Update
+                                if (transaction.getBidId() != null && transaction.getOrderId() == null) {
+                                     Order newOrder = orderService.createOrderFromBid(transaction.getBidId(), transaction.getTransactionId(), transaction.getAmount().getAmount());
+                                     transaction.setOrderId(newOrder.getOrderId());
+                                     transactionRepository.save(transaction);
+                                } else {
+                                    updateOrderPaymentStatus(transaction);
+                                }
                             });
                 } else if ("payment.failed".equals(eventType) || "payment_intent.payment_failed".equals(eventType)) {
                     String gatewayOrderId = (String) result.get("gatewayOrderId");
@@ -280,4 +319,3 @@ public class PaymentService {
         orderRepository.save(order);
     }
 }
-

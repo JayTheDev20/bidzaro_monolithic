@@ -2,6 +2,7 @@ package com.cateringmarketplace.module.cart.controller;
 
 import com.cateringmarketplace.common.response.ApiResponse;
 import com.cateringmarketplace.module.auth.security.CustomUserDetails;
+import com.cateringmarketplace.module.cart.dto.BatchAddToCartRequest;
 import com.cateringmarketplace.module.cart.model.CartItem;
 import com.cateringmarketplace.module.cart.service.CartService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -59,6 +60,17 @@ public class CartController {
                 .body(ApiResponse.created(item, "Item added to cart"));
     }
 
+    @PostMapping("/items/batch")
+    @Operation(summary = "Batch add to cart", description = "Adds multiple items from a specific vendor to the cart")
+    public ResponseEntity<ApiResponse<List<CartItem>>> batchAddToCart(
+            @RequestBody BatchAddToCartRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Batch adding to cart for user {}", userDetails.getUserId());
+        List<CartItem> items = cartService.batchAddToCart(userDetails.getUserId(), request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created(items, "Items added to cart"));
+    }
+
     @PutMapping("/items/{cartItemId}")
     @Operation(summary = "Update cart item", description = "Updates quantity of a cart item")
     public ResponseEntity<ApiResponse<CartItem>> updateCartItem(
@@ -102,4 +114,3 @@ public class CartController {
         return ResponseEntity.ok(ApiResponse.success(Map.of("total", total)));
     }
 }
-

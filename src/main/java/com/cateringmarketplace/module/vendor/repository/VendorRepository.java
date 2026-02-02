@@ -11,6 +11,7 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,6 +25,11 @@ public interface VendorRepository extends MongoRepository<Vendor, String> {
      * Finds vendor by vendor ID.
      */
     Optional<Vendor> findByVendorId(String vendorId);
+
+    /**
+     * Finds vendors by a list of vendor IDs.
+     */
+    List<Vendor> findByVendorIdIn(Collection<String> vendorIds);
 
     /**
      * Finds vendor by user ID.
@@ -80,10 +86,10 @@ public interface VendorRepository extends MongoRepository<Vendor, String> {
     List<Vendor> findNearbyVendors(double longitude, double latitude, double maxDistanceMeters);
 
     /**
-     * Finds vendors by city.
+     * Finds vendors by city (Case Insensitive).
      */
     @Query("{'status': 'ACTIVE', 'approval_status': 'APPROVED', " +
-           "'$or': [{'business_address.city': ?0}, {'service_areas.city': ?0}]}")
+           "'$or': [{'business_address.city': {'$regex': ?0, '$options': 'i'}}, {'service_areas.city': {'$regex': ?0, '$options': 'i'}}]}")
     Page<Vendor> findByCity(String city, Pageable pageable);
 
     /**

@@ -115,7 +115,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/menu/**").permitAll()
                         //.requestMatchers(ADMIN_ENDPOINTS).hasRole("ADMIN")
                         //.requestMatchers("/support/tickets/{id}/assign").hasAnyRole("ADMIN", "SUPPORT_AGENT")
-                        .anyRequest().permitAll() // Allow all requests for now as requested
+                        .anyRequest().authenticated() // Changed from permitAll() to authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
