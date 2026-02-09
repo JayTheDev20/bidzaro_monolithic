@@ -48,6 +48,8 @@ public interface TicketRepository extends MongoRepository<Ticket, String> {
     long countByPriority(TicketPriority priority);
 
     long countByAssignedToAndStatus(String agentId, TicketStatus status);
+    
+    long countByAssignedToAndStatusIn(String agentId, List<TicketStatus> statuses);
 
     // =========================================================
     // OPEN / ACTIVE / UNASSIGNED

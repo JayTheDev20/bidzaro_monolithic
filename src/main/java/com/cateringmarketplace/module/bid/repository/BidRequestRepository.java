@@ -95,7 +95,7 @@ public interface BidRequestRepository extends MongoRepository<BidRequest, String
     /**
      * Find bid requests targeted to a specific vendor.
      */
-    @Query("{'targeted_vendors': ?0, 'status': {'$in': ['ACTIVE', 'COMPETITIVE']}}")
+    @Query("{'targeted_vendors': ?0, 'status': {'$in': ['ACTIVE', 'COMPETITIVE', 'COOLING']}}")
     Page<BidRequest> findByTargetedVendor(String vendorId, Pageable pageable);
 
     // =========================================================

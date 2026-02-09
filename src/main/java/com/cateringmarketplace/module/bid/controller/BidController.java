@@ -5,6 +5,7 @@ import com.cateringmarketplace.common.response.PageInfo;
 import com.cateringmarketplace.module.auth.security.CustomUserDetails;
 import com.cateringmarketplace.module.bid.dto.request.CreateBidRequestDTO;
 import com.cateringmarketplace.module.bid.dto.request.SubmitBidDTO;
+import com.cateringmarketplace.module.bid.dto.request.UpdateBidRequestDTO;
 import com.cateringmarketplace.module.bid.dto.response.BidRequestResponse;
 import com.cateringmarketplace.module.bid.dto.response.VendorBidResponse;
 import com.cateringmarketplace.module.bid.service.BidService;
@@ -88,6 +89,17 @@ public class BidController {
             @PathVariable String bidRequestId) {
         BidRequestResponse response = bidService.getBidRequest(bidRequestId);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PutMapping("/requests/{bidRequestId}")
+    @Operation(summary = "Update bid request", description = "Updates an existing bid request")
+    public ResponseEntity<ApiResponse<BidRequestResponse>> updateBidRequest(
+            @PathVariable String bidRequestId,
+            @Valid @RequestBody UpdateBidRequestDTO request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Updating bid request: {} by user: {}", bidRequestId, userDetails.getUserId());
+        BidRequestResponse response = bidService.updateBidRequest(bidRequestId, request, userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(response, "Bid request updated successfully"));
     }
 
     @DeleteMapping("/requests/{bidRequestId}")

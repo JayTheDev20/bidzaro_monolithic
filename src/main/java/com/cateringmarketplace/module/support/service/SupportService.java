@@ -2,6 +2,8 @@ package com.cateringmarketplace.module.support.service;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -17,6 +19,7 @@ import com.cateringmarketplace.common.exception.BadRequestException;
 import com.cateringmarketplace.common.exception.ForbiddenException;
 import com.cateringmarketplace.common.exception.ResourceNotFoundException;
 import com.cateringmarketplace.module.auth.model.User;
+import com.cateringmarketplace.module.auth.model.enums.UserType;
 import com.cateringmarketplace.module.auth.repository.UserRepository;
 import com.cateringmarketplace.module.support.dto.request.CreateTicketRequest;
 import com.cateringmarketplace.module.support.dto.response.TicketResponse;
@@ -114,7 +117,53 @@ public class SupportService {
         ticket = ticketRepository.save(ticket);
         log.info("Created ticket: {} ({})", ticket.getTicketId(), ticket.getTicketNumber());
 
+        // Auto-assign ticket
+        autoAssignTicket(ticket);
+
         return TicketResponse.fromEntity(ticket);
+    }
+
+    /**
+     * Automatically assigns ticket to the agent with the least workload.
+     */
+    private void autoAssignTicket(Ticket ticket) {
+        try {
+            List<User> agents = userRepository.findByUserType(UserType.SUPPORT_AGENT);
+            
+            if (agents.isEmpty()) {
+                log.warn("No support agents found for auto-assignment.");
+                return;
+            }
+
+            String bestAgentId = null;
+            long minTickets = Long.MAX_VALUE;
+
+            List<TicketStatus> activeStatuses = Arrays.asList(
+                    TicketStatus.OPEN, 
+                    TicketStatus.ASSIGNED, 
+                    TicketStatus.IN_PROGRESS, 
+                    TicketStatus.WAITING_FOR_CUSTOMER
+            );
+
+            for (User agent : agents) {
+                long activeCount = ticketRepository.countByAssignedToAndStatusIn(agent.getUserId(), activeStatuses);
+                if (activeCount < minTickets) {
+                    minTickets = activeCount;
+                    bestAgentId = agent.getUserId();
+                }
+            }
+
+            if (bestAgentId != null) {
+                ticket.setAssignedTo(bestAgentId);
+                ticket.setAssignedAt(Instant.now());
+                ticket.setStatus(TicketStatus.ASSIGNED);
+                ticketRepository.save(ticket);
+                log.info("Auto-assigned ticket {} to agent {}", ticket.getTicketNumber(), bestAgentId);
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to auto-assign ticket: {}", e.getMessage(), e);
+        }
     }
 
     // =========================================================

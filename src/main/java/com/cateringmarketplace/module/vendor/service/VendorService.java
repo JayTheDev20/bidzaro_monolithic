@@ -9,8 +9,11 @@ import com.cateringmarketplace.common.response.PageInfo;
 import com.cateringmarketplace.module.auth.model.User;
 import com.cateringmarketplace.module.auth.model.enums.UserType;
 import com.cateringmarketplace.module.auth.repository.UserRepository;
+import com.cateringmarketplace.module.menu.model.VendorMenuItem;
+import com.cateringmarketplace.module.menu.repository.VendorMenuItemRepository;
 import com.cateringmarketplace.module.vendor.dto.request.VendorRegistrationRequest;
 import com.cateringmarketplace.module.vendor.dto.request.VendorUpdateRequest;
+import com.cateringmarketplace.module.vendor.dto.response.VendorMenuSimpleResponse;
 import com.cateringmarketplace.module.vendor.dto.response.VendorResponse;
 import com.cateringmarketplace.module.vendor.model.Vendor;
 import com.cateringmarketplace.module.vendor.model.Vendor.*;
@@ -38,6 +41,7 @@ public class VendorService {
 
     private final VendorRepository vendorRepository;
     private final UserRepository userRepository;
+    private final VendorMenuItemRepository vendorMenuItemRepository; // Injected
     private final com.cateringmarketplace.module.notification.service.EmailService emailService;
 
     /**
@@ -258,6 +262,22 @@ public class VendorService {
         Vendor vendor = vendorRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendor profile not found"));
         return toVendorResponse(vendor);
+    }
+
+    /**
+     * Gets simplified vendor menu.
+     */
+    public List<VendorMenuSimpleResponse> getVendorMenuSimple(String vendorId) {
+        List<VendorMenuItem> items = vendorMenuItemRepository.findAvailableItemsByVendor(vendorId);
+        
+        return items.stream()
+                .map(item -> VendorMenuSimpleResponse.builder()
+                        .vendorItemId(item.getVendorItemId())
+                        .customName(item.getCustomName())
+                        .pricePerPlate(item.getEffectivePrice())
+                        .currency(item.getPricing() != null ? item.getPricing().getCurrency() : "USD")
+                        .build())
+                .collect(Collectors.toList());
     }
 
     /**

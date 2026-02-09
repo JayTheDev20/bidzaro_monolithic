@@ -5,6 +5,7 @@ import com.cateringmarketplace.common.response.PageInfo;
 import com.cateringmarketplace.module.auth.security.CustomUserDetails;
 import com.cateringmarketplace.module.vendor.dto.request.VendorRegistrationRequest;
 import com.cateringmarketplace.module.vendor.dto.request.VendorUpdateRequest;
+import com.cateringmarketplace.module.vendor.dto.response.VendorMenuSimpleResponse;
 import com.cateringmarketplace.module.vendor.dto.response.VendorResponse;
 import com.cateringmarketplace.module.vendor.service.VendorService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -78,6 +79,14 @@ public class VendorController {
             @PathVariable String vendorId) {
         VendorResponse response = vendorService.getVendorById(vendorId);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/{vendorId}/menu/simple")
+    @Operation(summary = "Get simplified vendor menu", description = "Returns simplified menu (name, price) for a vendor")
+    public ResponseEntity<ApiResponse<List<VendorMenuSimpleResponse>>> getVendorMenuSimple(
+            @PathVariable String vendorId) {
+        List<VendorMenuSimpleResponse> menu = vendorService.getVendorMenuSimple(vendorId);
+        return ResponseEntity.ok(ApiResponse.success(menu));
     }
 
     @GetMapping("/me")

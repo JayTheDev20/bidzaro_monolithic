@@ -6,6 +6,7 @@ import com.cateringmarketplace.common.exception.ForbiddenException;
 import com.cateringmarketplace.common.exception.ResourceNotFoundException;
 import com.cateringmarketplace.module.bid.dto.request.CreateBidRequestDTO;
 import com.cateringmarketplace.module.bid.dto.request.SubmitBidDTO;
+import com.cateringmarketplace.module.bid.dto.request.UpdateBidRequestDTO;
 import com.cateringmarketplace.module.bid.dto.response.BidRequestResponse;
 import com.cateringmarketplace.module.bid.dto.response.VendorBidResponse;
 import com.cateringmarketplace.module.bid.model.BidRequest;
@@ -206,6 +207,80 @@ public class BidService {
         log.info("Cart cleared for user: {}", userId);
 
         return createdRequests;
+    }
+
+    /**
+     * Updates an existing bid request.
+     */
+    @Transactional
+    public BidRequestResponse updateBidRequest(String bidRequestId, UpdateBidRequestDTO dto, String userId) {
+        log.info("Updating bid request: {} for user: {}", bidRequestId, userId);
+
+        BidRequest request = bidRequestRepository.findByBidRequestId(bidRequestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Bid request not found"));
+
+        if (!request.getUserId().equals(userId)) {
+            throw new ForbiddenException("FORBIDDEN", "You cannot update this bid request");
+        }
+
+        if (request.getStatus() == BidRequestStatus.ACCEPTED || request.getStatus() == BidRequestStatus.CANCELLED) {
+            throw new BadRequestException("CANNOT_UPDATE", "Cannot update a bid request that is accepted or cancelled");
+        }
+
+        // Update Event Details
+        if (dto.getEventDetails() != null) {
+            var ed = dto.getEventDetails();
+            EventDetails currentEd = request.getEventDetails();
+            
+            if (ed.getEventType() != null) currentEd.setEventType(ed.getEventType());
+            if (ed.getEventName() != null) currentEd.setEventName(ed.getEventName());
+            if (ed.getEventDate() != null) currentEd.setEventDate(ed.getEventDate());
+            if (ed.getEventStartTime() != null) currentEd.setEventStartTime(ed.getEventStartTime());
+            if (ed.getEventEndTime() != null) currentEd.setEventEndTime(ed.getEventEndTime());
+            if (ed.getNumberOfGuests() != null) currentEd.setNumberOfGuests(ed.getNumberOfGuests());
+
+            if (ed.getVenueAddress() != null) {
+                VenueAddress currentVa = currentEd.getVenueAddress() != null ? currentEd.getVenueAddress() : new VenueAddress();
+                if (ed.getVenueAddress().getStreetAddress() != null) currentVa.setStreetAddress(ed.getVenueAddress().getStreetAddress());
+                if (ed.getVenueAddress().getCity() != null) currentVa.setCity(ed.getVenueAddress().getCity());
+                if (ed.getVenueAddress().getState() != null) currentVa.setState(ed.getVenueAddress().getState());
+                if (ed.getVenueAddress().getPostalCode() != null) currentVa.setPostalCode(ed.getVenueAddress().getPostalCode());
+                if (ed.getVenueAddress().getCountry() != null) currentVa.setCountry(ed.getVenueAddress().getCountry());
+                
+                if (ed.getVenueAddress().getLatitude() != null && ed.getVenueAddress().getLongitude() != null) {
+                    currentVa.setGpsCoordinates(new GeoJsonPoint(
+                            ed.getVenueAddress().getLongitude(),
+                            ed.getVenueAddress().getLatitude()));
+                }
+                currentEd.setVenueAddress(currentVa);
+            }
+            request.setEventDetails(currentEd);
+        }
+
+        // Update Budget
+        if (dto.getBudget() != null) {
+            Budget currentBudget = request.getBudget() != null ? request.getBudget() : new Budget();
+            if (dto.getBudget().getCurrency() != null) currentBudget.setCurrency(dto.getBudget().getCurrency());
+            if (dto.getBudget().getEstimatedBudget() != null) currentBudget.setEstimatedBudget(dto.getBudget().getEstimatedBudget());
+            if (dto.getBudget().getBudgetRange() != null) currentBudget.setBudgetRange(dto.getBudget().getBudgetRange());
+            request.setBudget(currentBudget);
+        }
+
+        // Update Additional Requirements
+        if (dto.getAdditionalRequirements() != null) {
+            AdditionalRequirements currentAr = request.getAdditionalRequirements() != null ? request.getAdditionalRequirements() : new AdditionalRequirements();
+            if (dto.getAdditionalRequirements().getServiceStaffNeeded() != null) currentAr.setServiceStaffNeeded(dto.getAdditionalRequirements().getServiceStaffNeeded());
+            if (dto.getAdditionalRequirements().getNumberOfStaff() != null) currentAr.setNumberOfStaff(dto.getAdditionalRequirements().getNumberOfStaff());
+            if (dto.getAdditionalRequirements().getDecorationNeeded() != null) currentAr.setDecorationNeeded(dto.getAdditionalRequirements().getDecorationNeeded());
+            if (dto.getAdditionalRequirements().getLiveCounters() != null) currentAr.setLiveCounters(dto.getAdditionalRequirements().getLiveCounters());
+            if (dto.getAdditionalRequirements().getSpecialInstructions() != null) currentAr.setSpecialInstructions(dto.getAdditionalRequirements().getSpecialInstructions());
+            request.setAdditionalRequirements(currentAr);
+        }
+
+        request = bidRequestRepository.save(request);
+        log.info("Bid request updated: {}", bidRequestId);
+
+        return BidRequestResponse.fromEntity(request);
     }
 
     /**
