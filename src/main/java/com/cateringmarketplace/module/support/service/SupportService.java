@@ -21,6 +21,9 @@ import com.cateringmarketplace.common.exception.ResourceNotFoundException;
 import com.cateringmarketplace.module.auth.model.User;
 import com.cateringmarketplace.module.auth.model.enums.UserType;
 import com.cateringmarketplace.module.auth.repository.UserRepository;
+import com.cateringmarketplace.module.chat.model.Conversation;
+import com.cateringmarketplace.module.chat.model.Conversation.ConversationType;
+import com.cateringmarketplace.module.chat.service.ChatService;
 import com.cateringmarketplace.module.support.dto.request.CreateTicketRequest;
 import com.cateringmarketplace.module.support.dto.response.TicketResponse;
 import com.cateringmarketplace.module.support.model.Ticket;
@@ -40,6 +43,7 @@ public class SupportService {
 
     private final TicketRepository ticketRepository;
     private final UserRepository userRepository;
+    private final ChatService chatService; // Injected ChatService
 
     // =========================================================
     // CREATE TICKET
@@ -154,16 +158,39 @@ public class SupportService {
             }
 
             if (bestAgentId != null) {
-                ticket.setAssignedTo(bestAgentId);
-                ticket.setAssignedAt(Instant.now());
-                ticket.setStatus(TicketStatus.ASSIGNED);
-                ticketRepository.save(ticket);
+                assignTicketToAgent(ticket, bestAgentId);
                 log.info("Auto-assigned ticket {} to agent {}", ticket.getTicketNumber(), bestAgentId);
             }
 
         } catch (Exception e) {
             log.error("Failed to auto-assign ticket: {}", e.getMessage(), e);
         }
+    }
+
+    /**
+     * Helper to assign ticket and create chat.
+     */
+    private void assignTicketToAgent(Ticket ticket, String agentId) {
+        ticket.setAssignedTo(agentId);
+        ticket.setAssignedAt(Instant.now());
+        ticket.setStatus(TicketStatus.ASSIGNED);
+
+        // Create Chat Conversation
+        try {
+            ConversationType type = "VENDOR".equalsIgnoreCase(ticket.getCreatedByType()) 
+                    ? ConversationType.VENDOR_SUPPORT 
+                    : ConversationType.USER_SUPPORT;
+
+            Conversation conversation = chatService.getOrCreateConversation(
+                    ticket.getCreatedBy(), agentId, type);
+            
+            ticket.setConversationId(conversation.getConversationId());
+            
+        } catch (Exception e) {
+            log.error("Failed to create support chat for ticket {}: {}", ticket.getTicketNumber(), e.getMessage());
+        }
+
+        ticketRepository.save(ticket);
     }
 
     // =========================================================
@@ -225,11 +252,8 @@ public class SupportService {
         Ticket ticket = ticketRepository.findByTicketId(ticketId)
                 .orElseThrow(() -> new ResourceNotFoundException("Ticket not found"));
 
-        ticket.setAssignedTo(agentId);
-        ticket.setAssignedAt(Instant.now());
-        ticket.setStatus(TicketStatus.ASSIGNED);
+        assignTicketToAgent(ticket, agentId);
 
-        ticket = ticketRepository.save(ticket);
         return TicketResponse.fromEntity(ticket);
     }
 

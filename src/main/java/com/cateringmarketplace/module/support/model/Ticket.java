@@ -75,6 +75,9 @@ public class Ticket {
 
     @Field("assigned_at")
     private Instant assignedAt;
+    
+    @Field("conversation_id")
+    private String conversationId; // Linked Chat Conversation
 
     @Indexed
     private TicketStatus status;
@@ -221,4 +224,3 @@ public class Ticket {
         return Boolean.TRUE.equals(sla.getSlaBreached());
     }
 }
-

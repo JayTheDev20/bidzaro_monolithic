@@ -1,6 +1,6 @@
 # Support Module API Documentation
 
-This document outlines all the REST APIs available for the Support Module in the Catering Marketplace application.
+This document outlines all the REST APIs available for the Support Module in the Catering Marketplace application, including Ticket Management and Real-Time Chat.
 
 ## Base URL
 `http://localhost:8080/api/v1`
@@ -16,7 +16,7 @@ All endpoints require a valid JWT token in the header:
 These APIs are for regular users to create, view, and manage their support tickets.
 
 ### A. Create Support Ticket
-Creates a new support ticket. The system will automatically assign it to the least busy support agent.
+Creates a new support ticket. The system will automatically assign it to the least busy support agent and **create a chat conversation**.
 
 *   **URL:** `/support/tickets`
 *   **Method:** `POST`
@@ -65,6 +65,8 @@ Creates a new support ticket. The system will automatically assign it to the lea
     "ticketNumber": "TKT-2024-00001",
     "status": "ASSIGNED", // Automatically assigned
     "subject": "Order #123 is late",
+    "assignedTo": "agent_user_id",
+    "conversationId": "chat_conv_123", // <--- USE THIS FOR CHAT
     "createdAt": "2024-01-30T10:00:00Z"
   }
 }
@@ -90,6 +92,7 @@ Retrieves a paginated list of tickets created by the logged-in user.
       "status": "IN_PROGRESS",
       "subject": "Order #123 is late",
       "priority": "HIGH",
+      "conversationId": "chat_conv_123",
       "createdAt": "2024-01-30T10:00:00Z"
     }
   ],
@@ -102,7 +105,7 @@ Retrieves full details of a specific ticket.
 
 *   **URL:** `/support/tickets/{ticketId}`
 *   **Method:** `GET`
-*   **Response (200 OK):** Returns full ticket object including description, attachments, and resolution.
+*   **Response (200 OK):** Returns full ticket object including description, attachments, resolution, and `conversationId`.
 
 ### D. Rate Support Experience
 Allows the user to rate the support service after the ticket is resolved or closed.
@@ -166,7 +169,58 @@ Marks a ticket as resolved and adds resolution notes.
 
 ---
 
-## 3. Ticket Status Lifecycle
+## 3. Support Chat Integration
+
+Every ticket automatically creates a chat conversation between the user and the assigned agent.
+
+### A. REST APIs (History & Management)
+
+#### 1. Get Message History
+*   **URL:** `/chat/conversations/{conversationId}/messages`
+*   **Method:** `GET`
+*   **Query Params:** `page=0`, `size=50`
+*   **Response:** List of messages.
+
+#### 2. Mark Messages as Read
+*   **URL:** `/chat/conversations/{conversationId}/read`
+*   **Method:** `PATCH`
+*   **Description:** Marks all messages in the conversation as read by the current user.
+
+#### 3. Send Message (REST Fallback)
+*   **URL:** `/chat/messages`
+*   **Method:** `POST`
+*   **Payload:** `{ "conversationId": "...", "content": "Hello", "type": "TEXT" }`
+
+### B. WebSocket (Real-Time)
+
+*   **Connection URL:** `ws://localhost:8080/ws/chat`
+*   **Library:** Use `@stomp/stompjs` and `sockjs-client`.
+
+#### 1. Send Message
+*   **Destination:** `/app/chat.sendMessage`
+*   **Payload:**
+    ```json
+    {
+      "conversationId": "...",
+      "senderId": "...",
+      "message": "Hello Support!",
+      "messageType": "TEXT"
+    }
+    ```
+
+#### 2. Receive Message
+*   **Subscribe To:** `/topic/conversations.{conversationId}`
+*   **Action:** Listen for new message objects.
+
+#### 3. Typing Indicators
+*   **Send To:** `/app/chat.typing`
+    *   **Payload:** `{ "conversationId": "...", "userId": "...", "typing": true }`
+*   **Subscribe To:** `/topic/conversations.{conversationId}.typing`
+    *   **Action:** Show "Agent is typing..." when `typing: true` is received from the other user.
+
+---
+
+## 4. Ticket Status Lifecycle
 
 1.  **OPEN:** Ticket created, not yet assigned (rare with auto-assign).
 2.  **ASSIGNED:** Ticket assigned to an agent.
@@ -175,7 +229,7 @@ Marks a ticket as resolved and adds resolution notes.
 5.  **RESOLVED:** Issue fixed, waiting for user confirmation/rating.
 6.  **CLOSED:** Final state.
 
-## 4. Automatic Assignment Logic
+## 5. Automatic Assignment Logic
 *   The system automatically finds all users with role `SUPPORT_AGENT`.
 *   It counts their active tickets (`OPEN`, `ASSIGNED`, `IN_PROGRESS`, `WAITING`).
 *   It assigns the new ticket to the agent with the **lowest** active ticket count.
