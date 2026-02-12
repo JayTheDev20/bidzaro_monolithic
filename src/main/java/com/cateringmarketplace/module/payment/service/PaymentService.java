@@ -311,23 +311,41 @@ public class PaymentService {
 
         if (order == null) return;
 
+        BigDecimal paidAmount = transaction.getAmount().getAmount();
+
+        // Update financial totals
+        order.getPaymentDetails().setTotalPaid(
+                order.getPaymentDetails().getTotalPaid().add(paidAmount));
+        order.getPaymentDetails().setBalanceDue(
+                order.getPaymentDetails().getBalanceDue().subtract(paidAmount));
+
+        // Handle specific payment types
         if (transaction.getPaymentType() == PaymentType.TOKEN) {
             order.getPaymentDetails().setTokenPaid(true);
             order.getPaymentDetails().setTokenPaymentId(transaction.getTransactionId());
             order.getPaymentDetails().setTokenPaidAt(Instant.now());
-            order.getPaymentDetails().setTotalPaid(
-                    order.getPaymentDetails().getTotalPaid().add(transaction.getAmount().getAmount()));
-            order.getPaymentDetails().setBalanceDue(
-                    order.getPaymentDetails().getBalanceDue().subtract(transaction.getAmount().getAmount()));
             order.getPaymentDetails().setPaymentStatus(Order.PaymentDetails.PaymentStatus.TOKEN_PAID);
 
-            // Update order status
+            // Update order status if it was pending token
             if (order.getStatus() == OrderStatus.PENDING_TOKEN_PAYMENT) {
                 order.setStatus(OrderStatus.CONFIRMED);
                 order.setConfirmedAt(Instant.now());
             }
+        } else if (transaction.getPaymentType() == PaymentType.BALANCE || transaction.getPaymentType() == PaymentType.FULL) {
+            // Check if fully paid
+            if (order.getPaymentDetails().getBalanceDue().compareTo(BigDecimal.ZERO) <= 0) {
+                order.getPaymentDetails().setPaymentStatus(Order.PaymentDetails.PaymentStatus.FULLY_PAID);
+                // Ensure balance doesn't go negative (optional, but good practice)
+                if (order.getPaymentDetails().getBalanceDue().compareTo(BigDecimal.ZERO) < 0) {
+                    order.getPaymentDetails().setBalanceDue(BigDecimal.ZERO);
+                }
+            } else {
+                // Partially paid (if balance payment was partial)
+                order.getPaymentDetails().setPaymentStatus(Order.PaymentDetails.PaymentStatus.PARTIALLY_PAID);
+            }
         }
 
         orderRepository.save(order);
+        log.info("Updated payment status for order: {}. New Balance: {}", order.getOrderId(), order.getPaymentDetails().getBalanceDue());
     }
 }
