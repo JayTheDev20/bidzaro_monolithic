@@ -138,6 +138,8 @@ Retrieves tickets assigned specifically to the logged-in agent.
 
 *   **URL:** `/support/admin/my-tickets`
 *   **Method:** `GET`
+*   **Query Parameters:**
+    *   `status` (Optional): Filter by status (e.g., `OPEN`, `RESOLVED`).
 *   **Response (200 OK):** List of tickets assigned to me.
 
 ### C. Assign Ticket (Manual)

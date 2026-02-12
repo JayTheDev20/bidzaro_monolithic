@@ -32,6 +32,7 @@ public class TicketResponse {
     private RelatedEntitiesDTO relatedEntities;
     private String assignedTo;
     private Instant assignedAt;
+    private String conversationId; // Added conversationId
     private String status;
     private SlaDTO sla;
     private ResolutionDTO resolution;
@@ -96,6 +97,7 @@ public class TicketResponse {
                 .description(ticket.getDescription())
                 .assignedTo(ticket.getAssignedTo())
                 .assignedAt(ticket.getAssignedAt())
+                .conversationId(ticket.getConversationId()) // Map conversationId
                 .status(ticket.getStatus() != null ? ticket.getStatus().name() : null)
                 .createdAt(ticket.getCreatedAt())
                 .closedAt(ticket.getClosedAt());
@@ -137,4 +139,3 @@ public class TicketResponse {
         return builder.build();
     }
 }
-

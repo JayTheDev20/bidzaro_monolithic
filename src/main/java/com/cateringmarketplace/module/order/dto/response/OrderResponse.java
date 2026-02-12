@@ -70,6 +70,7 @@ public class OrderResponse {
     public static class VendorOrderResponse {
         private String vendorOrderId;
         private String vendorId;
+        private String vendorUserId; // Added vendorUserId
         private String vendorName;
         private List<OrderItemResponse> items;
         private BigDecimal subtotal;
@@ -186,6 +187,9 @@ public class OrderResponse {
                     .map(vo -> VendorOrderResponse.builder()
                             .vendorOrderId(vo.getVendorOrderId())
                             .vendorId(vo.getVendorId())
+                            // vendorUserId is not in VendorOrder model, so we can't map it directly here
+                            // It needs to be populated by the service layer if needed, or we add it to the model.
+                            // For now, we will leave it null here and let the service populate it if it fetches the vendor.
                             .vendorName(vo.getVendorName())
                             .subtotal(vo.getSubtotal())
                             .serviceCharge(vo.getServiceCharge())
@@ -255,4 +259,3 @@ public class OrderResponse {
         return builder.build();
     }
 }
-

@@ -31,6 +31,10 @@ public class SubmitBidDTO {
 
     private Integer validityPeriodHours;
 
+    @DecimalMin(value = "0.0", message = "Advance percentage cannot be negative")
+    @DecimalMax(value = "100.0", message = "Advance percentage cannot exceed 100")
+    private BigDecimal advancePercentage;
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -85,4 +89,3 @@ public class SubmitBidDTO {
         private Integer cleaners;
     }
 }
-

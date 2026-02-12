@@ -71,6 +71,12 @@ public class VendorBid {
     @Builder.Default
     private Integer validityPeriodHours = 168;
 
+    @Field("advance_percentage")
+    private BigDecimal advancePercentage;
+
+    @Field("required_advance_amount")
+    private BigDecimal requiredAdvanceAmount;
+
     @Field("bid_history")
     @Builder.Default
     private List<BidRevision> bidHistory = new ArrayList<>();

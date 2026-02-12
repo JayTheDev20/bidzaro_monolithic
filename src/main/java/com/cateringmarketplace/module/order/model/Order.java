@@ -134,6 +134,8 @@ public class Order {
         private String vendorOrderId;
         @Indexed
         private String vendorId;
+        @Field("vendor_user_id")
+        private String vendorUserId; // Added vendorUserId
         private String vendorName;
         @Builder.Default
         private List<OrderItem> items = new ArrayList<>();
@@ -148,7 +150,7 @@ public class Order {
 
         public enum VendorOrderStatus {
             PENDING,
-            ACCEPTED, // Added ACCEPTED status
+            ACCEPTED,
             CONFIRMED,
             IN_PREPARATION,
             READY,

@@ -34,6 +34,8 @@ public interface TicketRepository extends MongoRepository<Ticket, String> {
     Page<Ticket> findByCreatedBy(String userId, Pageable pageable);
 
     Page<Ticket> findByAssignedTo(String agentId, Pageable pageable);
+    
+    Page<Ticket> findByAssignedToAndStatus(String agentId, TicketStatus status, Pageable pageable);
 
     // =========================================================
     // STATUS / PRIORITY

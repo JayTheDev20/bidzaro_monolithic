@@ -6,6 +6,7 @@ import com.cateringmarketplace.module.auth.model.User;
 import com.cateringmarketplace.module.auth.repository.UserRepository;
 import com.cateringmarketplace.module.bid.model.BidRequest;
 import com.cateringmarketplace.module.bid.repository.BidRequestRepository;
+import com.cateringmarketplace.module.bid.service.BidService;
 import com.cateringmarketplace.module.notification.service.EmailService;
 import com.cateringmarketplace.module.order.model.Order;
 import com.cateringmarketplace.module.order.model.Order.OrderStatus;
@@ -47,6 +48,7 @@ public class PaymentService {
     private final PaymentGatewayFactory gatewayFactory;
     private final EmailService emailService;
     private final OrderService orderService; // Inject OrderService to create order after payment
+    private final BidService bidService; // Inject BidService to confirm bid payment
 
     /**
      * Initiates a payment for an order or a bid (token payment).
@@ -176,8 +178,14 @@ public class PaymentService {
 
         // Logic to handle successful payment
         if (transaction.getBidId() != null && transaction.getOrderId() == null) {
-            // Case: Token payment for a Bid -> Create Order
-            log.info("Token payment successful for Bid: {}. Creating Order...", transaction.getBidId());
+            // Case: Token payment for a Bid -> Confirm Bid Payment -> Create Order
+            log.info("Token payment successful for Bid: {}. Confirming Bid Payment...", transaction.getBidId());
+
+            // 1. Confirm Bid Payment (Update status to ACCEPTED)
+            bidService.confirmBidPayment(transaction.getBidId());
+
+            // 2. Create Order
+            log.info("Creating Order for Bid: {}", transaction.getBidId());
             Order newOrder = orderService.createOrderFromBid(transaction.getBidId(), transaction.getTransactionId(), transaction.getAmount().getAmount());
             
             // Link transaction to the new order
@@ -221,6 +229,10 @@ public class PaymentService {
                                 
                                 // Handle Order Creation or Update
                                 if (transaction.getBidId() != null && transaction.getOrderId() == null) {
+                                     // 1. Confirm Bid Payment
+                                     bidService.confirmBidPayment(transaction.getBidId());
+
+                                     // 2. Create Order
                                      Order newOrder = orderService.createOrderFromBid(transaction.getBidId(), transaction.getTransactionId(), transaction.getAmount().getAmount());
                                      transaction.setOrderId(newOrder.getOrderId());
                                      transactionRepository.save(transaction);

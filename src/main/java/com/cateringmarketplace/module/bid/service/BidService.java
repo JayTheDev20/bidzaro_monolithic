@@ -30,6 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -372,6 +373,15 @@ public class BidService {
             throw new ForbiddenException("VENDOR_INACTIVE", "Your vendor account is not active");
         }
 
+        // Calculate advance amount if percentage is provided
+        BigDecimal advancePercentage = dto.getAdvancePercentage();
+        BigDecimal requiredAdvanceAmount = null;
+        if (advancePercentage != null && dto.getQuotedPrice() != null && dto.getQuotedPrice().getTotalAmount() != null) {
+            requiredAdvanceAmount = dto.getQuotedPrice().getTotalAmount()
+                    .multiply(advancePercentage)
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        }
+
         // Create bid
         VendorBid bid = VendorBid.builder()
                 .bidId(UUID.randomUUID().toString())
@@ -380,6 +390,8 @@ public class BidService {
                 .vendorName(vendor.getBusinessName())
                 .termsAndConditions(dto.getTermsAndConditions())
                 .validityPeriodHours(dto.getValidityPeriodHours() != null ? dto.getValidityPeriodHours() : bidExpiryHours)
+                .advancePercentage(advancePercentage)
+                .requiredAdvanceAmount(requiredAdvanceAmount)
                 .status(BidStatus.SUBMITTED)
                 .submittedAt(Instant.now())
                 .expiresAt(Instant.now().plus(bidExpiryHours, ChronoUnit.HOURS))
@@ -492,6 +504,17 @@ public class BidService {
                     .build());
         }
 
+        // Update advance percentage and amount
+        if (dto.getAdvancePercentage() != null) {
+            bid.setAdvancePercentage(dto.getAdvancePercentage());
+            if (bid.getQuotedPrice() != null && bid.getQuotedPrice().getTotalAmount() != null) {
+                BigDecimal requiredAdvanceAmount = bid.getQuotedPrice().getTotalAmount()
+                        .multiply(dto.getAdvancePercentage())
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                bid.setRequiredAdvanceAmount(requiredAdvanceAmount);
+            }
+        }
+
         bid = vendorBidRepository.save(bid);
 
         // Update bid request lowest amount
@@ -574,9 +597,9 @@ public class BidService {
                 .bidId(bidId)
                 .vendorId(bid.getVendorId())
                 .acceptedAt(Instant.now())
-                .coolingPeriodEnd(Instant.now().plus(coolingPeriodHours, ChronoUnit.HOURS))
+                .coolingPeriodEnd(Instant.now().plus(24, ChronoUnit.HOURS)) // 24 hours for token payment
                 .build());
-        request.setStatus(BidRequestStatus.COOLING);
+        request.setStatus(BidRequestStatus.PENDING_TOKEN_PAYMENT); // Changed from COOLING
         request = bidRequestRepository.save(request);
 
         // Reject other bids
@@ -589,13 +612,36 @@ public class BidService {
             }
         }
 
-        log.info("Bid accepted: {}. Entering cooling period.", bidId);
-
-        // Notify winning vendor
-        // Assuming we have vendor email, skipping for now as we don't have vendor entity here
-        // In real scenario: emailService.sendBidAcceptanceEmail(vendorEmail, bidId, vendorName, "VENDOR");
+        log.info("Bid accepted: {}. Waiting for token payment.", bidId);
 
         return BidRequestResponse.fromEntity(request);
+    }
+
+    /**
+     * Confirms token payment for a bid.
+     * Called by Payment Service when token payment is successful.
+     */
+    @Transactional
+    public void confirmBidPayment(String bidId) {
+        log.info("Confirming token payment for bid: {}", bidId);
+
+        VendorBid bid = vendorBidRepository.findByBidId(bidId)
+                .orElseThrow(() -> new ResourceNotFoundException("Bid not found"));
+
+        BidRequest request = bidRequestRepository.findByBidRequestId(bid.getBidRequestId())
+                .orElseThrow(() -> new ResourceNotFoundException("Bid request not found"));
+
+        if (request.getStatus() != BidRequestStatus.PENDING_TOKEN_PAYMENT) {
+            log.warn("Payment confirmed for bid request {} but status is {}", request.getBidRequestId(), request.getStatus());
+            // We might still want to proceed if it's already ACCEPTED (duplicate event)
+            if (request.getStatus() == BidRequestStatus.ACCEPTED) return;
+        }
+
+        // Move to ACCEPTED status (Ready for Order Creation)
+        request.setStatus(BidRequestStatus.ACCEPTED);
+        bidRequestRepository.save(request);
+
+        log.info("Bid request {} status updated to ACCEPTED after payment.", request.getBidRequestId());
     }
 
     /**

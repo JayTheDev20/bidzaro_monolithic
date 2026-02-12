@@ -1,9 +1,11 @@
 package com.cateringmarketplace.module.chat.service;
 
+import com.cateringmarketplace.common.exception.BadRequestException;
 import com.cateringmarketplace.common.exception.ForbiddenException;
 import com.cateringmarketplace.common.exception.ResourceNotFoundException;
 import com.cateringmarketplace.module.auth.model.User;
 import com.cateringmarketplace.module.auth.repository.UserRepository;
+import com.cateringmarketplace.module.chat.dto.CreateConversationRequest;
 import com.cateringmarketplace.module.chat.model.Conversation;
 import com.cateringmarketplace.module.chat.model.Conversation.*;
 import com.cateringmarketplace.module.chat.model.Message;
@@ -11,15 +13,20 @@ import com.cateringmarketplace.module.chat.model.Message.MessageType;
 import com.cateringmarketplace.module.chat.model.Message.ReadReceipt;
 import com.cateringmarketplace.module.chat.repository.ConversationRepository;
 import com.cateringmarketplace.module.chat.repository.MessageRepository;
+import com.cateringmarketplace.module.notification.service.FirebaseService;
+import com.cateringmarketplace.module.vendor.model.Vendor;
+import com.cateringmarketplace.module.vendor.repository.VendorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +41,31 @@ public class ChatService {
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
+    private final VendorRepository vendorRepository; // Injected
+    private final SimpMessagingTemplate messagingTemplate;
+    private final FirebaseService firebaseService;
+
+    /**
+     * Gets or creates a conversation based on request.
+     */
+    @Transactional
+    public Conversation getOrCreateConversation(String currentUserId, CreateConversationRequest request) {
+        String otherUserId = request.getOtherUserId();
+        
+        // If otherUserId is missing but vendorId is present, resolve user from vendor
+        if ((otherUserId == null || otherUserId.isEmpty()) && request.getVendorId() != null) {
+            Vendor vendor = vendorRepository.findByVendorId(request.getVendorId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+            otherUserId = vendor.getUserId();
+        }
+
+        if (otherUserId == null || otherUserId.isEmpty()) {
+            throw new BadRequestException("Either otherUserId or vendorId must be provided");
+        }
+
+        ConversationType type = ConversationType.valueOf(request.getType().toUpperCase());
+        return getOrCreateConversation(currentUserId, otherUserId, type);
+    }
 
     /**
      * Gets or creates a conversation between two users.
@@ -50,9 +82,9 @@ public class ChatService {
 
         // Get user details
         User user1 = userRepository.findByUserId(userId1)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId1));
         User user2 = userRepository.findByUserId(userId2)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId2));
 
         // Create new conversation
         Conversation conversation = Conversation.builder()
@@ -151,10 +183,22 @@ public class ChatService {
                 .timestamp(Instant.now())
                 .build());
 
-        // Increment unread count for other participants
+        // Increment unread count for other participants and send Push Notification
         for (Participant p : conversation.getParticipants()) {
             if (!p.getUserId().equals(senderId)) {
                 conversation.getUnreadCount().merge(p.getUserId(), 1, Integer::sum);
+                
+                // Send Push Notification
+                userRepository.findByUserId(p.getUserId()).ifPresent(recipient -> {
+                    if (recipient.getFcmToken() != null) {
+                        firebaseService.sendPushNotification(
+                                recipient.getFcmToken(),
+                                "New Message from " + sender.getFullName(),
+                                content,
+                                conversationId
+                        );
+                    }
+                });
             }
         }
 
@@ -184,10 +228,15 @@ public class ChatService {
 
         List<Message> unread = messageRepository.findUnreadMessages(conversationId, userId);
 
+        if (unread.isEmpty()) {
+            return;
+        }
+
+        Instant now = Instant.now();
         for (Message message : unread) {
             message.getReadBy().add(ReadReceipt.builder()
                     .userId(userId)
-                    .readAt(Instant.now())
+                    .readAt(now)
                     .build());
             messageRepository.save(message);
         }
@@ -200,6 +249,16 @@ public class ChatService {
             conversation.getUnreadCount().put(userId, 0);
             conversationRepository.save(conversation);
         }
+
+        // Broadcast Read Receipt
+        messagingTemplate.convertAndSend(
+                "/topic/conversations." + conversationId + ".read",
+                Map.of(
+                        "conversationId", conversationId,
+                        "userId", userId,
+                        "readAt", now
+                )
+        );
     }
 
     /**
@@ -219,4 +278,3 @@ public class ChatService {
         messageRepository.save(message);
     }
 }
-

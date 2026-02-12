@@ -100,10 +100,11 @@ public class SupportController {
     public ResponseEntity<ApiResponse<List<TicketResponse>>> getMyAssignedTickets(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by("priority").descending());
-        Page<TicketResponse> tickets = supportService.getAgentTickets(userDetails.getUserId(), pageable);
+        Page<TicketResponse> tickets = supportService.getAgentTickets(userDetails.getUserId(), status, pageable);
 
         return ResponseEntity.ok(ApiResponse.success(
                 tickets.getContent(),
@@ -158,4 +159,3 @@ public class SupportController {
         return ResponseEntity.ok(ApiResponse.success(response, "Thank you for your feedback"));
     }
 }
-

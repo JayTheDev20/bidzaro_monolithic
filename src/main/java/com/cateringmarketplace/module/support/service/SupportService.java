@@ -224,7 +224,16 @@ public class SupportService {
     /**
      * Gets tickets assigned to an agent.
      */
-    public Page<TicketResponse> getAgentTickets(String agentId, Pageable pageable) {
+    public Page<TicketResponse> getAgentTickets(String agentId, String status, Pageable pageable) {
+        if (status != null && !status.isEmpty()) {
+            try {
+                TicketStatus ticketStatus = TicketStatus.valueOf(status.toUpperCase());
+                return ticketRepository.findByAssignedToAndStatus(agentId, ticketStatus, pageable)
+                        .map(TicketResponse::fromEntity);
+            } catch (IllegalArgumentException e) {
+                // Ignore invalid status and return all
+            }
+        }
         return ticketRepository.findByAssignedTo(agentId, pageable)
                 .map(TicketResponse::fromEntity);
     }

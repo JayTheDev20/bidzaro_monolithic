@@ -116,13 +116,14 @@ public class OrderService {
         VendorOrder vendorOrder = VendorOrder.builder()
                 .vendorOrderId(UUID.randomUUID().toString())
                 .vendorId(vendor.getVendorId())
+                .vendorUserId(vendor.getUserId()) // Populate vendorUserId
                 .vendorName(vendor.getBusinessName())
                 .vendorStatus(VendorOrder.VendorOrderStatus.ACCEPTED)
                 .deliveryStatus(VendorOrder.DeliveryStatus.PENDING)
                 .build();
 
-        // Map items from bid
-        if (acceptedBid.getItemizedPricing() != null) {
+        // Map items from bid (Priority) or fallback to request items
+        if (acceptedBid.getItemizedPricing() != null && !acceptedBid.getItemizedPricing().isEmpty()) {
             vendorOrder.setItems(acceptedBid.getItemizedPricing().stream()
                     .map(ip -> OrderItem.builder()
                             .vendorItemId(ip.getVendorItemId())
@@ -130,6 +131,18 @@ public class OrderService {
                             .quantity(ip.getQuantity())
                             .pricePerPlate(ip.getPricePerPlate())
                             .totalPrice(ip.getTotalPrice())
+                            .build())
+                    .collect(Collectors.toList()));
+        } else if (bidRequest.getMenuItems() != null) {
+            // Fallback: Use items from Bid Request if vendor didn't itemize
+            log.info("Vendor bid has no items, falling back to bid request items");
+            vendorOrder.setItems(bidRequest.getMenuItems().stream()
+                    .map(mi -> OrderItem.builder()
+                            .vendorItemId(mi.getVendorItemId())
+                            .itemName(mi.getItemName())
+                            .quantity(mi.getQuantity())
+                            .pricePerPlate(BigDecimal.ZERO) // Price unknown if not in bid
+                            .totalPrice(BigDecimal.ZERO)
                             .build())
                     .collect(Collectors.toList()));
         }

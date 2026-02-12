@@ -1,5 +1,6 @@
 package com.cateringmarketplace.module.chat.controller;
 
+import com.cateringmarketplace.module.auth.security.CustomUserDetails;
 import com.cateringmarketplace.module.chat.dto.ChatMessageDTO;
 import com.cateringmarketplace.module.chat.dto.ChatMessageResponse;
 import com.cateringmarketplace.module.chat.model.Message;
@@ -11,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
@@ -33,8 +35,24 @@ public class ChatWebSocketController {
      */
     @MessageMapping("/chat.sendMessage")
     public void sendMessage(@Payload ChatMessageDTO messageDTO, Principal principal) {
+        
+        String senderId = messageDTO.getSenderId();
+        
+        // If senderId is missing, try to get it from Principal
+        if (senderId == null && principal instanceof UsernamePasswordAuthenticationToken) {
+            UsernamePasswordAuthenticationToken auth = (UsernamePasswordAuthenticationToken) principal;
+            if (auth.getPrincipal() instanceof CustomUserDetails) {
+                senderId = ((CustomUserDetails) auth.getPrincipal()).getUserId();
+            }
+        }
+        
+        if (senderId == null) {
+            log.error("Sender ID is missing and could not be resolved from Principal");
+            return;
+        }
+
         log.info("WebSocket message received from {} to conversation {}",
-                messageDTO.getSenderId(), messageDTO.getConversationId());
+                senderId, messageDTO.getConversationId());
 
         try {
             // Parse message type
@@ -50,7 +68,7 @@ public class ChatWebSocketController {
             // Send message via service
             Message message = chatService.sendMessage(
                     messageDTO.getConversationId(),
-                    messageDTO.getSenderId(),
+                    senderId,
                     messageDTO.getMessage(),
                     messageType
             );
@@ -82,7 +100,7 @@ public class ChatWebSocketController {
             log.error("Error processing WebSocket message", e);
             // Send error to sender
             messagingTemplate.convertAndSendToUser(
-                    messageDTO.getSenderId(),
+                    senderId,
                     "/queue/errors",
                     "Failed to send message: " + e.getMessage()
             );
@@ -111,4 +129,3 @@ public class ChatWebSocketController {
         private boolean typing;
     }
 }
-

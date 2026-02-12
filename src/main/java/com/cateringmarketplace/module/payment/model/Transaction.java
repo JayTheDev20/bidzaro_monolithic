@@ -94,7 +94,9 @@ public class Transaction {
         TOKEN,
         INSTALLMENT,
         FINAL,
-        REFUND
+        REFUND,
+        BALANCE,
+        FULL
     }
 
     public enum PaymentGateway {

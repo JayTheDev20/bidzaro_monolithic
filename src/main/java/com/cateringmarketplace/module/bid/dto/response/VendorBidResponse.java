@@ -31,6 +31,8 @@ public class VendorBidResponse {
     private StaffProvidedResponse staffProvided;
     private String termsAndConditions;
     private Integer validityPeriodHours;
+    private BigDecimal advancePercentage;
+    private BigDecimal requiredAdvanceAmount;
     private Integer revisionCount;
     private String status;
     private Boolean isLowest;
@@ -96,6 +98,8 @@ public class VendorBidResponse {
                 .vendorName(bid.getVendorName())
                 .termsAndConditions(bid.getTermsAndConditions())
                 .validityPeriodHours(bid.getValidityPeriodHours())
+                .advancePercentage(bid.getAdvancePercentage())
+                .requiredAdvanceAmount(bid.getRequiredAdvanceAmount())
                 .revisionCount(bid.getRevisionCount())
                 .status(bid.getStatus() != null ? bid.getStatus().name() : null)
                 .isLowest(bid.getIsLowest())
@@ -149,4 +153,3 @@ public class VendorBidResponse {
         return builder.build();
     }
 }
-

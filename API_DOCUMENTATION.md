@@ -280,11 +280,31 @@ This document lists all API endpoints available in the project, including their 
   "data": {
     "userId": "user_12345",
     "email": "user@example.com",
+    "phone": "+1234567890",
+    "userType": "USER",
     "firstName": "John",
     "lastName": "Doe",
-    "role": "USER",
-    "phone": "+1234567890",
-    "profilePicture": "https://example.com/pic.jpg"
+    "profilePictureUrl": "https://example.com/pic.jpg",
+    "dateOfBirth": "1990-01-15",
+    "gender": "MALE",
+    "emailVerified": true,
+    "phoneVerified": true,
+    "twoFactorEnabled": false,
+    "preferredLanguage": "en",
+    "preferredCurrency": "USD",
+    "country": "USA",
+    "status": "ACTIVE",
+    "createdAt": "2023-01-10T10:00:00Z",
+    "notification_preferences": {
+        "emailNotifications": true,
+        "pushNotifications": true,
+        "smsNotifications": false
+    },
+    "loyalty": {
+        "pointsBalance": 100,
+        "lifetimePoints": 500,
+        "tier": "BRONZE"
+    }
   }
 }
 ```
@@ -353,7 +373,15 @@ This document lists all API endpoints available in the project, including their 
     "longitude": -74.0060
   },
   "requirements": "Vegetarian options required",
-  "cuisines": ["Italian", "Mexican"]
+  "cuisines": ["Italian", "Mexican"],
+  "menuItems": [
+    {
+      "vendorItemId": "item_123",
+      "masterItemId": "master_456",
+      "itemName": "Spring Rolls",
+      "quantity": 50
+    }
+  ]
 }
 ```
 
@@ -393,7 +421,15 @@ This document lists all API endpoints available in the project, including their 
       "bidRequestId": "bid_req_123",
       "eventName": "Birthday Party",
       "status": "OPEN",
-      "bidCount": 3
+      "bidCount": 3,
+      "menuItems": [
+        {
+          "vendorItemId": "item_123",
+          "masterItemId": null,
+          "itemName": "Spring Rolls",
+          "quantity": 50
+        }
+      ]
     }
   ],
   "pageInfo": {
@@ -421,7 +457,15 @@ This document lists all API endpoints available in the project, including their 
     "guestCount": 50,
     "budget": 5000.00,
     "status": "OPEN",
-    "requirements": "Vegetarian options required"
+    "requirements": "Vegetarian options required",
+    "menuItems": [
+      {
+        "vendorItemId": "item_123",
+        "masterItemId": "master_456",
+        "itemName": "Spring Rolls",
+        "quantity": 50
+      }
+    ]
   }
 }
 ```
@@ -2419,12 +2463,38 @@ This document lists all API endpoints available in the project, including their 
 ```json
 {
   "businessName": "Tasty Catering",
+  "businessEmail": "contact@tasty.com",
+  "businessPhone": "+1234567890",
+  "businessType": "CATERING",
   "description": "Best catering in town",
-  "address": "123 Food St",
-  "city": "New York",
-  "cuisines": ["Italian", "French"],
-  "contactEmail": "contact@tasty.com",
-  "contactPhone": "+1234567890"
+  "establishedYear": 2010,
+  "taxId": "GSTIN12345",
+  "businessAddress": {
+    "streetAddress": "123 Food St",
+    "city": "New York",
+    "state": "NY",
+    "postalCode": "10001",
+    "country": "USA",
+    "gpsCoordinates": {
+      "type": "Point",
+      "coordinates": [-74.0060, 40.7128]
+    }
+  },
+  "ownerInfo": {
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john.doe@tasty.com",
+    "phone": "+1987654321"
+  },
+  "cuisinesOffered": ["Italian", "French"],
+  "documents": [
+    {
+      "documentType": "FSSAI_LICENSE",
+      "documentName": "FSSAI License 2024",
+      "documentUrl": "https://storage.com/fssai.pdf",
+      "documentNumber": "12345678901234"
+    }
+  ]
 }
 ```
 
@@ -2436,7 +2506,7 @@ This document lists all API endpoints available in the project, including their 
   "data": {
     "vendorId": "vendor_1",
     "businessName": "Tasty Catering",
-    "status": "PENDING"
+    "status": "PENDING_APPROVAL"
   }
 }
 ```
@@ -2473,9 +2543,63 @@ This document lists all API endpoints available in the project, including their 
   "data": {
     "vendorId": "vendor_1",
     "businessName": "Tasty Catering",
+    "businessEmail": "contact@tasty.com",
+    "businessPhone": "+1234567890",
+    "businessType": "CATERING",
+    "logoUrl": "https://storage.com/logo.jpg",
+    "bannerUrl": "https://storage.com/banner.jpg",
     "description": "Best catering in town",
-    "rating": 4.5,
-    "reviewCount": 20
+    "establishedYear": 2010,
+    "businessAddress": {
+      "streetAddress": "123 Food St",
+      "city": "New York",
+      "state": "NY",
+      "postalCode": "10001",
+      "country": "USA",
+      "gpsCoordinates": {
+        "type": "Point",
+        "coordinates": [-74.0060, 40.7128]
+      }
+    },
+    "serviceAreas": [
+      {
+        "city": "New York",
+        "state": "NY",
+        "radiusKm": 20
+      }
+    ],
+    "cuisinesOffered": ["Italian", "French"],
+    "specialties": ["Wedding Catering", "Corporate Events"],
+    "capacity": {
+      "minGuests": 50,
+      "maxGuests": 1000,
+      "concurrentEvents": 3
+    },
+    "pricing": {
+      "currency": "USD",
+      "startingPricePerPlate": 25.00,
+      "averagePricePerPlate": 45.00
+    },
+    "ratings": {
+      "averageRating": 4.5,
+      "totalReviews": 20,
+      "ratingBreakdown": {
+        "fiveStar": 15,
+        "fourStar": 3,
+        "threeStar": 2,
+        "twoStar": 0,
+        "oneStar": 0
+      }
+    },
+    "stats": {
+      "totalOrders": 150,
+      "completedOrders": 145,
+      "responseTimeHours": 2.5
+    },
+    "status": "ACTIVE",
+    "verified": true,
+    "featured": false,
+    "createdAt": "2023-01-15T10:00:00Z"
   }
 }
 ```

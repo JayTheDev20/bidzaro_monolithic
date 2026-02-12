@@ -90,6 +90,7 @@ public class BidRequest {
         DRAFT,
         ACTIVE,
         COMPETITIVE,
+        PENDING_TOKEN_PAYMENT,
         COOLING,
         ACCEPTED,
         EXPIRED,
