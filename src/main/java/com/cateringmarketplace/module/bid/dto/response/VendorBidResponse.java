@@ -1,5 +1,6 @@
 package com.cateringmarketplace.module.bid.dto.response;
 
+import com.cateringmarketplace.module.bid.dto.response.BidRequestResponse.EventDetailsResponse;
 import com.cateringmarketplace.module.bid.model.VendorBid;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
@@ -25,6 +26,7 @@ public class VendorBidResponse {
     private String bidRequestId;
     private String vendorId;
     private String vendorName;
+    private EventDetailsResponse eventDetails; // Added Event Details
     private QuotedPriceResponse quotedPrice;
     private List<ItemizedPriceResponse> itemizedPricing;
     private DeliveryDetailsResponse deliveryDetails;

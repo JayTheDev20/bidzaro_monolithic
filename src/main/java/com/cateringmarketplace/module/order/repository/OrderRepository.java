@@ -37,7 +37,7 @@ public interface OrderRepository extends MongoRepository<Order, String> {
     /**
      * Find orders by vendor ID.
      */
-    @Query("{'vendor_orders.vendor_id': ?0}")
+    @Query("{'vendor_orders.vendorId': ?0}")
     Page<Order> findByVendorId(String vendorId, Pageable pageable);
 
     /**
@@ -87,7 +87,7 @@ public interface OrderRepository extends MongoRepository<Order, String> {
     /**
      * Count orders by vendor ID.
      */
-    @Query(value = "{'vendor_orders.vendor_id': ?0}", count = true)
+    @Query(value = "{'vendor_orders.vendorId': ?0}", count = true)
     long countByVendorId(String vendorId);
 
     /**
@@ -106,4 +106,3 @@ public interface OrderRepository extends MongoRepository<Order, String> {
      */
     long countByCreatedAtAfter(Instant date);
 }
-

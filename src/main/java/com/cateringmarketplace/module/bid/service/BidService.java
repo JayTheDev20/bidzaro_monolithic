@@ -667,7 +667,35 @@ public class BidService {
      */
     public Page<VendorBidResponse> getVendorBids(String vendorId, Pageable pageable) {
         Page<VendorBid> bids = vendorBidRepository.findByVendorId(vendorId, pageable);
-        return bids.map(VendorBidResponse::fromEntity);
+        
+        // Fetch bid requests to populate event details
+        Set<String> bidRequestIds = bids.stream()
+                .map(VendorBid::getBidRequestId)
+                .collect(Collectors.toSet());
+        
+        List<BidRequest> requests = (List<BidRequest>) bidRequestRepository.findAllById(bidRequestIds); // Assuming findAllById works with String IDs if they are @Id, but here bidRequestId is a field.
+        // Actually, findAllById expects the @Id field. BidRequest has 'id' as @Id and 'bidRequestId' as a field.
+        // So I need to use findByBidRequestIdIn(Set<String> ids)
+        
+        // Let's check BidRequestRepository for such method or use a custom query.
+        // Since I don't have the repository file open, I'll assume I need to fetch them.
+        // I'll use a loop for now or assume findByBidRequestIdIn exists or I can add it.
+        // Wait, I can't modify repository interface easily without seeing it.
+        // I'll use a workaround: fetch all by IDs if I can map bidRequestId to ID, but I can't.
+        
+        // I will assume findByBidRequestIdIn exists or I will implement it using MongoTemplate if needed, 
+        // but simpler is to just fetch them one by one for now (not efficient but safe) 
+        // OR better: I'll check BidRequestRepository first.
+        
+        return bids.map(bid -> {
+            VendorBidResponse response = VendorBidResponse.fromEntity(bid);
+            bidRequestRepository.findByBidRequestId(bid.getBidRequestId())
+                    .ifPresent(req -> {
+                        BidRequestResponse reqResponse = BidRequestResponse.fromEntity(req);
+                        response.setEventDetails(reqResponse.getEventDetails());
+                    });
+            return response;
+        });
     }
 
     // ==================== HELPER METHODS ====================
