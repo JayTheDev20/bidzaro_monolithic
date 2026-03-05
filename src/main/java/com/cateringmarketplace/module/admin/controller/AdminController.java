@@ -2,8 +2,11 @@ package com.cateringmarketplace.module.admin.controller;
 
 import com.cateringmarketplace.common.response.ApiResponse;
 import com.cateringmarketplace.common.response.PageInfo;
+import com.cateringmarketplace.module.admin.dto.request.ChangeAnnouncementStatusRequest;
 import com.cateringmarketplace.module.admin.dto.request.CreateAnnouncementRequest;
+import com.cateringmarketplace.module.admin.dto.request.UpdateAnnouncementRequest;
 import com.cateringmarketplace.module.admin.dto.request.UpdatePlatformConfigRequest;
+import com.cateringmarketplace.module.admin.dto.response.AnnouncementResponse;
 import com.cateringmarketplace.module.admin.dto.response.DashboardStatsResponse;
 import com.cateringmarketplace.module.admin.model.Announcement;
 import com.cateringmarketplace.module.admin.model.AuditLog;
@@ -340,12 +343,12 @@ public class AdminController {
 
     @GetMapping("/announcements")
     @Operation(summary = "Get announcements", description = "Returns all announcements")
-    public ResponseEntity<ApiResponse<List<Announcement>>> getAnnouncements(
+    public ResponseEntity<ApiResponse<List<AnnouncementResponse>>> getAnnouncements(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<Announcement> announcements = adminService.getAnnouncements(pageable);
+        Page<AnnouncementResponse> announcements = adminService.getAnnouncements(pageable);
 
         return ResponseEntity.ok(ApiResponse.success(
                 announcements.getContent(),
@@ -356,22 +359,53 @@ public class AdminController {
 
     @PostMapping("/announcements")
     @Operation(summary = "Create announcement", description = "Creates a new platform announcement")
-    public ResponseEntity<ApiResponse<Announcement>> createAnnouncement(
+    public ResponseEntity<ApiResponse<AnnouncementResponse>> createAnnouncement(
             @Valid @RequestBody CreateAnnouncementRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         log.info("Admin {} creating announcement", userDetails.getUserId());
-        Announcement announcement = adminService.createAnnouncement(request, userDetails.getUserId());
+        AnnouncementResponse announcement = adminService.createAnnouncement(request, userDetails.getUserId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created(announcement, "Announcement created"));
     }
 
     @DeleteMapping("/announcements/{announcementId}")
-    @Operation(summary = "Delete announcement", description = "Deletes an announcement")
+    @Operation(summary = "Delete announcement", description = "Deletes an announcement from database")
     public ResponseEntity<ApiResponse<Void>> deleteAnnouncement(
             @PathVariable String announcementId,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         adminService.deleteAnnouncement(announcementId, userDetails.getUserId());
         return ResponseEntity.ok(ApiResponse.success(null, "Announcement deleted"));
+    }
+
+    @GetMapping("/announcements/{announcementId}")
+    @Operation(summary = "Get announcement by ID", description = "Returns a specific announcement by ID")
+    public ResponseEntity<ApiResponse<AnnouncementResponse>> getAnnouncementById(
+            @PathVariable String announcementId) {
+        log.info("Getting announcement: {}", announcementId);
+        AnnouncementResponse announcement = adminService.getAnnouncementById(announcementId);
+        return ResponseEntity.ok(ApiResponse.success(announcement, "Announcement retrieved"));
+    }
+
+    @PutMapping("/announcements/{announcementId}")
+    @Operation(summary = "Update announcement", description = "Updates an existing announcement")
+    public ResponseEntity<ApiResponse<AnnouncementResponse>> updateAnnouncement(
+            @PathVariable String announcementId,
+            @Valid @RequestBody UpdateAnnouncementRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Admin {} updating announcement {}", userDetails.getUserId(), announcementId);
+        AnnouncementResponse announcement = adminService.updateAnnouncement(announcementId, request, userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(announcement, "Announcement updated"));
+    }
+
+    @PatchMapping("/announcements/{announcementId}/status")
+    @Operation(summary = "Change announcement status", description = "Changes announcement active/inactive status")
+    public ResponseEntity<ApiResponse<AnnouncementResponse>> changeAnnouncementStatus(
+            @PathVariable String announcementId,
+            @Valid @RequestBody ChangeAnnouncementStatusRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Admin {} changing announcement {} status to: {}", userDetails.getUserId(), announcementId, request.getIsActive());
+        AnnouncementResponse announcement = adminService.changeAnnouncementStatus(announcementId, request.getIsActive(), userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(announcement, "Announcement status changed"));
     }
 }
 

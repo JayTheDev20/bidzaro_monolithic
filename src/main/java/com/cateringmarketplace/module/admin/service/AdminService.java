@@ -3,8 +3,11 @@ package com.cateringmarketplace.module.admin.service;
 import com.cateringmarketplace.common.exception.BadRequestException;
 import com.cateringmarketplace.common.exception.ConflictException;
 import com.cateringmarketplace.common.exception.ResourceNotFoundException;
+import com.cateringmarketplace.module.admin.dto.request.ChangeAnnouncementStatusRequest;
 import com.cateringmarketplace.module.admin.dto.request.CreateAnnouncementRequest;
+import com.cateringmarketplace.module.admin.dto.request.UpdateAnnouncementRequest;
 import com.cateringmarketplace.module.admin.dto.request.UpdatePlatformConfigRequest;
+import com.cateringmarketplace.module.admin.dto.response.AnnouncementResponse;
 import com.cateringmarketplace.module.admin.dto.response.DashboardStatsResponse;
 import com.cateringmarketplace.module.admin.dto.response.DashboardStatsResponse.*;
 import com.cateringmarketplace.module.admin.model.Announcement;
@@ -43,6 +46,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -302,8 +306,32 @@ public class AdminService {
 
     // ==================== ANNOUNCEMENTS ====================
 
-    public Page<Announcement> getAnnouncements(Pageable pageable) {
-        return announcementRepository.findAllByOrderByCreatedAtDesc(pageable);
+    private AnnouncementResponse toAnnouncementResponse(Announcement announcement) {
+        String createdByName = "Unknown";
+        if (announcement.getCreatedBy() != null) {
+            User creator = userRepository.findByUserId(announcement.getCreatedBy()).orElse(null);
+            if (creator != null) {
+                createdByName = creator.getFirstName() + " " + creator.getLastName();
+            }
+        }
+        return AnnouncementResponse.builder()
+                .announcementId(announcement.getAnnouncementId())
+                .title(announcement.getTitle())
+                .message(announcement.getMessage())
+                .targetAudience(announcement.getTargetAudience())
+                .priority(announcement.getPriority())
+                .startDate(announcement.getStartDate())
+                .endDate(announcement.getEndDate())
+                .isActive(announcement.getIsActive())
+                .createdBy(announcement.getCreatedBy())
+                .createdByName(createdByName)
+                .createdAt(announcement.getCreatedAt())
+                .build();
+    }
+
+    public Page<AnnouncementResponse> getAnnouncements(Pageable pageable) {
+        return announcementRepository.findAllByOrderByCreatedAtDesc(pageable)
+                .map(this::toAnnouncementResponse);
     }
 
     public List<Announcement> getActiveAnnouncements(TargetAudience audience) {
@@ -311,7 +339,7 @@ public class AdminService {
     }
 
     @Transactional
-    public Announcement createAnnouncement(CreateAnnouncementRequest request, String adminId) {
+    public AnnouncementResponse createAnnouncement(CreateAnnouncementRequest request, String adminId) {
         log.info("Admin {} creating announcement", adminId);
 
         Announcement announcement = Announcement.builder()
@@ -327,7 +355,8 @@ public class AdminService {
                 .createdBy(adminId)
                 .build();
 
-        return announcementRepository.save(announcement);
+        Announcement saved = announcementRepository.save(announcement);
+        return toAnnouncementResponse(saved);
     }
 
     @Transactional
@@ -335,10 +364,101 @@ public class AdminService {
         Announcement announcement = announcementRepository.findByAnnouncementId(announcementId)
                 .orElseThrow(() -> new ResourceNotFoundException("Announcement not found"));
 
-        announcement.setIsActive(false);
-        announcementRepository.save(announcement);
+        // Actually delete from database
+        announcementRepository.delete(announcement);
 
         createAuditLog("ANNOUNCEMENT", announcementId, "DELETE", adminId, "ADMIN", null);
+    }
+
+    public AnnouncementResponse getAnnouncementById(String announcementId) {
+        Announcement announcement = announcementRepository.findByAnnouncementId(announcementId)
+                .orElseThrow(() -> new ResourceNotFoundException("Announcement not found"));
+        return toAnnouncementResponse(announcement);
+    }
+
+    @Transactional
+    public AnnouncementResponse updateAnnouncement(String announcementId, UpdateAnnouncementRequest request, String adminId) {
+        log.info("Admin {} updating announcement {}", adminId, announcementId);
+
+        Announcement announcement = announcementRepository.findByAnnouncementId(announcementId)
+                .orElseThrow(() -> new ResourceNotFoundException("Announcement not found"));
+
+        Map<String, Object> changes = new HashMap<>();
+
+        // Update title if provided
+        if (request.getTitle() != null && !request.getTitle().equals(announcement.getTitle())) {
+            changes.put("title", announcement.getTitle() + " -> " + request.getTitle());
+            announcement.setTitle(request.getTitle());
+        }
+
+        // Update message if provided
+        if (request.getMessage() != null && !request.getMessage().equals(announcement.getMessage())) {
+            changes.put("message", "Updated");
+            announcement.setMessage(request.getMessage());
+        }
+
+        // Update target audience if provided
+        if (request.getTargetAudience() != null) {
+            TargetAudience newAudience = TargetAudience.valueOf(request.getTargetAudience().toUpperCase());
+            if (!newAudience.equals(announcement.getTargetAudience())) {
+                changes.put("targetAudience", announcement.getTargetAudience() + " -> " + newAudience);
+                announcement.setTargetAudience(newAudience);
+            }
+        }
+
+        // Update priority if provided
+        if (request.getPriority() != null) {
+            AnnouncementPriority newPriority = AnnouncementPriority.valueOf(request.getPriority().toUpperCase());
+            if (!newPriority.equals(announcement.getPriority())) {
+                changes.put("priority", announcement.getPriority() + " -> " + newPriority);
+                announcement.setPriority(newPriority);
+            }
+        }
+
+        // Update start date if provided
+        if (request.getStartDate() != null && !request.getStartDate().equals(announcement.getStartDate())) {
+            changes.put("startDate", announcement.getStartDate() + " -> " + request.getStartDate());
+            announcement.setStartDate(request.getStartDate());
+        }
+
+        // Update end date if provided
+        if (request.getEndDate() != null && !request.getEndDate().equals(announcement.getEndDate())) {
+            changes.put("endDate", announcement.getEndDate() + " -> " + request.getEndDate());
+            announcement.setEndDate(request.getEndDate());
+        }
+
+        // Update is active if provided
+        if (request.getIsActive() != null && !request.getIsActive().equals(announcement.getIsActive())) {
+            changes.put("isActive", announcement.getIsActive() + " -> " + request.getIsActive());
+            announcement.setIsActive(request.getIsActive());
+        }
+
+        Announcement updated = announcementRepository.save(announcement);
+
+        if (!changes.isEmpty()) {
+            createAuditLog("ANNOUNCEMENT", announcementId, "UPDATE", adminId, "ADMIN", changes);
+        }
+
+        return toAnnouncementResponse(updated);
+    }
+
+    @Transactional
+    public AnnouncementResponse changeAnnouncementStatus(String announcementId, Boolean isActive, String adminId) {
+        log.info("Admin {} changing announcement {} status to: {}", adminId, announcementId, isActive);
+
+        Announcement announcement = announcementRepository.findByAnnouncementId(announcementId)
+                .orElseThrow(() -> new ResourceNotFoundException("Announcement not found"));
+
+        String statusChange = announcement.getIsActive() + " -> " + isActive;
+        announcement.setIsActive(isActive);
+
+        Announcement updated = announcementRepository.save(announcement);
+
+        Map<String, Object> changes = new HashMap<>();
+        changes.put("status", statusChange);
+        createAuditLog("ANNOUNCEMENT", announcementId, "STATUS_CHANGE", adminId, "ADMIN", changes);
+
+        return toAnnouncementResponse(updated);
     }
 
     // ==================== SUPPORT AGENT MANAGEMENT ====================
