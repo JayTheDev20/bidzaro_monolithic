@@ -15,6 +15,7 @@ import org.springframework.data.mongodb.core.mapping.Field;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * MenuItem entity representing master menu items.
@@ -27,7 +28,8 @@ import java.util.List;
 public class MenuItem {
 
     @Id
-    private String id;
+    @Builder.Default
+    private String id = UUID.randomUUID().toString();
 
     @Indexed(unique = true)
     @Field("master_item_id") // Renamed from item_id
@@ -90,13 +92,23 @@ public class MenuItem {
         VEG,
         NON_VEG,
         VEGAN,
-        EGG
+        EGG,
+        BEVERAGES,
+        DESSERTS,
+        SNACKS,
+        SWEETS,
+        OTHER,
+
     }
 
     public enum SpiceLevel {
         MILD,
         MEDIUM,
+        SPICY,
+        EXTRA_SPICY,
         HOT,
+        NONE,
+        COLD,
         EXTRA_HOT
     }
 

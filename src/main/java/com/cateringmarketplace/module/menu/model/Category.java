@@ -9,6 +9,8 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import java.util.UUID;
+
 /**
  * Category entity for menu item categories.
  */
@@ -20,7 +22,8 @@ import org.springframework.data.mongodb.core.mapping.Field;
 public class Category {
 
     @Id
-    private String id;
+    @Builder.Default
+    private String id = UUID.randomUUID().toString();
 
     @Indexed(unique = true)
     @Field("category_id")

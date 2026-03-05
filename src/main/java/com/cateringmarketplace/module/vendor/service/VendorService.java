@@ -11,6 +11,7 @@ import com.cateringmarketplace.module.auth.model.enums.UserType;
 import com.cateringmarketplace.module.auth.repository.UserRepository;
 import com.cateringmarketplace.module.menu.model.VendorMenuItem;
 import com.cateringmarketplace.module.menu.repository.VendorMenuItemRepository;
+import com.cateringmarketplace.module.order.repository.OrderRepository;
 import com.cateringmarketplace.module.vendor.dto.request.VendorRegistrationRequest;
 import com.cateringmarketplace.module.vendor.dto.request.VendorUpdateRequest;
 import com.cateringmarketplace.module.vendor.dto.response.VendorMenuSimpleResponse;
@@ -41,7 +42,8 @@ public class VendorService {
 
     private final VendorRepository vendorRepository;
     private final UserRepository userRepository;
-    private final VendorMenuItemRepository vendorMenuItemRepository; // Injected
+    private final VendorMenuItemRepository vendorMenuItemRepository;
+    private final OrderRepository orderRepository;
     private final com.cateringmarketplace.module.notification.service.EmailService emailService;
 
     /**
@@ -464,6 +466,35 @@ public class VendorService {
     }
 
     /**
+     * Gets all vendors with admin filtering (approval status, vendor status, country, search)
+     */
+    public Page<VendorResponse> getAllVendorsFiltered(Pageable pageable, String approvalStatus,
+                                                      String vendorStatus, String country, String search) {
+        // Build dynamic query based on filters
+        Page<Vendor> vendors;
+
+        // Simple implementation - filters by approval status first, then falls back to all vendors
+        if (approvalStatus != null && !approvalStatus.isEmpty()) {
+            try {
+                vendors = vendorRepository.findByApprovalStatus(ApprovalStatus.valueOf(approvalStatus.toUpperCase()), pageable);
+            } catch (IllegalArgumentException e) {
+                vendors = vendorRepository.findAll(pageable);
+            }
+        } else if (vendorStatus != null && !vendorStatus.isEmpty()) {
+            try {
+                vendors = vendorRepository.findByStatus(VendorStatus.valueOf(vendorStatus.toUpperCase()), pageable);
+            } catch (IllegalArgumentException e) {
+                vendors = vendorRepository.findAll(pageable);
+            }
+        } else {
+            // If no filters, return all vendors
+            vendors = vendorRepository.findAll(pageable);
+        }
+
+        return vendors.map(this::toVendorResponse);
+    }
+
+    /**
      * Searches vendors by criteria.
      */
     public Page<VendorResponse> searchVendors(String query, String city, List<String> cuisines,
@@ -475,17 +506,98 @@ public class VendorService {
     }
 
     /**
+     * Suspends an active vendor account (Admin only).
+     */
+    @Transactional
+    public VendorResponse suspendVendor(String vendorId, String reason, String adminUserId) {
+        log.info("Suspending vendor: {} by admin: {}", vendorId, adminUserId);
+
+        Vendor vendor = vendorRepository.findByVendorId(vendorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+
+        if (vendor.getStatus() == VendorStatus.SUSPENDED) {
+            throw new BadRequestException("ALREADY_SUSPENDED", "Vendor is already suspended");
+        }
+
+        vendor.setStatus(VendorStatus.SUSPENDED);
+        // Store suspension reason in rejectionReason field if needed
+        if (reason != null && !reason.isEmpty()) {
+            vendor.setRejectionReason("SUSPENDED: " + reason);
+        }
+
+        vendor = vendorRepository.save(vendor);
+        log.info("Vendor suspended: {}", vendorId);
+
+        return toVendorResponse(vendor);
+    }
+
+    /**
+     * Activates a suspended or inactive vendor (Admin only).
+     */
+    @Transactional
+    public VendorResponse activateVendor(String vendorId, String adminUserId) {
+        log.info("Activating vendor: {} by admin: {}", vendorId, adminUserId);
+
+        Vendor vendor = vendorRepository.findByVendorId(vendorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+
+        if (vendor.getStatus() == VendorStatus.ACTIVE) {
+            throw new BadRequestException("ALREADY_ACTIVE", "Vendor is already active");
+        }
+
+        vendor.setStatus(VendorStatus.ACTIVE);
+        vendor.setRejectionReason(null);
+
+        vendor = vendorRepository.save(vendor);
+        log.info("Vendor activated: {}", vendorId);
+
+        return toVendorResponse(vendor);
+    }
+
+    /**
+     * Unlocks a locked vendor account (Admin only).
+     */
+    @Transactional
+    public VendorResponse unlockVendor(String vendorId, String adminUserId) {
+        log.info("Unlocking vendor: {} by admin: {}", vendorId, adminUserId);
+
+        Vendor vendor = vendorRepository.findByVendorId(vendorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+
+        // Ensure vendor status is ACTIVE and clear any rejection reason
+        if (vendor.getStatus() != VendorStatus.ACTIVE) {
+            vendor.setStatus(VendorStatus.ACTIVE);
+        }
+        vendor.setRejectionReason(null);
+
+        vendor = vendorRepository.save(vendor);
+        log.info("Vendor unlocked: {}", vendorId);
+
+        return toVendorResponse(vendor);
+    }
+
+    /**
      * Helper method to convert Vendor entity to VendorResponse and populate verification status from User.
      */
     private VendorResponse toVendorResponse(Vendor vendor) {
         VendorResponse response = VendorResponse.fromEntity(vendor);
-        
+
         // Fetch user to get verification status
         userRepository.findByUserId(vendor.getUserId()).ifPresent(user -> {
             response.setRegisteredEmailVerified(user.getEmailVerified());
             response.setRegisteredPhoneVerified(user.getPhoneVerified());
         });
-        
+
+        // Fetch real-time orders count from orders collection
+        long ordersCount = orderRepository.countByVendorId(vendor.getVendorId());
+        if (response.getStats() == null) {
+            response.setStats(VendorResponse.StatsResponse.builder()
+                    .ordersCount(ordersCount)
+                    .build());
+        } else {
+            response.getStats().setOrdersCount(ordersCount);
+        }
+
         return response;
     }
 }

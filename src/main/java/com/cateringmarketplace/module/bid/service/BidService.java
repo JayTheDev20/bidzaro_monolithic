@@ -717,4 +717,25 @@ public class BidService {
             vendorBidRepository.save(bid);
         }
     }
+
+    // ==================== ADMIN METHODS ====================
+
+    /**
+     * Gets all bid requests for admin with optional status filter.
+     */
+    public Page<BidRequestResponse> getAllBidsAdmin(Pageable pageable, String status) {
+        Page<BidRequest> requests;
+        if (status != null && !status.isBlank()) {
+            try {
+                BidRequestStatus bidStatus = BidRequestStatus.valueOf(status.toUpperCase());
+                requests = bidRequestRepository.findByStatus(bidStatus, pageable);
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("INVALID_STATUS",
+                        "Invalid status. Valid values: PENDING, ACTIVE, COMPETITIVE, COOLING, ACCEPTED, EXPIRED, CANCELLED");
+            }
+        } else {
+            requests = bidRequestRepository.findAll(pageable);
+        }
+        return requests.map(BidRequestResponse::fromEntity);
+    }
 }

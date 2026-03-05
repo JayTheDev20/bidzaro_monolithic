@@ -128,6 +128,7 @@ public class VendorResponse {
     public static class StatsResponse {
         private Integer totalOrders;
         private Integer completedOrders;
+        private Long ordersCount;
     }
 
     @Data

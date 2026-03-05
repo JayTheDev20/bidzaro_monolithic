@@ -1,5 +1,7 @@
 package com.cateringmarketplace.module.admin.service;
 
+import com.cateringmarketplace.common.exception.BadRequestException;
+import com.cateringmarketplace.common.exception.ConflictException;
 import com.cateringmarketplace.common.exception.ResourceNotFoundException;
 import com.cateringmarketplace.module.admin.dto.request.CreateAnnouncementRequest;
 import com.cateringmarketplace.module.admin.dto.request.UpdatePlatformConfigRequest;
@@ -14,8 +16,11 @@ import com.cateringmarketplace.module.admin.repository.AnnouncementRepository;
 import com.cateringmarketplace.module.admin.repository.AuditLogRepository;
 import com.cateringmarketplace.module.admin.repository.PlatformConfigRepository;
 import com.cateringmarketplace.module.auth.dto.response.UserResponse;
+import com.cateringmarketplace.module.auth.dto.request.RegisterRequest;
 import com.cateringmarketplace.module.auth.model.User;
+import com.cateringmarketplace.module.auth.model.NotificationPreferences;
 import com.cateringmarketplace.module.auth.model.enums.UserStatus;
+import com.cateringmarketplace.module.auth.model.enums.UserType;
 import com.cateringmarketplace.module.auth.repository.UserRepository;
 import com.cateringmarketplace.module.bid.model.BidRequest;
 import com.cateringmarketplace.module.bid.repository.BidRequestRepository;
@@ -23,6 +28,7 @@ import com.cateringmarketplace.module.bid.repository.VendorBidRepository;
 import com.cateringmarketplace.module.order.model.Order;
 import com.cateringmarketplace.module.order.repository.OrderRepository;
 import com.cateringmarketplace.module.payment.repository.TransactionRepository;
+import com.cateringmarketplace.module.vendor.dto.response.VendorResponse;
 import com.cateringmarketplace.module.vendor.model.Vendor;
 import com.cateringmarketplace.module.vendor.model.Vendor.ApprovalStatus;
 import com.cateringmarketplace.module.vendor.model.Vendor.VendorStatus;
@@ -197,6 +203,9 @@ public class AdminService {
         if (request.getPaymentConfig() != null) {
             updatePaymentConfig(config, request.getPaymentConfig());
         }
+        if (request.getCancellationPolicy() != null) {
+            updateCancellationPolicy(config, request.getCancellationPolicy());
+        }
         if (request.getCommissionConfig() != null) {
             updateCommissionConfig(config, request.getCommissionConfig());
         }
@@ -230,8 +239,28 @@ public class AdminService {
         if (dto.getTokenPercentage() != null) pc.setTokenPercentage(dto.getTokenPercentage());
         if (dto.getEnabledGateways() != null) pc.setEnabledGateways(dto.getEnabledGateways());
         if (dto.getDefaultGateway() != null) pc.setDefaultGateway(dto.getDefaultGateway());
+        if (dto.getPaymentTimeoutHours() != null) pc.setPaymentTimeoutHours(dto.getPaymentTimeoutHours());
+        if (dto.getAutoRefundEnabled() != null) pc.setAutoRefundEnabled(dto.getAutoRefundEnabled());
 
         config.setPaymentConfig(pc);
+    }
+
+    private void updateCancellationPolicy(PlatformConfig config, UpdatePlatformConfigRequest.CancellationPolicyDTO dto) {
+        PlatformConfig.CancellationPolicy cp = config.getCancellationPolicy();
+        if (cp == null) cp = new PlatformConfig.CancellationPolicy();
+
+        if (dto.getCancellationWindowDays() != null) cp.setCancellationWindowDays(dto.getCancellationWindowDays());
+        if (dto.getRefundTiers() != null && !dto.getRefundTiers().isEmpty()) {
+            List<PlatformConfig.RefundTier> refundTiers = dto.getRefundTiers().stream()
+                    .map(tier -> PlatformConfig.RefundTier.builder()
+                            .daysBeforeEvent(tier.getDaysBeforeEvent())
+                            .refundPercentage(tier.getRefundPercentage())
+                            .build())
+                    .toList();
+            cp.setRefundTiers(refundTiers);
+        }
+
+        config.setCancellationPolicy(cp);
     }
 
     private void updateCommissionConfig(PlatformConfig config, UpdatePlatformConfigRequest.CommissionConfigDTO dto) {
@@ -310,6 +339,252 @@ public class AdminService {
         announcementRepository.save(announcement);
 
         createAuditLog("ANNOUNCEMENT", announcementId, "DELETE", adminId, "ADMIN", null);
+    }
+
+    // ==================== SUPPORT AGENT MANAGEMENT ====================
+
+    /**
+     * Creates a new support agent account (Admin only)
+     */
+    @Transactional
+    public UserResponse createSupportAgent(RegisterRequest request, String adminId) {
+        log.info("Admin {} creating support agent with email: {}", adminId, request.getEmail());
+
+        // Validate userType is SUPPORT_AGENT
+        if (request.getUserType() == null || !request.getUserType().equalsIgnoreCase("SUPPORT_AGENT")) {
+            throw new BadRequestException("INVALID_USER_TYPE", "User type must be SUPPORT_AGENT");
+        }
+
+        // Check if email already exists
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new ConflictException("EMAIL_EXISTS", "Email is already registered");
+        }
+
+        // Check if phone already exists
+        if (userRepository.existsByPhone(request.getPhone())) {
+            throw new ConflictException("PHONE_EXISTS", "Phone number is already registered");
+        }
+
+        // Determine preferred currency based on country
+        String currency = "USD";
+        if ("INDIA".equalsIgnoreCase(request.getCountry())) {
+            currency = "INR";
+        }
+
+        // Create support agent user
+        User agent = User.builder()
+                .email(request.getEmail().toLowerCase().trim())
+                .phone(request.getPhone())
+                .passwordHash(new com.cateringmarketplace.common.util.PasswordUtil().hashPassword(request.getPassword()))
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .country(request.getCountry())
+                .preferredCurrency(currency)
+                .userType(UserType.SUPPORT_AGENT)
+                .status(UserStatus.ACTIVE)
+                .notificationPreferences(NotificationPreferences.defaults())
+                .build();
+
+        agent = userRepository.save(agent);
+        log.info("Support agent created successfully with ID: {}", agent.getUserId());
+
+        // Log the action
+        Map<String, Object> changes = new java.util.HashMap<>();
+        changes.put("firstName", agent.getFirstName());
+        changes.put("lastName", agent.getLastName());
+        changes.put("email", agent.getEmail());
+        createAuditLog("USER", agent.getUserId(), "CREATE_SUPPORT_AGENT", adminId, "ADMIN", changes);
+
+        return UserResponse.fromEntity(agent);
+    }
+
+    // ==================== GENERIC STATUS MANAGEMENT (Users, Vendors, Agents) ====================
+
+    /**
+     * Suspends an active entity (User, Vendor, or Support Agent) by admin.
+     * entityType: "users", "vendors", or "agents"
+     */
+    @Transactional
+    public Object suspendEntity(String entityType, String entityId, String reason, String adminId) {
+        log.info("Suspending {} {} by admin: {}", entityType, entityId, adminId);
+
+        if ("users".equalsIgnoreCase(entityType)) {
+            return suspendUserEntity(entityId, reason, adminId);
+        } else if ("vendors".equalsIgnoreCase(entityType)) {
+            return suspendVendorEntity(entityId, reason, adminId);
+        } else if ("agents".equalsIgnoreCase(entityType)) {
+            return suspendAgentEntity(entityId, reason, adminId);
+        } else {
+            throw new BadRequestException("INVALID_ENTITY_TYPE", "Valid entity types are: users, vendors, agents");
+        }
+    }
+
+    /**
+     * Activates a suspended entity (User, Vendor, or Support Agent) by admin.
+     */
+    @Transactional
+    public Object activateEntity(String entityType, String entityId, String adminId) {
+        log.info("Activating {} {} by admin: {}", entityType, entityId, adminId);
+
+        if ("users".equalsIgnoreCase(entityType)) {
+            return activateUserEntity(entityId, adminId);
+        } else if ("vendors".equalsIgnoreCase(entityType)) {
+            return activateVendorEntity(entityId, adminId);
+        } else if ("agents".equalsIgnoreCase(entityType)) {
+            return activateAgentEntity(entityId, adminId);
+        } else {
+            throw new BadRequestException("INVALID_ENTITY_TYPE", "Valid entity types are: users, vendors, agents");
+        }
+    }
+
+    /**
+     * Unlocks a locked entity (User, Vendor, or Support Agent) by admin.
+     */
+    @Transactional
+    public Object unlockEntity(String entityType, String entityId, String adminId) {
+        log.info("Unlocking {} {} by admin: {}", entityType, entityId, adminId);
+
+        if ("users".equalsIgnoreCase(entityType)) {
+            return unlockUserEntity(entityId, adminId);
+        } else if ("vendors".equalsIgnoreCase(entityType)) {
+            return unlockVendorEntity(entityId, adminId);
+        } else if ("agents".equalsIgnoreCase(entityType)) {
+            return unlockAgentEntity(entityId, adminId);
+        } else {
+            throw new BadRequestException("INVALID_ENTITY_TYPE", "Valid entity types are: users, vendors, agents");
+        }
+    }
+
+    // ==================== USER ENTITY OPERATIONS ====================
+
+    private UserResponse suspendUserEntity(String userId, String reason, String adminId) {
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (user.getStatus() == UserStatus.SUSPENDED) {
+            throw new BadRequestException("ALREADY_SUSPENDED", "User is already suspended");
+        }
+        user.setStatus(UserStatus.SUSPENDED);
+        user = userRepository.save(user);
+        Map<String, Object> changes = new java.util.HashMap<>();
+        changes.put("reason", reason);
+        createAuditLog("USER", userId, "SUSPEND", adminId, "ADMIN", changes);
+        return UserResponse.fromEntity(user);
+    }
+
+    private UserResponse activateUserEntity(String userId, String adminId) {
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (user.getStatus() == UserStatus.ACTIVE) {
+            throw new BadRequestException("ALREADY_ACTIVE", "User is already active");
+        }
+        user.setStatus(UserStatus.ACTIVE);
+        user.setFailedLoginAttempts(0);
+        user = userRepository.save(user);
+        createAuditLog("USER", userId, "ACTIVATE", adminId, "ADMIN", null);
+        return UserResponse.fromEntity(user);
+    }
+
+    private UserResponse unlockUserEntity(String userId, String adminId) {
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            user.setStatus(UserStatus.ACTIVE);
+        }
+        user = userRepository.save(user);
+        createAuditLog("USER", userId, "UNLOCK", adminId, "ADMIN", null);
+        return UserResponse.fromEntity(user);
+    }
+
+    // ==================== SUPPORT AGENT ENTITY OPERATIONS ====================
+
+    private UserResponse suspendAgentEntity(String agentId, String reason, String adminId) {
+        User agent = userRepository.findByUserId(agentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Support agent not found"));
+        if (agent.getUserType() != UserType.SUPPORT_AGENT) {
+            throw new BadRequestException("NOT_AGENT", "User is not a support agent");
+        }
+        if (agent.getStatus() == UserStatus.SUSPENDED) {
+            throw new BadRequestException("ALREADY_SUSPENDED", "Support agent is already suspended");
+        }
+        agent.setStatus(UserStatus.SUSPENDED);
+        agent = userRepository.save(agent);
+        Map<String, Object> changes = new java.util.HashMap<>();
+        changes.put("reason", reason);
+        createAuditLog("SUPPORT_AGENT", agentId, "SUSPEND", adminId, "ADMIN", changes);
+        return UserResponse.fromEntity(agent);
+    }
+
+    private UserResponse activateAgentEntity(String agentId, String adminId) {
+        User agent = userRepository.findByUserId(agentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Support agent not found"));
+        if (agent.getUserType() != UserType.SUPPORT_AGENT) {
+            throw new BadRequestException("NOT_AGENT", "User is not a support agent");
+        }
+        if (agent.getStatus() == UserStatus.ACTIVE) {
+            throw new BadRequestException("ALREADY_ACTIVE", "Support agent is already active");
+        }
+        agent.setStatus(UserStatus.ACTIVE);
+        agent.setFailedLoginAttempts(0);
+        agent = userRepository.save(agent);
+        createAuditLog("SUPPORT_AGENT", agentId, "ACTIVATE", adminId, "ADMIN", null);
+        return UserResponse.fromEntity(agent);
+    }
+
+    private UserResponse unlockAgentEntity(String agentId, String adminId) {
+        User agent = userRepository.findByUserId(agentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Support agent not found"));
+        if (agent.getUserType() != UserType.SUPPORT_AGENT) {
+            throw new BadRequestException("NOT_AGENT", "User is not a support agent");
+        }
+        agent.setFailedLoginAttempts(0);
+        agent.setLockedUntil(null);
+        if (agent.getStatus() != UserStatus.ACTIVE) {
+            agent.setStatus(UserStatus.ACTIVE);
+        }
+        agent = userRepository.save(agent);
+        createAuditLog("SUPPORT_AGENT", agentId, "UNLOCK", adminId, "ADMIN", null);
+        return UserResponse.fromEntity(agent);
+    }
+
+    // ==================== VENDOR ENTITY OPERATIONS ====================
+
+    private VendorResponse suspendVendorEntity(String vendorId, String reason, String adminId) {
+        Vendor vendor = vendorRepository.findByVendorId(vendorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+        if (vendor.getStatus() == Vendor.VendorStatus.SUSPENDED) {
+            throw new BadRequestException("ALREADY_SUSPENDED", "Vendor is already suspended");
+        }
+        vendor.setStatus(Vendor.VendorStatus.SUSPENDED);
+        vendor = vendorRepository.save(vendor);
+        Map<String, Object> changes = new java.util.HashMap<>();
+        changes.put("reason", reason);
+        createAuditLog("VENDOR", vendorId, "SUSPEND", adminId, "ADMIN", changes);
+        return VendorResponse.fromEntity(vendor);
+    }
+
+    private VendorResponse activateVendorEntity(String vendorId, String adminId) {
+        Vendor vendor = vendorRepository.findByVendorId(vendorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+        if (vendor.getStatus() == Vendor.VendorStatus.ACTIVE) {
+            throw new BadRequestException("ALREADY_ACTIVE", "Vendor is already active");
+        }
+        vendor.setStatus(Vendor.VendorStatus.ACTIVE);
+        vendor = vendorRepository.save(vendor);
+        createAuditLog("VENDOR", vendorId, "ACTIVATE", adminId, "ADMIN", null);
+        return VendorResponse.fromEntity(vendor);
+    }
+
+    private VendorResponse unlockVendorEntity(String vendorId, String adminId) {
+        Vendor vendor = vendorRepository.findByVendorId(vendorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found"));
+        if (vendor.getStatus() != Vendor.VendorStatus.ACTIVE) {
+            vendor.setStatus(Vendor.VendorStatus.ACTIVE);
+        }
+        vendor = vendorRepository.save(vendor);
+        createAuditLog("VENDOR", vendorId, "UNLOCK", adminId, "ADMIN", null);
+        return VendorResponse.fromEntity(vendor);
     }
 }
 

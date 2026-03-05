@@ -9,8 +9,11 @@ import com.cateringmarketplace.module.admin.model.Announcement;
 import com.cateringmarketplace.module.admin.model.AuditLog;
 import com.cateringmarketplace.module.admin.model.PlatformConfig;
 import com.cateringmarketplace.module.admin.service.AdminService;
+import com.cateringmarketplace.module.auth.dto.request.RegisterRequest;
 import com.cateringmarketplace.module.auth.dto.response.UserResponse;
 import com.cateringmarketplace.module.auth.security.CustomUserDetails;
+import com.cateringmarketplace.module.bid.dto.response.BidRequestResponse;
+import com.cateringmarketplace.module.bid.service.BidService;
 import com.cateringmarketplace.module.order.dto.response.OrderResponse;
 import com.cateringmarketplace.module.order.service.OrderService;
 import com.cateringmarketplace.module.vendor.dto.response.VendorResponse;
@@ -48,6 +51,7 @@ public class AdminController {
     private final AdminService adminService;
     private final VendorService vendorService;
     private final OrderService orderService;
+    private final BidService bidService;
 
     // ==================== DASHBOARD ====================
 
@@ -94,7 +98,67 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(response, "User status updated"));
     }
 
+    // ==================== GENERIC STATUS MANAGEMENT (Users, Vendors, Agents) ====================
+
+    @PatchMapping("/{entityType}/{entityId}/suspend")
+    @Operation(summary = "Suspend entity", description = "Suspends an active user, vendor, or support agent")
+    public ResponseEntity<ApiResponse<?>> suspendEntity(
+            @PathVariable String entityType,
+            @PathVariable String entityId,
+            @RequestParam(required = false) String reason,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Admin {} suspending {} {} with reason: {}", userDetails.getUserId(), entityType, entityId, reason);
+        Object response = adminService.suspendEntity(entityType, entityId, reason, userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(response, entityType.substring(0, 1).toUpperCase() + entityType.substring(1) + " suspended"));
+    }
+
+    @PatchMapping("/{entityType}/{entityId}/activate")
+    @Operation(summary = "Activate entity", description = "Activates a suspended user, vendor, or support agent")
+    public ResponseEntity<ApiResponse<?>> activateEntity(
+            @PathVariable String entityType,
+            @PathVariable String entityId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Admin {} activating {} {}", userDetails.getUserId(), entityType, entityId);
+        Object response = adminService.activateEntity(entityType, entityId, userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(response, entityType.substring(0, 1).toUpperCase() + entityType.substring(1) + " activated"));
+    }
+
+    @PatchMapping("/{entityType}/{entityId}/unlock")
+    @Operation(summary = "Unlock entity", description = "Unlocks a locked user, vendor, or support agent")
+    public ResponseEntity<ApiResponse<?>> unlockEntity(
+            @PathVariable String entityType,
+            @PathVariable String entityId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Admin {} unlocking {} {}", userDetails.getUserId(), entityType, entityId);
+        Object response = adminService.unlockEntity(entityType, entityId, userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(response, entityType.substring(0, 1).toUpperCase() + entityType.substring(1) + " unlocked"));
+    }
+
     // ==================== VENDOR MANAGEMENT ====================
+
+    @GetMapping("/vendors")
+    @Operation(summary = "Get all vendors", description = "Returns paginated list of all vendors with filtering")
+    public ResponseEntity<ApiResponse<List<VendorResponse>>> getAllVendors(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String approvalStatus,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String country,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+
+        Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<VendorResponse> vendors = vendorService.getAllVendorsFiltered(pageable, approvalStatus, status, country, search);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                vendors.getContent(),
+                "Vendors retrieved",
+                PageInfo.from(vendors)
+        ));
+    }
 
     @GetMapping("/vendors/pending")
     @Operation(summary = "Get pending vendors", description = "Returns vendors pending approval")
@@ -126,11 +190,66 @@ public class AdminController {
     @Operation(summary = "Reject vendor", description = "Rejects a vendor registration with reason")
     public ResponseEntity<ApiResponse<VendorResponse>> rejectVendor(
             @PathVariable String vendorId,
-            @RequestParam String reason,
+            @RequestBody java.util.Map<String, String> body,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
+        String reason = body.getOrDefault("reason", "No reason provided");
         log.info("Admin {} rejecting vendor {} with reason: {}", userDetails.getUserId(), vendorId, reason);
         VendorResponse response = vendorService.rejectVendor(vendorId, reason, userDetails.getUserId());
         return ResponseEntity.ok(ApiResponse.success(response, "Vendor rejected"));
+    }
+
+    @PatchMapping("/vendors/{vendorId}/suspend")
+    @Operation(summary = "Suspend vendor", description = "Suspends an active vendor account")
+    public ResponseEntity<ApiResponse<VendorResponse>> suspendVendor(
+            @PathVariable String vendorId,
+            @RequestParam(required = false) String reason,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Admin {} suspending vendor {} with reason: {}", userDetails.getUserId(), vendorId, reason);
+        VendorResponse response = vendorService.suspendVendor(vendorId, reason, userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(response, "Vendor suspended"));
+    }
+
+    @PatchMapping("/vendors/{vendorId}/activate")
+    @Operation(summary = "Activate vendor", description = "Activates a suspended or inactive vendor")
+    public ResponseEntity<ApiResponse<VendorResponse>> activateVendor(
+            @PathVariable String vendorId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Admin {} activating vendor {}", userDetails.getUserId(), vendorId);
+        VendorResponse response = vendorService.activateVendor(vendorId, userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(response, "Vendor activated"));
+    }
+
+    @PatchMapping("/vendors/{vendorId}/unlock")
+    @Operation(summary = "Unlock vendor", description = "Unlocks a locked vendor account")
+    public ResponseEntity<ApiResponse<VendorResponse>> unlockVendor(
+            @PathVariable String vendorId,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Admin {} unlocking vendor {}", userDetails.getUserId(), vendorId);
+        VendorResponse response = vendorService.unlockVendor(vendorId, userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(response, "Vendor unlocked"));
+    }
+
+    // ==================== BID MANAGEMENT ====================
+
+    @GetMapping("/bids")
+    @Operation(summary = "Get all bid requests", description = "Returns paginated list of all bid requests with optional status filter")
+    public ResponseEntity<ApiResponse<List<BidRequestResponse>>> getAllBids(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+
+        Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<BidRequestResponse> bids = bidService.getAllBidsAdmin(pageable, status);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                bids.getContent(),
+                "Bid requests retrieved",
+                PageInfo.from(bids)
+        ));
     }
 
     // ==================== ORDER MANAGEMENT ====================
@@ -166,6 +285,15 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(config));
     }
 
+    @GetMapping("/platform-config/{country}")
+    @Operation(summary = "Get platform config by country", description = "Returns platform configuration for a specific country")
+    public ResponseEntity<ApiResponse<PlatformConfig>> getPlatformConfigByCountry(
+            @PathVariable String country) {
+        log.info("Fetching platform config for country: {}", country);
+        PlatformConfig config = adminService.getPlatformConfig(country);
+        return ResponseEntity.ok(ApiResponse.success(config, "Configuration retrieved"));
+    }
+
     @PutMapping("/platform-config")
     @Operation(summary = "Update platform config", description = "Updates platform configuration")
     public ResponseEntity<ApiResponse<PlatformConfig>> updatePlatformConfig(
@@ -173,6 +301,17 @@ public class AdminController {
             @Valid @RequestBody UpdatePlatformConfigRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails) {
         log.info("Admin {} updating platform config", userDetails.getUserId());
+        PlatformConfig config = adminService.updatePlatformConfig(country, request, userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(config, "Configuration updated"));
+    }
+
+    @PutMapping("/platform-config/{country}")
+    @Operation(summary = "Update platform config by country", description = "Updates platform configuration for a specific country")
+    public ResponseEntity<ApiResponse<PlatformConfig>> updatePlatformConfigByCountry(
+            @PathVariable String country,
+            @Valid @RequestBody UpdatePlatformConfigRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Admin {} updating platform config for country: {}", userDetails.getUserId(), country);
         PlatformConfig config = adminService.updatePlatformConfig(country, request, userDetails.getUserId());
         return ResponseEntity.ok(ApiResponse.success(config, "Configuration updated"));
     }

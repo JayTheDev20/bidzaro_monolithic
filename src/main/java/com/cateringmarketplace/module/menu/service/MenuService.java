@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,10 +53,68 @@ public class MenuService {
                 .collect(Collectors.toList());
     }
 
+    public List<CategoryResponse> getAllCategoriesAdmin(String status) {
+        if (status != null && !status.isBlank()) {
+            try {
+                CategoryStatus categoryStatus = CategoryStatus.valueOf(status.toUpperCase());
+                return categoryRepository.findByStatus(categoryStatus, Sort.by(Sort.Direction.ASC, "display_order"))
+                        .stream()
+                        .map(CategoryResponse::fromEntity)
+                        .collect(Collectors.toList());
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("INVALID_STATUS", "Invalid status: " + status + ". Valid values: ACTIVE, INACTIVE");
+            }
+        }
+        return categoryRepository.findAll(Sort.by(Sort.Direction.ASC, "display_order"))
+                .stream()
+                .map(CategoryResponse::fromEntity)
+                .collect(Collectors.toList());
+    }
+
     public CategoryResponse getCategoryById(String categoryId) {
         Category category = categoryRepository.findByCategoryId(categoryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
         return CategoryResponse.fromEntity(category);
+    }
+
+    @Transactional
+    public CategoryResponse activateCategory(String categoryId) {
+        log.info("Activating category: {}", categoryId);
+        Category category = categoryRepository.findByCategoryId(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+        if (category.getStatus() == CategoryStatus.ACTIVE) {
+            throw new ConflictException("ALREADY_ACTIVE", "Category is already active");
+        }
+        category.setStatus(CategoryStatus.ACTIVE);
+        category = categoryRepository.save(category);
+        return CategoryResponse.fromEntity(category);
+    }
+
+    @Transactional
+    public CategoryResponse inactivateCategory(String categoryId) {
+        log.info("Inactivating category: {}", categoryId);
+        Category category = categoryRepository.findByCategoryId(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+        if (category.getStatus() == CategoryStatus.INACTIVE) {
+            throw new ConflictException("ALREADY_INACTIVE", "Category is already inactive");
+        }
+        category.setStatus(CategoryStatus.INACTIVE);
+        category = categoryRepository.save(category);
+        return CategoryResponse.fromEntity(category);
+    }
+
+    @Transactional
+    public void deleteCategory(String categoryId) {
+        log.info("Deleting category: {}", categoryId);
+        Category category = categoryRepository.findByCategoryId(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+        long itemCount = menuItemRepository.countByCategoryId(categoryId);
+        if (itemCount > 0) {
+            throw new ConflictException("CATEGORY_HAS_ITEMS",
+                    "Cannot delete category with " + itemCount + " menu item(s). Inactivate or reassign items first.");
+        }
+        categoryRepository.delete(category);
+        log.info("Category deleted successfully: {}", categoryId);
     }
 
     @Transactional
@@ -114,40 +173,66 @@ public class MenuService {
 
     public Page<MenuItemResponse> getAllMenuItems(Pageable pageable) {
         return menuItemRepository.findByStatus(ItemStatus.ACTIVE, pageable)
-                .map(MenuItemResponse::fromEntity);
+                .map(this::toResponseWithCategoryName);
+    }
+
+    public Page<MenuItemResponse> getAllMenuItemsAdmin(String status, Pageable pageable) {
+        Page<MenuItem> items;
+        if (status != null && !status.isBlank()) {
+            try {
+                ItemStatus itemStatus = ItemStatus.valueOf(status.toUpperCase());
+                items = menuItemRepository.findByStatus(itemStatus, pageable);
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("INVALID_STATUS", "Invalid status: " + status + ". Valid values: ACTIVE, INACTIVE");
+            }
+        } else {
+            items = menuItemRepository.findAll(pageable);
+        }
+        return items.map(this::toResponseWithCategoryName);
     }
 
     public Page<MenuItemResponse> getMenuItemsByCategory(String categoryId, Pageable pageable) {
         return menuItemRepository.findByCategoryIdAndStatus(categoryId, ItemStatus.ACTIVE, pageable)
-                .map(MenuItemResponse::fromEntity);
+                .map(this::toResponseWithCategoryName);
     }
 
     public MenuItemResponse getMenuItemById(String masterItemId) {
         MenuItem item = menuItemRepository.findByMasterItemId(masterItemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Menu item not found"));
-        return MenuItemResponse.fromEntity(item);
+        return toResponseWithCategoryName(item);
     }
 
     public Page<MenuItemResponse> searchMenuItems(String query, Pageable pageable) {
         return menuItemRepository.searchByName(query, pageable)
-                .map(MenuItemResponse::fromEntity);
+                .map(this::toResponseWithCategoryName);
     }
 
     public List<MenuItemResponse> getPopularItems() {
         return menuItemRepository.findPopularItems()
                 .stream()
-                .map(MenuItemResponse::fromEntity)
+                .map(this::toResponseWithCategoryName)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Builds MenuItemResponse and enriches it with category name from DB.
+     */
+    private MenuItemResponse toResponseWithCategoryName(MenuItem item) {
+        MenuItemResponse response = MenuItemResponse.fromEntity(item);
+        if (item.getCategoryId() != null) {
+            categoryRepository.findByCategoryId(item.getCategoryId())
+                    .ifPresent(category -> response.setCategoryName(category.getCategoryName()));
+        }
+        return response;
     }
 
     @Transactional
     public MenuItemResponse createMasterMenuItem(MasterMenuItemRequest request) {
         log.info("Creating master menu item: {}", request.getItemName());
 
-        // Verify category exists
-        if (!categoryRepository.existsByCategoryId(request.getCategoryId())) {
-            throw new ResourceNotFoundException("Category not found");
-        }
+        // Verify category exists and fetch it
+        Category category = categoryRepository.findByCategoryId(request.getCategoryId())
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
         // Map nutritional info
         MenuItem.NutritionalInfo nutritionalInfo = null;
@@ -179,7 +264,11 @@ public class MenuService {
                 .build();
 
         item = menuItemRepository.save(item);
-        return MenuItemResponse.fromEntity(item);
+
+        // Build response with category name
+        MenuItemResponse response = MenuItemResponse.fromEntity(item);
+        response.setCategoryName(category.getCategoryName());
+        return response;
     }
 
     @Transactional
@@ -240,7 +329,55 @@ public class MenuService {
         }
 
         item = menuItemRepository.save(item);
-        return MenuItemResponse.fromEntity(item);
+
+        // Build response with category name
+        MenuItemResponse response = MenuItemResponse.fromEntity(item);
+        categoryRepository.findByCategoryId(item.getCategoryId())
+                .ifPresent(category -> response.setCategoryName(category.getCategoryName()));
+        return response;
+    }
+
+    @Transactional
+    public MenuItemResponse activateMenuItem(String masterItemId) {
+        log.info("Activating menu item: {}", masterItemId);
+
+        MenuItem item = menuItemRepository.findByMasterItemId(masterItemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Menu item not found"));
+
+        if (item.getStatus() == ItemStatus.ACTIVE) {
+            throw new ConflictException("ALREADY_ACTIVE", "Menu item is already active");
+        }
+
+        item.setStatus(ItemStatus.ACTIVE);
+        item = menuItemRepository.save(item);
+        return toResponseWithCategoryName(item);
+    }
+
+    @Transactional
+    public MenuItemResponse inactivateMenuItem(String masterItemId) {
+        log.info("Inactivating menu item: {}", masterItemId);
+
+        MenuItem item = menuItemRepository.findByMasterItemId(masterItemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Menu item not found"));
+
+        if (item.getStatus() == ItemStatus.INACTIVE) {
+            throw new ConflictException("ALREADY_INACTIVE", "Menu item is already inactive");
+        }
+
+        item.setStatus(ItemStatus.INACTIVE);
+        item = menuItemRepository.save(item);
+        return toResponseWithCategoryName(item);
+    }
+
+    @Transactional
+    public void deleteMenuItem(String masterItemId) {
+        log.info("Deleting menu item: {}", masterItemId);
+
+        MenuItem item = menuItemRepository.findByMasterItemId(masterItemId)
+                .orElseThrow(() -> new ResourceNotFoundException("Menu item not found"));
+
+        menuItemRepository.delete(item);
+        log.info("Menu item deleted successfully: {}", masterItemId);
     }
 
     // ==================== VENDOR MENU ITEM OPERATIONS ====================

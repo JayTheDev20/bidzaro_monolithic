@@ -66,10 +66,22 @@ public class PlatformConfig {
      */
     public static PlatformConfig createDefault(String country) {
 
+        // Set payment gateway based on country
+        String defaultGateway = "RAZORPAY"; // Default for most countries
+        List<String> enabledGateways = new ArrayList<>(List.of("RAZORPAY"));
+
+        if ("USA".equalsIgnoreCase(country) || "UNITED STATES".equalsIgnoreCase(country)) {
+            defaultGateway = "STRIPE";
+            enabledGateways = new ArrayList<>(List.of("STRIPE"));
+        }
+
         return PlatformConfig.builder()
                 .country(country)
                 .biddingConfig(BiddingConfig.builder().build())
-                .paymentConfig(PaymentConfig.builder().build())
+                .paymentConfig(PaymentConfig.builder()
+                        .defaultGateway(defaultGateway)
+                        .enabledGateways(enabledGateways)
+                        .build())
                 .cancellationPolicy(
                         CancellationPolicy.builder()
                                 .refundTiers(List.of(
