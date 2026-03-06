@@ -1,111 +1,254 @@
-# 🛡️ ADMIN API DOCUMENTATION
-## Bidzaro Catering Platform — Complete Admin Reference (Real DTO-Based)
+# 🛡️ ADMIN API Documentation
+**Bidzaro Catering Platform** | Base URL: `http://localhost:8080/api/v1`
 
-**Version:** 1.0.0 | **Base URL:** `http://localhost:8080/api/v1`
-**Auth:** `Authorization: Bearer {accessToken}` | **Role Required:** `ADMIN`
-**Content-Type:** `application/json`
-
-> All field names, types, and response shapes taken directly from actual Java DTO classes.
+> 🔒 = Requires `Authorization: Bearer <accessToken>` with `userType: ADMIN`
+> ✅ = Required field | ⬜ = Optional field
 
 ---
 
-## 🔐 Admin Auth
-```
-POST /auth/login  →  { identifier: "admin@bidzaro.com", password: "..." }
-All admin APIs    →  Authorization: Bearer {accessToken}
-Role required     →  ADMIN (403 Forbidden for non-admin tokens)
-```
+## 📋 Table of Contents
+1. [Enums Reference](#-enums-reference)
+2. [Authentication](#-authentication)
+3. [Dashboard & Analytics](#-dashboard--analytics)
+4. [User Management](#-user-management)
+5. [Vendor Management](#-vendor-management)
+6. [Support Agent Management](#-support-agent-management)
+7. [Menu Management](#-menu-management)
+8. [Promo Codes](#-promo-codes)
+9. [Announcements](#-announcements)
+10. [Platform Configuration](#-platform-configuration)
+11. [Audit Logs](#-audit-logs)
+12. [Orders](#-orders-overview)
+13. [Payments & Transactions](#-payments--transactions)
 
 ---
 
-# 1. ADMIN DASHBOARD STATS
+## 🔢 Enums Reference
 
-```http
-GET /admin/dashboard
-Authorization: Bearer {accessToken}
+### UserType
+| Value |
+|-------|
+| `USER` |
+| `VENDOR` |
+| `ADMIN` |
+| `SUPPORT_AGENT` |
+
+### UserStatus
+| Value | Description |
+|-------|-------------|
+| `PENDING_VERIFICATION` | Not yet verified |
+| `ACTIVE` | Active account |
+| `SUSPENDED` | Suspended by admin |
+| `DELETED` | Soft deleted |
+
+### Gender
+| Value |
+|-------|
+| `MALE` |
+| `FEMALE` |
+| `OTHER` |
+| `PREFER_NOT_TO_SAY` |
+
+### VendorStatus
+| Value |
+|-------|
+| `PENDING_APPROVAL` |
+| `ACTIVE` |
+| `SUSPENDED` |
+| `REJECTED` |
+| `DELETED` |
+
+### ApprovalStatus
+| Value |
+|-------|
+| `PENDING` |
+| `APPROVED` |
+| `REJECTED` |
+| `UNDER_REVIEW` |
+
+### BusinessType
+| Value |
+|-------|
+| `CATERING` |
+| `RESTAURANT` |
+| `CLOUD_KITCHEN` |
+| `HOME_CHEF` |
+| `BAKERY` |
+
+### DocumentVerificationStatus
+| Value |
+|-------|
+| `PENDING` |
+| `VERIFIED` |
+| `REJECTED` |
+
+### OrderStatus
+| Value |
+|-------|
+| `PENDING_TOKEN_PAYMENT` |
+| `CONFIRMED` |
+| `IN_PREPARATION` |
+| `READY_FOR_DELIVERY` |
+| `DELIVERING` |
+| `DELIVERED` |
+| `COMPLETED` |
+| `CANCELLED` |
+
+### TransactionStatus
+| Value |
+|-------|
+| `PENDING` |
+| `PROCESSING` |
+| `SUCCESS` |
+| `FAILED` |
+| `REFUNDED` |
+| `PARTIALLY_REFUNDED` |
+
+### PaymentGateway
+| Value |
+|-------|
+| `RAZORPAY` |
+| `STRIPE` |
+| `PAYPAL` |
+
+### PaymentType
+| Value |
+|-------|
+| `TOKEN` |
+| `INSTALLMENT` |
+| `FINAL` |
+| `REFUND` |
+| `BALANCE` |
+| `FULL` |
+
+### TicketStatus
+| Value |
+|-------|
+| `OPEN` |
+| `ASSIGNED` |
+| `IN_PROGRESS` |
+| `WAITING_FOR_CUSTOMER` |
+| `RESOLVED` |
+| `CLOSED` |
+| `ESCALATED` |
+
+### TicketPriority
+| Value | First Response | Resolution |
+|-------|---------------|------------|
+| `LOW` | 24h | 72h |
+| `MEDIUM` | 8h | 48h |
+| `HIGH` | 4h | 24h |
+| `URGENT` | 1h | 4h |
+
+### PromoType
+| Value |
+|-------|
+| `PERCENTAGE` |
+| `FLAT` |
+
+### PromoStatus
+| Value |
+|-------|
+| `ACTIVE` |
+| `INACTIVE` |
+| `EXPIRED` |
+
+### PromoApplicableTo
+| Value |
+|-------|
+| `ALL` |
+| `SPECIFIC_VENDORS` |
+| `SPECIFIC_USERS` |
+| `SPECIFIC_CUISINES` |
+
+### Announcement TargetAudience
+| Value |
+|-------|
+| `ALL` |
+| `USERS` |
+| `VENDORS` |
+| `SUPPORT_AGENTS` |
+| `ADMINS` |
+
+### Announcement Priority
+| Value |
+|-------|
+| `LOW` |
+| `MEDIUM` |
+| `HIGH` |
+| `URGENT` |
+
+### FoodType (Menu)
+| Value |
+|-------|
+| `VEG` |
+| `NON_VEG` |
+| `VEGAN` |
+| `EGG` |
+
+### SpiceLevel (Menu)
+| Value |
+|-------|
+| `MILD` |
+| `MEDIUM` |
+| `HOT` |
+| `EXTRA_HOT` |
+
+### ItemStatus (Menu)
+| Value |
+|-------|
+| `ACTIVE` |
+| `INACTIVE` |
+
+### ReviewStatus
+| Value |
+|-------|
+| `PENDING` |
+| `APPROVED` |
+| `REJECTED` |
+| `HIDDEN` |
+
+### ConversationType
+| Value |
+|-------|
+| `USER_VENDOR` |
+| `USER_SUPPORT` |
+| `VENDOR_SUPPORT` |
+
+---
+
+## 🔐 Authentication
+
+`POST /auth/login`
+
+**Request:**
+```json
+{
+  "identifier": "admin@bidzaro.com",
+  "password": "AdminPass@123",
+  "fcmToken": "firebase-device-token"
+}
 ```
 
-### Success Response `200 OK` — Full `DashboardStatsResponse` DTO
+**Response `200`:**
 ```json
 {
   "success": true,
   "data": {
-    "userStats": {
-      "totalUsers": 12500,
-      "activeUsers": 11200,
-      "newUsersToday": 45,
-      "newUsersThisWeek": 320,
-      "newUsersThisMonth": 1250
-    },
-    "vendorStats": {
-      "totalVendors": 850,
-      "activeVendors": 780,
-      "pendingApproval": 28,
-      "verifiedVendors": 712,
-      "newVendorsThisMonth": 32
-    },
-    "orderStats": {
-      "totalOrders": 48500,
-      "pendingOrders": 125,
-      "completedOrders": 47800,
-      "cancelledOrders": 575,
-      "ordersToday": 28,
-      "ordersThisWeek": 196,
-      "ordersThisMonth": 840
-    },
-    "revenueStats": {
-      "totalRevenue": 245000000.00,
-      "revenueToday": 125000.00,
-      "revenueThisWeek": 875000.00,
-      "revenueThisMonth": 3800000.00,
-      "platformFees": 4900000.00,
-      "pendingPayouts": 780000.00
-    },
-    "bidStats": {
-      "totalBidRequests": 52000,
-      "activeBidRequests": 250,
-      "acceptedBids": 46800,
-      "expiredBids": 4950
-    }
-  }
-}
-```
-
----
-
-# 2. GET ALL USERS
-
-```http
-GET /admin/users?page=0&size=20&status=ACTIVE&userType=USER
-Authorization: Bearer {accessToken}
-```
-
-### Query Parameters
-| Param | Type | Notes |
-|-------|------|-------|
-| `page` | int | Page number (0-based) |
-| `size` | int | Page size (default 20) |
-| `status` | String | `ACTIVE`, `SUSPENDED`, `LOCKED`, `INACTIVE` |
-| `userType` | String | `USER`, `VENDOR`, `ADMIN`, `SUPPORT_AGENT` |
-| `search` | String | Search by name/email/phone |
-
-### Success Response `200 OK` — List of `UserResponse` DTOs
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "tokenType": "Bearer",
+    "expiresIn": 604800,
+    "user": {
+      "userId": "uuid",
       "vendorId": null,
-      "email": "john.doe@gmail.com",
-      "phone": "+917890123456",
-      "userType": "USER",
-      "firstName": "John",
-      "lastName": "Doe",
-      "fullName": "John Doe",
-      "profilePictureUrl": "http://localhost:8080/uploads/images/profile-550e8400.jpg",
-      "dateOfBirth": "1992-06-15",
-      "gender": "MALE",
+      "email": "admin@bidzaro.com",
+      "phone": "+911234567890",
+      "userType": "ADMIN",
+      "firstName": "Admin",
+      "lastName": "Bidzaro",
+      "fullName": "Admin Bidzaro",
+      "profilePictureUrl": null,
       "emailVerified": true,
       "phoneVerified": true,
       "twoFactorEnabled": false,
@@ -114,727 +257,704 @@ Authorization: Bearer {accessToken}
       "country": "INDIA",
       "status": "ACTIVE",
       "notificationPreferences": {
-        "emailNotifications": { "orderUpdates": true, "bidUpdates": true, "promotional": false, "newsletter": false, "paymentReminders": true, "securityAlerts": true },
-        "smsNotifications": { "orderUpdates": true, "bidUpdates": true, "paymentReminders": true, "securityAlerts": true },
-        "pushNotifications": { "orderUpdates": true, "bidUpdates": true, "promotional": false, "paymentReminders": true },
-        "whatsappNotifications": { "orderUpdates": false, "bidUpdates": false }
+        "emailNotifications": { "orderUpdates": true, "bidUpdates": true, "securityAlerts": true },
+        "pushNotifications": { "orderUpdates": true, "chatMessages": true }
       },
-      "lastLoginAt": "2026-02-24T10:30:45.123456Z",
-      "createdAt": "2026-01-10T08:00:00.000000Z"
+      "lastLoginAt": "2026-03-06T10:00:00Z",
+      "createdAt": "2026-01-01T00:00:00Z"
     }
-  ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 20, "totalElements": 12500, "totalPages": 625 }
+  }
 }
 ```
 
 ---
 
-# 3. GET USER BY ID
+## 📊 Dashboard & Analytics
 
-```http
-GET /admin/users/{userId}
-Authorization: Bearer {accessToken}
-```
+### Get Platform Analytics Overview
+`GET /admin/analytics/overview` 🔒
 
-### Success Response `200 OK` — Full `UserResponse` DTO
+**Response `200`:**
 ```json
 {
-  "success": true,
   "data": {
-    "userId": "550e8400-e29b-41d4-a716-446655440000",
-    "vendorId": null,
-    "email": "john.doe@gmail.com",
-    "phone": "+917890123456",
-    "userType": "USER",
-    "firstName": "John",
-    "lastName": "Doe",
-    "fullName": "John Doe",
-    "profilePictureUrl": "http://localhost:8080/uploads/images/profile-550e8400.jpg",
-    "dateOfBirth": "1992-06-15",
-    "gender": "MALE",
-    "emailVerified": true,
-    "phoneVerified": true,
-    "twoFactorEnabled": false,
-    "preferredLanguage": "en",
-    "preferredCurrency": "INR",
-    "country": "INDIA",
-    "status": "ACTIVE",
-    "notificationPreferences": {
-      "emailNotifications": { "orderUpdates": true, "bidUpdates": true, "promotional": false, "newsletter": false, "paymentReminders": true, "securityAlerts": true },
-      "smsNotifications": { "orderUpdates": true, "bidUpdates": true, "paymentReminders": true, "securityAlerts": true },
-      "pushNotifications": { "orderUpdates": true, "bidUpdates": true, "promotional": false, "paymentReminders": true },
-      "whatsappNotifications": { "orderUpdates": false, "bidUpdates": false }
+    "platformMetrics": {
+      "totalUsers": 4520,
+      "totalVendors": 312,
+      "totalOrders": 8450,
+      "totalRevenue": 45000000.00,
+      "platformEarnings": 900000.00,
+      "averageOrderValue": 5325.00,
+      "conversionRate": 0
     },
-    "lastLoginAt": "2026-02-24T10:30:45.123456Z",
-    "createdAt": "2026-01-10T08:00:00.000000Z"
-  }
-}
-```
-
----
-
-# 4. SUSPEND USER
-
-```http
-PATCH /admin/users/{userId}/suspend
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request
-```json
-{ "reason": "Multiple fraud reports received from vendors" }
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "message": "User suspended successfully",
-  "data": {
-    "userId": "550e8400-e29b-41d4-a716-446655440000",
-    "vendorId": null,
-    "email": "john.doe@gmail.com",
-    "phone": "+917890123456",
-    "userType": "USER",
-    "firstName": "John",
-    "lastName": "Doe",
-    "fullName": "John Doe",
-    "profilePictureUrl": null,
-    "dateOfBirth": null,
-    "gender": null,
-    "emailVerified": true,
-    "phoneVerified": true,
-    "twoFactorEnabled": false,
-    "preferredLanguage": null,
-    "preferredCurrency": "INR",
-    "country": "INDIA",
-    "status": "SUSPENDED",
-    "notificationPreferences": { "...same structure as above..." },
-    "lastLoginAt": "2026-02-24T10:30:45.123456Z",
-    "createdAt": "2026-01-10T08:00:00.000000Z"
-  }
-}
-```
-
----
-
-# 5. REACTIVATE USER
-
-```http
-PATCH /admin/users/{userId}/activate
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "message": "User activated successfully",
-  "data": {
-    "userId": "550e8400-e29b-41d4-a716-446655440000",
-    "status": "ACTIVE",
-    "...rest of UserResponse fields..."
-  }
-}
-```
-
----
-
-# 6. CREATE SUPPORT AGENT ACCOUNT
-
-```http
-POST /admin/users/create-agent
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request — Based on `RegisterRequest` DTO
-```json
-{
-  "email": "priya.agent@bidzaro.com",
-  "phone": "+917890111222",
-  "password": "AgentPass@123",
-  "firstName": "Priya",
-  "lastName": "Sharma",
-  "country": "INDIA",
-  "userType": "SUPPORT_AGENT"
-}
-```
-
-### Success Response `201 Created`
-```json
-{
-  "success": true,
-  "message": "Support agent account created",
-  "data": {
-    "userId": "agent-priya-001",
-    "vendorId": null,
-    "email": "priya.agent@bidzaro.com",
-    "phone": "+917890111222",
-    "userType": "SUPPORT_AGENT",
-    "firstName": "Priya",
-    "lastName": "Sharma",
-    "fullName": "Priya Sharma",
-    "profilePictureUrl": null,
-    "dateOfBirth": null,
-    "gender": null,
-    "emailVerified": false,
-    "phoneVerified": false,
-    "twoFactorEnabled": false,
-    "preferredLanguage": null,
-    "preferredCurrency": "INR",
-    "country": "INDIA",
-    "status": "ACTIVE",
-    "notificationPreferences": {
-      "emailNotifications": { "orderUpdates": true, "bidUpdates": true, "promotional": false, "newsletter": false, "paymentReminders": true, "securityAlerts": true },
-      "smsNotifications": { "orderUpdates": true, "bidUpdates": true, "paymentReminders": true, "securityAlerts": true },
-      "pushNotifications": { "orderUpdates": true, "bidUpdates": true, "promotional": false, "paymentReminders": true },
-      "whatsappNotifications": { "orderUpdates": false, "bidUpdates": false }
+    "growthMetrics": {
+      "userGrowthPercentage": 12.50,
+      "vendorGrowthPercentage": 8.30,
+      "orderGrowthPercentage": 15.20,
+      "revenueGrowthPercentage": 18.45
     },
-    "lastLoginAt": null,
-    "createdAt": "2026-02-24T10:30:45.123456Z"
+    "topVendors": [
+      {
+        "vendorId": "uuid",
+        "vendorName": "Royal Catering Co.",
+        "city": "Hyderabad",
+        "totalOrders": 245,
+        "revenue": 1500000.00,
+        "averageRating": 4.80
+      }
+    ],
+    "revenueChart": [
+      { "date": "2026-03-01", "revenue": 150000.00, "orders": 28 }
+    ]
   }
 }
 ```
 
 ---
 
-# 7. GET ALL VENDORS (Admin View)
+### Get Vendor Analytics
+`GET /analytics/vendor/{vendorId}` 🔒
 
-```http
-GET /admin/vendors?page=0&size=20&approvalStatus=PENDING
-Authorization: Bearer {accessToken}
-```
+**Response `200`:** Full vendor dashboard data (same as vendor's own dashboard).
 
-### Query Parameters
-| Param | Values |
-|-------|--------|
-| `approvalStatus` | `PENDING`, `APPROVED`, `REJECTED` |
-| `status` | `ACTIVE`, `INACTIVE`, `SUSPENDED` |
-| `country` | `INDIA`, `USA` |
-| `search` | Search by business name/email |
+---
 
-### Success Response `200 OK` — List of full `VendorResponse` DTOs
+## 👥 User Management
+
+### Get All Users
+`GET /admin/users?page=0&size=20&userType=USER&status=ACTIVE`
+
+| Query Param | Type | Required | Values |
+|-------------|------|----------|--------|
+| `page` | int | ⬜ | Default 0 |
+| `size` | int | ⬜ | Default 20 |
+| `userType` | string | ⬜ | `USER`, `VENDOR`, `ADMIN`, `SUPPORT_AGENT` |
+| `status` | string | ⬜ | `PENDING_VERIFICATION`, `ACTIVE`, `SUSPENDED`, `DELETED` |
+
+**Response `200`:**
 ```json
 {
-  "success": true,
   "data": [
     {
-      "vendorId": "vendor-12345-67890",
-      "userId": "vendor-user-550e8400",
-      "registeredEmail": "owner@spicegarden.com",
-      "registeredPhone": "+917890123456",
-      "registeredEmailVerified": false,
-      "registeredPhoneVerified": false,
-      "businessName": "Spice Garden Catering",
-      "businessEmail": "info@spicegarden.com",
-      "businessPhone": "+917890123456",
+      "userId": "uuid",
+      "vendorId": null,
+      "email": "rahul@example.com",
+      "phone": "+919876543210",
+      "userType": "USER",
+      "firstName": "Rahul",
+      "lastName": "Sharma",
+      "fullName": "Rahul Sharma",
+      "profilePictureUrl": null,
+      "dateOfBirth": "1995-06-15",
+      "gender": "MALE",
+      "emailVerified": true,
+      "phoneVerified": true,
+      "twoFactorEnabled": false,
+      "preferredLanguage": "en",
+      "preferredCurrency": "INR",
+      "country": "INDIA",
+      "status": "ACTIVE",
+      "notificationPreferences": null,
+      "lastLoginAt": "2026-03-05T10:00:00Z",
+      "createdAt": "2026-01-15T10:00:00Z"
+    }
+  ],
+  "pageInfo": { "page": 0, "size": 20, "totalElements": 4520 }
+}
+```
+
+---
+
+### Get User by ID
+`GET /admin/users/{userId}` 🔒
+**Response `200`:** Full `UserResponse` object.
+
+---
+
+### Update User Status
+`PUT /admin/users/{userId}/status` 🔒
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `status` | string | ✅ | `ACTIVE`, `SUSPENDED`, `DELETED` |
+| `reason` | string | ⬜ | Reason for status change |
+
+**Request:**
+```json
+{
+  "status": "SUSPENDED",
+  "reason": "Violated platform terms of service - fraudulent activity detected"
+}
+```
+
+**Response `200`:** Updated `UserResponse` object.
+
+---
+
+### Delete User (Soft Delete)
+`DELETE /admin/users/{userId}` 🔒
+**Response `200`:** `{ "success": true, "message": "User deleted successfully" }`
+
+---
+
+### Search Users
+`GET /admin/users/search?query=rahul&page=0&size=20` 🔒
+**Response `200`:** Paginated `UserResponse` list.
+
+---
+
+## 🏪 Vendor Management
+
+### Get All Vendors
+`GET /admin/vendors?page=0&size=20&status=PENDING_APPROVAL`
+
+| Query Param | Type | Required | Values |
+|-------------|------|----------|--------|
+| `page` | int | ⬜ | Default 0 |
+| `size` | int | ⬜ | Default 20 |
+| `status` | string | ⬜ | `PENDING_APPROVAL`, `ACTIVE`, `SUSPENDED`, `REJECTED` |
+| `approvalStatus` | string | ⬜ | `PENDING`, `APPROVED`, `REJECTED`, `UNDER_REVIEW` |
+| `city` | string | ⬜ | Filter by city |
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "vendorId": "uuid",
+      "userId": "uuid",
+      "registeredEmail": "ravi@royalcatering.com",
+      "registeredPhone": "+919876543210",
+      "businessName": "Royal Catering Co.",
+      "businessEmail": "info@royalcatering.com",
+      "businessPhone": "+919876543211",
       "businessEmailVerified": false,
       "businessPhoneVerified": false,
       "businessType": "CATERING",
-      "businessRegistrationNumber": "KA-REG-2015-12345",
-      "taxId": "29ABCDE1234F1Z5",
+      "businessRegistrationNumber": "REG123456",
+      "taxId": "36AABCR1234F1ZV",
       "logoUrl": null,
       "bannerUrl": null,
-      "description": "Authentic South Indian catering since 2010.",
-      "establishedYear": 2010,
-      "cuisinesOffered": ["South Indian", "North Indian"],
-      "specialties": ["Weddings", "Corporate Events"],
-      "businessAddress": { "streetAddress": "25, 3rd Cross, Jayanagar 4th Block", "city": "Bangalore", "state": "Karnataka", "postalCode": "560041", "country": "India" },
-      "ownerInfo": { "firstName": "Rajesh", "lastName": "Kumar", "phone": "+917890123456", "email": "owner@spicegarden.com", "idProofType": "AADHAR", "idProofNumber": "1234-5678-9012" },
-      "serviceAreas": [ { "city": "Bangalore", "state": "Karnataka", "radiusKm": 30 } ],
-      "capacity": { "minGuests": 50, "maxGuests": 3000, "concurrentEvents": 4 },
-      "pricing": { "currency": "INR", "startingPricePerPlate": 350.00, "averagePricePerPlate": 500.00 },
-      "ratings": null,
-      "stats": null,
-      "status": "PENDING",
+      "description": "Premium catering for all occasions",
+      "establishedYear": 2015,
+      "cuisinesOffered": ["North Indian", "Mughlai"],
+      "specialties": ["Biryani"],
+      "businessAddress": {
+        "streetAddress": "45, Banjara Hills",
+        "city": "Hyderabad",
+        "state": "Telangana",
+        "postalCode": "500034",
+        "country": null
+      },
+      "ownerInfo": {
+        "firstName": "Ravi",
+        "lastName": "Kumar",
+        "phone": "+919876543210",
+        "email": "ravi@royalcatering.com",
+        "idProofType": "AADHAAR",
+        "idProofNumber": "1234-5678-9012"
+      },
+      "serviceAreas": [{ "city": "Hyderabad", "state": "Telangana", "radiusKm": 50 }],
+      "capacity": { "minGuests": 50, "maxGuests": 2000, "concurrentEvents": 3 },
+      "pricing": { "currency": "INR", "startingPricePerPlate": 250.00, "averagePricePerPlate": 450.00 },
+      "ratings": { "averageRating": 0.00, "totalReviews": 0 },
+      "stats": { "totalOrders": 0, "completedOrders": 0, "ordersCount": 0 },
+      "status": "PENDING_APPROVAL",
       "approvalStatus": "PENDING",
       "verified": false,
       "featured": false,
-      "createdAt": "2026-02-24T10:30:45.123456Z",
+      "country": "INDIA",
       "documents": [
         {
-          "documentId": "doc-001-aabb",
-          "documentType": "BUSINESS_LICENSE",
-          "documentName": "FSSAI Food License",
-          "documentUrl": "http://localhost:8080/uploads/documents/fssai-license.pdf",
-          "documentNumber": "FSSAI-2024-123456",
-          "issueDate": "2024-01-15T00:00:00.000000Z",
-          "expiryDate": "2027-01-14T00:00:00.000000Z",
+          "documentId": "uuid",
+          "documentType": "FSSAI_LICENSE",
+          "documentName": "FSSAI License 2026",
+          "documentUrl": "http://localhost:8080/uploads/documents/fssai.pdf",
+          "documentNumber": "FSSAI123456",
+          "issueDate": "2025-01-01T00:00:00Z",
+          "expiryDate": "2027-01-01T00:00:00Z",
           "verificationStatus": "PENDING",
-          "uploadedAt": "2026-02-24T10:30:45.123456Z"
+          "uploadedAt": "2026-03-06T10:00:00Z"
         }
       ],
-      "country": "INDIA"
+      "createdAt": "2026-03-06T10:00:00Z"
     }
   ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 20, "totalElements": 28, "totalPages": 2 }
+  "pageInfo": { "page": 0, "size": 20, "totalElements": 45 }
 }
 ```
 
 ---
 
-# 8. APPROVE VENDOR
+### Get Vendor by ID
+`GET /admin/vendors/{vendorId}` 🔒
+**Response `200`:** Full `VendorResponse` object.
 
-```http
-POST /admin/vendors/{vendorId}/approve
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
+---
 
-### Request
-```json
-{ "notes": "All documents verified. FSSAI license valid. Approved for Bangalore operations." }
-```
+### Approve Vendor
+`PUT /admin/vendors/{vendorId}/approve` 🔒
 
-### Success Response `200 OK` — Full `VendorResponse` DTO
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `notes` | string | ⬜ | Optional approval notes |
+
+**Request:**
 ```json
 {
-  "success": true,
-  "message": "Vendor approved successfully",
+  "notes": "All documents verified. FSSAI license valid until 2027."
+}
+```
+
+**Response `200`:**
+```json
+{
   "data": {
-    "vendorId": "vendor-12345-67890",
-    "userId": "vendor-user-550e8400",
-    "registeredEmail": "owner@spicegarden.com",
-    "registeredPhone": "+917890123456",
-    "registeredEmailVerified": false,
-    "registeredPhoneVerified": false,
-    "businessName": "Spice Garden Catering",
-    "businessEmail": "info@spicegarden.com",
-    "businessPhone": "+917890123456",
-    "businessEmailVerified": false,
-    "businessPhoneVerified": false,
-    "businessType": "CATERING",
-    "businessRegistrationNumber": "KA-REG-2015-12345",
-    "taxId": "29ABCDE1234F1Z5",
-    "logoUrl": null,
-    "bannerUrl": null,
-    "description": "Authentic South Indian catering since 2010.",
-    "establishedYear": 2010,
-    "cuisinesOffered": ["South Indian", "North Indian"],
-    "specialties": ["Weddings", "Corporate Events"],
-    "businessAddress": { "streetAddress": "25, 3rd Cross, Jayanagar 4th Block", "city": "Bangalore", "state": "Karnataka", "postalCode": "560041", "country": "India" },
-    "ownerInfo": { "firstName": "Rajesh", "lastName": "Kumar", "phone": "+917890123456", "email": "owner@spicegarden.com", "idProofType": "AADHAR", "idProofNumber": "1234-5678-9012" },
-    "serviceAreas": [ { "city": "Bangalore", "state": "Karnataka", "radiusKm": 30 } ],
-    "capacity": { "minGuests": 50, "maxGuests": 3000, "concurrentEvents": 4 },
-    "pricing": { "currency": "INR", "startingPricePerPlate": 350.00, "averagePricePerPlate": 500.00 },
-    "ratings": { "averageRating": null, "totalReviews": 0 },
-    "stats": { "totalOrders": 0, "completedOrders": 0 },
+    "vendorId": "uuid",
     "status": "ACTIVE",
     "approvalStatus": "APPROVED",
-    "verified": true,
-    "featured": false,
-    "createdAt": "2026-02-24T10:30:45.123456Z",
-    "documents": [
-      {
-        "documentId": "doc-001-aabb",
-        "documentType": "BUSINESS_LICENSE",
-        "documentName": "FSSAI Food License",
-        "documentUrl": "http://localhost:8080/uploads/documents/fssai-license.pdf",
-        "documentNumber": "FSSAI-2024-123456",
-        "issueDate": "2024-01-15T00:00:00.000000Z",
-        "expiryDate": "2027-01-14T00:00:00.000000Z",
-        "verificationStatus": "VERIFIED",
-        "uploadedAt": "2026-02-24T10:30:45.123456Z"
-      }
-    ],
-    "country": "INDIA"
+    "approvalDate": "2026-03-06T10:00:00Z"
   }
 }
 ```
 
 ---
 
-# 9. REJECT VENDOR
+### Reject Vendor
+`PUT /admin/vendors/{vendorId}/reject` 🔒
 
-```http
-POST /admin/vendors/{vendorId}/reject
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
+| Field | Type | Required |
+|-------|------|----------|
+| `reason` | string | ✅ |
 
-### Request
-```json
-{ "reason": "FSSAI license is expired. Please renew and reapply." }
-```
-
-### Success Response `200 OK`
+**Request:**
 ```json
 {
-  "success": true,
-  "message": "Vendor rejected",
+  "reason": "FSSAI license expired. Please renew and reapply."
+}
+```
+
+**Response `200`:**
+```json
+{
   "data": {
-    "vendorId": "vendor-12345-67890",
-    "businessName": "Spice Garden Catering",
-    "status": "INACTIVE",
+    "vendorId": "uuid",
+    "status": "REJECTED",
     "approvalStatus": "REJECTED",
-    "...rest of VendorResponse fields..."
+    "rejectionReason": "FSSAI license expired. Please renew and reapply."
   }
 }
 ```
 
 ---
 
-# 10. SUSPEND VENDOR
+### Suspend Vendor
+`PUT /admin/vendors/{vendorId}/suspend` 🔒
 
-```http
-PATCH /admin/vendors/{vendorId}/suspend
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
+| Field | Type | Required |
+|-------|------|----------|
+| `reason` | string | ✅ |
 
-### Request
+**Request:**
 ```json
-{ "reason": "Received 3 serious complaints of food quality issues in the last month" }
+{ "reason": "Multiple customer complaints about food quality" }
 ```
 
-### Success Response `200 OK`
+**Response `200`:** Updated `VendorResponse` with `status: SUSPENDED`.
+
+---
+
+### Reactivate Vendor
+`PUT /admin/vendors/{vendorId}/reactivate` 🔒
+**Response `200`:** Updated `VendorResponse` with `status: ACTIVE`.
+
+---
+
+### Verify Vendor Document
+`PUT /admin/vendors/{vendorId}/documents/{documentId}/verify` 🔒
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `status` | string | ✅ | `VERIFIED` or `REJECTED` |
+| `notes` | string | ⬜ | Verification notes |
+
+**Request:**
 ```json
 {
-  "success": true,
-  "message": "Vendor suspended",
+  "status": "VERIFIED",
+  "notes": "FSSAI license verified. Valid until January 2027."
+}
+```
+
+**Response `200`:** Updated document with `verificationStatus: VERIFIED`.
+
+---
+
+### Toggle Featured Vendor
+`PUT /admin/vendors/{vendorId}/featured` 🔒
+
+**Request:** `{ "featured": true }`
+**Response `200`:** Updated `VendorResponse` with `featured: true`.
+
+---
+
+## 🎧 Support Agent Management
+
+### Create Support Agent
+`POST /admin/support-agents` 🔒
+
+| Field | Type | Required | Validation |
+|-------|------|----------|------------|
+| `email` | string | ✅ | Valid email |
+| `phone` | string | ✅ | E.164 format |
+| `password` | string | ✅ | Min 8 chars with complexity |
+| `firstName` | string | ✅ | 1–50 chars |
+| `lastName` | string | ⬜ | Max 50 chars |
+| `country` | string | ⬜ | `INDIA` or `USA` |
+
+**Request:**
+```json
+{
+  "email": "priya.support@bidzaro.com",
+  "phone": "+919999988888",
+  "password": "AgentPass@123",
+  "firstName": "Priya",
+  "lastName": "Reddy",
+  "country": "INDIA"
+}
+```
+
+**Response `201`:** Full `UserResponse` object with `userType: SUPPORT_AGENT`:
+```json
+{
   "data": {
-    "vendorId": "vendor-12345-67890",
-    "businessName": "Spice Garden Catering",
-    "status": "SUSPENDED",
-    "approvalStatus": "APPROVED",
-    "...rest of VendorResponse fields..."
+    "userId": "uuid",
+    "email": "priya.support@bidzaro.com",
+    "phone": "+919999988888",
+    "userType": "SUPPORT_AGENT",
+    "firstName": "Priya",
+    "lastName": "Reddy",
+    "fullName": "Priya Reddy",
+    "emailVerified": false,
+    "phoneVerified": false,
+    "status": "ACTIVE",
+    "createdAt": "2026-03-06T10:00:00Z"
   }
 }
 ```
 
 ---
 
-# 11. GET ALL ORDERS (Admin)
+### Get All Support Agents
+`GET /admin/support-agents?page=0&size=20` 🔒
 
-```http
-GET /admin/orders?page=0&size=20&status=CONFIRMED
-Authorization: Bearer {accessToken}
-```
+**Response `200`:** Paginated list of `UserResponse` with `userType: SUPPORT_AGENT`.
 
-### Success Response `200 OK` — List of `OrderResponse` DTOs
+---
+
+### Get Support Agent Workload
+`GET /admin/support-agents/{agentId}/workload` 🔒
+
+**Response `200`:**
 ```json
 {
-  "success": true,
+  "data": {
+    "agentId": "uuid",
+    "agentName": "Priya Reddy",
+    "activeTickets": 5,
+    "resolvedToday": 3,
+    "averageResolutionTimeHours": 6.5,
+    "csatScore": 4.8
+  }
+}
+```
+
+---
+
+### Assign Ticket to Agent
+`PUT /admin/support/tickets/{ticketId}/assign` 🔒
+
+| Field | Type | Required |
+|-------|------|----------|
+| `agentId` | string | ✅ |
+
+**Request:** `{ "agentId": "agent-uuid" }`
+**Response `200`:** Updated `TicketResponse` with `assignedTo` and `status: ASSIGNED`.
+
+---
+
+## 🍽️ Menu Management
+
+### Get All Categories
+`GET /admin/menu/categories?page=0&size=20` 🔒
+
+**Response `200`:**
+```json
+{
   "data": [
     {
-      "orderId": "order-54321-12345-ccdd",
-      "userId": "550e8400-e29b-41d4-a716-446655440000",
-      "bidRequestId": "breq-88990-77665-aabb",
-      "eventDetails": {
-        "eventType": "WEDDING",
-        "eventName": "Priya & Rahul Wedding",
-        "eventDate": "2026-05-20",
-        "eventTime": "18:00",
-        "numberOfGuests": 500,
-        "venueAddress": { "streetAddress": "Palace Grounds", "city": "Bangalore", "state": "Karnataka", "postalCode": "560080", "country": "India" }
-      },
-      "vendorOrders": [
-        {
-          "vendorOrderId": "vorder-001-aabb",
-          "vendorId": "vendor-12345-67890",
-          "vendorUserId": null,
-          "vendorName": "Spice Garden Catering",
-          "items": [
-            { "vendorItemId": "vitem-001", "itemName": "Paneer Tikka", "quantity": 500, "pricePerPlate": 175.00, "totalPrice": 87500.00 }
-          ],
-          "subtotal": 175000.00,
-          "serviceCharge": 17500.00,
-          "taxAmount": 8750.00,
-          "totalAmount": 201250.00,
-          "vendorStatus": "ACCEPTED",
-          "deliveryStatus": "PENDING"
-        }
-      ],
-      "pricing": {
-        "currency": "INR",
-        "subtotal": 175000.00,
-        "serviceCharges": 17500.00,
-        "taxAmount": 8750.00,
-        "platformFee": 4025.00,
-        "discountAmount": 0.00,
-        "totalAmount": 205275.00
-      },
-      "paymentDetails": {
-        "tokenAmount": 51318.75,
-        "tokenPaid": true,
-        "tokenPaidAt": "2026-02-25T11:05:00.000000Z",
-        "totalPaid": 51318.75,
-        "balanceDue": 153956.25,
-        "paymentStatus": "TOKEN_PAID"
-      },
-      "contactInfo": { "primaryContactName": "John Doe", "primaryContactPhone": "+917890123456", "primaryContactEmail": "john.doe@gmail.com" },
-      "specialInstructions": "Separate veg and non-veg sections.",
-      "status": "CONFIRMED",
-      "cancellation": null,
-      "createdAt": "2026-02-25T11:00:00.000000Z",
-      "confirmedAt": "2026-02-25T11:00:00.000000Z",
-      "deliveredAt": null,
-      "completedAt": null
-    }
-  ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 20, "totalElements": 48500, "totalPages": 2425 }
-}
-```
-
----
-
-# 12. OVERRIDE ORDER STATUS
-
-```http
-PATCH /admin/orders/{orderId}/status
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request
-```json
-{
-  "status": "COMPLETED",
-  "reason": "Admin override — event completed, all payments cleared"
-}
-```
-
-### Success Response `200 OK` — Full `OrderResponse` DTO
-```json
-{
-  "success": true,
-  "message": "Order status updated",
-  "data": {
-    "orderId": "order-54321-12345-ccdd",
-    "userId": "550e8400-e29b-41d4-a716-446655440000",
-    "bidRequestId": "breq-88990-77665-aabb",
-    "eventDetails": { "eventType": "WEDDING", "eventName": "Priya & Rahul Wedding", "eventDate": "2026-05-20", "eventTime": "18:00", "numberOfGuests": 500, "venueAddress": { "city": "Bangalore", "state": "Karnataka" } },
-    "vendorOrders": [
-      { "vendorOrderId": "vorder-001-aabb", "vendorId": "vendor-12345-67890", "vendorUserId": null, "vendorName": "Spice Garden Catering", "items": null, "subtotal": 175000.00, "serviceCharge": 17500.00, "taxAmount": 8750.00, "totalAmount": 201250.00, "vendorStatus": "COMPLETED", "deliveryStatus": "DELIVERED" }
-    ],
-    "pricing": { "currency": "INR", "subtotal": 175000.00, "serviceCharges": 17500.00, "taxAmount": 8750.00, "platformFee": 4025.00, "discountAmount": 0.00, "totalAmount": 205275.00 },
-    "paymentDetails": { "tokenAmount": 51318.75, "tokenPaid": true, "tokenPaidAt": "2026-02-25T11:05:00.000000Z", "totalPaid": 205275.00, "balanceDue": 0.00, "paymentStatus": "FULLY_PAID" },
-    "contactInfo": { "primaryContactName": "John Doe", "primaryContactPhone": "+917890123456", "primaryContactEmail": "john.doe@gmail.com" },
-    "specialInstructions": null,
-    "status": "COMPLETED",
-    "cancellation": null,
-    "createdAt": "2026-02-25T11:00:00.000000Z",
-    "confirmedAt": "2026-02-25T11:00:00.000000Z",
-    "deliveredAt": "2026-05-20T22:00:00.000000Z",
-    "completedAt": "2026-05-21T08:00:00.000000Z"
-  }
-}
-```
-
----
-
-# 13. GET ALL BID REQUESTS (Admin)
-
-```http
-GET /admin/bids?page=0&size=20&status=ACTIVE
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK` — List of `BidRequestResponse` DTOs
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "bidRequestId": "breq-88990-77665-aabb",
-      "userId": "550e8400-e29b-41d4-a716-446655440000",
-      "eventDetails": {
-        "eventType": "WEDDING",
-        "eventName": "Priya & Rahul Wedding",
-        "eventDate": "2026-05-20T18:00:00",
-        "eventStartTime": "18:00",
-        "eventEndTime": "23:30",
-        "numberOfGuests": 500,
-        "venueAddress": { "streetAddress": "Palace Grounds", "city": "Bangalore", "state": "Karnataka", "postalCode": "560080", "country": "India" }
-      },
-      "menuItems": [
-        { "vendorItemId": null, "masterItemId": "item-001", "itemName": "Paneer Tikka", "quantity": 500 },
-        { "vendorItemId": null, "masterItemId": "item-002", "itemName": "Butter Chicken", "quantity": 400 }
-      ],
-      "additionalRequirements": { "serviceStaffNeeded": true, "numberOfStaff": 25, "decorationNeeded": false, "liveCounters": ["Dosa Counter"], "specialInstructions": "Separate sections." },
-      "budget": { "currency": "INR", "estimatedBudget": 200000, "budgetRange": "200000-250000" },
-      "targetedVendors": [],
-      "competitivePeriod": { "startTime": "2026-02-24T10:30:45.123456Z", "endTime": "2026-02-27T10:30:45.123456Z", "status": "ACTIVE" },
-      "acceptedBid": null,
+      "categoryId": "uuid",
+      "categoryName": "Main Course",
+      "categoryNameHindi": "मुख्य व्यंजन",
+      "description": "Primary dishes served during meal",
+      "iconUrl": "http://localhost:8080/uploads/images/maincourse.png",
+      "displayOrder": 1,
       "status": "ACTIVE",
-      "totalBidsReceived": 3,
-      "lowestBidAmount": 195000.00,
-      "createdAt": "2026-02-24T10:30:45.123456Z",
-      "expiresAt": "2026-03-03T10:30:45.123456Z"
+      "createdAt": "2026-01-01T00:00:00Z"
     }
-  ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 20, "totalElements": 250, "totalPages": 13 }
+  ]
 }
 ```
 
 ---
 
-# 14. CREATE MENU CATEGORY (Admin)
+### Create Category
+`POST /admin/menu/categories` 🔒
 
-```http
-POST /admin/menu/categories
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
+| Field | Type | Required | Validation |
+|-------|------|----------|------------|
+| `categoryName` | string | ✅ | 2–100 chars |
+| `categoryNameHindi` | string | ⬜ | |
+| `description` | string | ⬜ | |
+| `iconUrl` | string | ⬜ | Uploaded icon URL |
+| `displayOrder` | integer | ⬜ | Sort order |
+| `status` | string | ⬜ | `ACTIVE`, `INACTIVE` |
 
-### Request — Based on `CategoryRequest` DTO
+**Request:**
 ```json
 {
-  "categoryName": "Live Counters",
-  "categoryNameHindi": "लाइव काउंटर",
-  "description": "Live food counters for events",
-  "displayOrder": 5,
-  "iconUrl": "http://localhost:8080/uploads/icons/live-counters.svg"
+  "categoryName": "Starters",
+  "categoryNameHindi": "स्टार्टर",
+  "description": "Appetizers and starters",
+  "iconUrl": "http://localhost:8080/uploads/images/starters.png",
+  "displayOrder": 2,
+  "status": "ACTIVE"
 }
 ```
 
-### Success Response `201 Created` — `CategoryResponse` DTO
-```json
-{
-  "success": true,
-  "data": {
-    "categoryId": "cat-005",
-    "categoryName": "Live Counters",
-    "categoryNameHindi": "लाइव काउंटर",
-    "description": "Live food counters for events",
-    "displayOrder": 5,
-    "iconUrl": "http://localhost:8080/uploads/icons/live-counters.svg",
-    "status": "ACTIVE"
-  }
-}
-```
+**Response `201`:** Full `CategoryResponse` object.
 
 ---
 
-# 15. CREATE MASTER MENU ITEM (Admin)
+### Update Category
+`PUT /admin/menu/categories/{categoryId}` 🔒
+Same body as create, all fields optional.
 
-```http
-POST /admin/menu/items
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
+---
 
-### Request — Based on `MasterMenuItemRequest` DTO
+### Delete Category
+`DELETE /admin/menu/categories/{categoryId}` 🔒
+**Response `200`:** `{ "success": true, "message": "Category deleted" }`
+
+---
+
+### Create Master Menu Item
+`POST /admin/menu/items` 🔒
+
+| Field | Type | Required | Validation |
+|-------|------|----------|------------|
+| `itemName` | string | ✅ | 2–100 chars |
+| `itemNameHindi` | string | ⬜ | Hindi name |
+| `description` | string | ⬜ | |
+| `categoryId` | string | ✅ | Must exist |
+| `cuisineType` | string | ⬜ | e.g. `North Indian`, `Chinese` |
+| `foodType` | string | ✅ | `VEG`, `NON_VEG`, `VEGAN`, `EGG` |
+| `spiceLevel` | string | ⬜ | `MILD`, `MEDIUM`, `HOT`, `EXTRA_HOT` |
+| `dietaryTags` | array | ⬜ | e.g. `["Gluten-Free", "Dairy-Free"]` |
+| `allergens` | array | ⬜ | e.g. `["Dairy", "Nuts"]` |
+| `nutritionalInfo` | object | ⬜ | |
+| `nutritionalInfo.calories` | integer | ⬜ | |
+| `nutritionalInfo.proteinGrams` | integer | ⬜ | |
+| `nutritionalInfo.carbsGrams` | integer | ⬜ | |
+| `nutritionalInfo.fatGrams` | integer | ⬜ | |
+| `nutritionalInfo.servingSizeGrams` | integer | ⬜ | |
+| `imageUrls` | array | ⬜ | List of image URLs |
+| `isPopular` | boolean | ⬜ | |
+| `status` | string | ⬜ | `ACTIVE`, `INACTIVE` |
+
+**Request:**
 ```json
 {
   "itemName": "Chicken Biryani",
   "itemNameHindi": "चिकन बिरयानी",
-  "description": "Aromatic basmati rice cooked with tender chicken and whole spices",
-  "categoryId": "cat-002",
-  "cuisineType": "Mughlai",
-  "foodType": "NON_VEGETARIAN",
+  "description": "Aromatic basmati rice with tender chicken",
+  "categoryId": "uuid",
+  "cuisineType": "North Indian",
+  "foodType": "NON_VEG",
   "spiceLevel": "MEDIUM",
-  "dietaryTags": [],
-  "allergens": ["GLUTEN", "DAIRY"],
+  "dietaryTags": ["Gluten-Free"],
+  "allergens": ["Dairy"],
   "nutritionalInfo": {
-    "calories": 520,
-    "proteinGrams": 35,
-    "carbsGrams": 65,
-    "fatGrams": 14,
-    "servingSizeGrams": 400
+    "calories": 450,
+    "proteinGrams": 28,
+    "carbsGrams": 55,
+    "fatGrams": 12,
+    "servingSizeGrams": 350
   },
-  "imageUrls": [
-    "http://localhost:8080/uploads/images/chicken-biryani-1.jpg"
-  ],
-  "isPopular": true
+  "imageUrls": ["http://localhost:8080/uploads/images/biryani.jpg"],
+  "isPopular": true,
+  "status": "ACTIVE"
 }
 ```
 
-### Success Response `201 Created` — `MenuItemResponse` DTO
+**Response `201`:** Full `MenuItemResponse`:
 ```json
 {
-  "success": true,
   "data": {
-    "masterItemId": "item-new-001",
+    "masterItemId": "uuid",
     "itemName": "Chicken Biryani",
     "itemNameHindi": "चिकन बिरयानी",
-    "description": "Aromatic basmati rice cooked with tender chicken and whole spices",
-    "categoryId": "cat-002",
-    "categoryName": null,
-    "cuisineType": "Mughlai",
-    "foodType": "NON_VEGETARIAN",
+    "description": "Aromatic basmati rice with tender chicken",
+    "categoryId": "uuid",
+    "categoryName": "Main Course",
+    "cuisineType": "North Indian",
+    "foodType": "NON_VEG",
     "spiceLevel": "MEDIUM",
-    "dietaryTags": [],
-    "allergens": ["GLUTEN", "DAIRY"],
+    "dietaryTags": ["Gluten-Free"],
+    "allergens": ["Dairy"],
     "nutritionalInfo": {
-      "calories": 520,
-      "proteinGrams": 35,
-      "carbsGrams": 65,
-      "fatGrams": 14,
-      "servingSizeGrams": 400
+      "calories": 450,
+      "proteinGrams": 28,
+      "carbsGrams": 55,
+      "fatGrams": 12,
+      "servingSizeGrams": 350
     },
-    "imageUrls": ["http://localhost:8080/uploads/images/chicken-biryani-1.jpg"],
+    "imageUrls": ["http://localhost:8080/uploads/images/biryani.jpg"],
     "isPopular": true,
     "status": "ACTIVE",
-    "createdAt": "2026-02-24T10:30:45.123456Z",
-    "updatedAt": "2026-02-24T10:30:45.123456Z"
+    "createdAt": "2026-03-06T10:00:00Z",
+    "updatedAt": "2026-03-06T10:00:00Z"
   }
 }
 ```
 
 ---
 
-# 16. CREATE PROMO CODE (Admin)
+### Update Master Menu Item
+`PUT /admin/menu/items/{masterItemId}` 🔒
+Same body as create, all fields optional.
+**Response `200`:** Updated `MenuItemResponse`.
 
-```http
-POST /admin/promos
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
+---
 
-### Request — Based on `CreatePromoRequest` DTO
+### Delete Master Menu Item
+`DELETE /admin/menu/items/{masterItemId}` 🔒
+**Response `200`:** `{ "success": true, "message": "Menu item deleted" }`
+
+---
+
+### Moderate Review
+`PUT /admin/reviews/{reviewId}/moderate` 🔒
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `status` | string | ✅ | `APPROVED`, `REJECTED`, `HIDDEN` |
+| `notes` | string | ⬜ | Moderation notes |
+
+**Request:**
 ```json
 {
-  "code": "BIDZARO2026",
-  "title": "Bidzaro Launch Offer",
-  "description": "Flat ₹10,000 off on orders above ₹1,00,000",
-  "type": "FIXED_AMOUNT",
-  "value": 10000.00,
-  "maxDiscountAmount": 10000.00,
-  "minOrderAmount": 100000.00,
-  "validFrom": "2026-02-24T00:00:00Z",
-  "validTo": "2026-03-31T23:59:59Z",
-  "usageLimitGlobal": 5000,
+  "status": "REJECTED",
+  "notes": "Review contains inappropriate language"
+}
+```
+**Response `200`:** Updated `ReviewResponse` with new status.
+
+---
+
+## 🏷️ Promo Codes
+
+### Get All Promo Codes
+`GET /admin/promos?page=0&size=20&status=ACTIVE` 🔒
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "promoCodeId": "uuid",
+      "code": "WELCOME50",
+      "title": "Welcome Discount",
+      "description": "₹500 off on your first order",
+      "type": "FLAT",
+      "value": 500.00,
+      "maxDiscountAmount": 500.00,
+      "minOrderAmount": 5000.00,
+      "validFrom": "2026-01-01T00:00:00Z",
+      "validTo": "2026-12-31T23:59:59Z",
+      "usageLimitGlobal": 1000,
+      "usageLimitPerUser": 1,
+      "usedCount": 345,
+      "applicableTo": "ALL",
+      "applicableVendorIds": null,
+      "applicableCuisines": null,
+      "firstOrderOnly": true,
+      "status": "ACTIVE",
+      "createdAt": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "pageInfo": { "page": 0, "size": 20, "totalElements": 12 }
+}
+```
+
+---
+
+### Create Promo Code
+`POST /admin/promos` 🔒
+
+| Field | Type | Required | Validation |
+|-------|------|----------|------------|
+| `code` | string | ✅ | Unique promo code |
+| `title` | string | ⬜ | Display title |
+| `description` | string | ⬜ | |
+| `type` | string | ✅ | `PERCENTAGE` or `FLAT` |
+| `value` | decimal | ✅ | Must be positive |
+| `maxDiscountAmount` | decimal | ⬜ | Cap for PERCENTAGE type |
+| `minOrderAmount` | decimal | ⬜ | Minimum order to apply |
+| `validFrom` | datetime | ⬜ | ISO-8601 |
+| `validTo` | datetime | ⬜ | ISO-8601 |
+| `usageLimitGlobal` | integer | ⬜ | Max total uses |
+| `usageLimitPerUser` | integer | ⬜ | Max uses per user |
+| `applicableTo` | string | ⬜ | `ALL`, `SPECIFIC_VENDORS`, `SPECIFIC_USERS`, `SPECIFIC_CUISINES` |
+| `applicableVendorIds` | array | ⬜ | For `SPECIFIC_VENDORS` |
+| `applicableUserIds` | array | ⬜ | For `SPECIFIC_USERS` |
+| `applicableCuisines` | array | ⬜ | For `SPECIFIC_CUISINES` |
+| `firstOrderOnly` | boolean | ⬜ | Restrict to first order |
+
+**Request:**
+```json
+{
+  "code": "HOLI2026",
+  "title": "Holi Festival Special",
+  "description": "Flat 10% off on all orders during Holi",
+  "type": "PERCENTAGE",
+  "value": 10.00,
+  "maxDiscountAmount": 2000.00,
+  "minOrderAmount": 10000.00,
+  "validFrom": "2026-03-14T00:00:00Z",
+  "validTo": "2026-03-20T23:59:59Z",
+  "usageLimitGlobal": 500,
   "usageLimitPerUser": 1,
   "applicableTo": "ALL",
-  "applicableVendorIds": null,
-  "applicableCuisines": null,
   "firstOrderOnly": false
 }
 ```
 
-| Field | Required | Values |
-|-------|----------|--------|
-| `code` | ✅ | Unique promo code string |
-| `type` | ✅ | `FIXED_AMOUNT`, `PERCENTAGE` |
-| `value` | ✅ | Discount value |
-| `validFrom` | ✅ | ISO datetime |
-| `validTo` | ✅ | ISO datetime |
-| `applicableTo` | ✅ | `ALL`, `SPECIFIC_VENDORS`, `SPECIFIC_CUISINES` |
-| `maxDiscountAmount` | ❌ | Cap for PERCENTAGE type |
-| `minOrderAmount` | ❌ | Minimum order to apply |
-| `usageLimitGlobal` | ❌ | Total usage cap |
-| `usageLimitPerUser` | ❌ | Per-user usage cap |
-| `firstOrderOnly` | ❌ | Restrict to first order only |
-
-### Success Response `201 Created` — `PromoCodeResponse` DTO
+**Response `201`:** Full `PromoCodeResponse` object:
 ```json
 {
-  "success": true,
   "data": {
-    "promoCodeId": "promo-bidzaro-2026-xxyy",
-    "code": "BIDZARO2026",
-    "title": "Bidzaro Launch Offer",
-    "description": "Flat ₹10,000 off on orders above ₹1,00,000",
-    "type": "FIXED_AMOUNT",
-    "value": 10000.00,
-    "maxDiscountAmount": 10000.00,
-    "minOrderAmount": 100000.00,
-    "validFrom": "2026-02-24T00:00:00.000000Z",
-    "validTo": "2026-03-31T23:59:59.000000Z",
-    "usageLimitGlobal": 5000,
+    "promoCodeId": "uuid",
+    "code": "HOLI2026",
+    "title": "Holi Festival Special",
+    "description": "Flat 10% off on all orders during Holi",
+    "type": "PERCENTAGE",
+    "value": 10.00,
+    "maxDiscountAmount": 2000.00,
+    "minOrderAmount": 10000.00,
+    "validFrom": "2026-03-14T00:00:00Z",
+    "validTo": "2026-03-20T23:59:59Z",
+    "usageLimitGlobal": 500,
     "usageLimitPerUser": 1,
     "usedCount": 0,
     "applicableTo": "ALL",
@@ -842,399 +962,352 @@ Content-Type: application/json
     "applicableCuisines": null,
     "firstOrderOnly": false,
     "status": "ACTIVE",
-    "createdAt": "2026-02-24T10:30:45.123456Z"
+    "createdAt": "2026-03-06T10:00:00Z"
   }
 }
 ```
 
 ---
 
-# 17. GET ALL PROMO CODES (Admin)
-
-```http
-GET /admin/promos?page=0&size=20&status=ACTIVE
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK` — List of `PromoCodeResponse` DTOs
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "promoCodeId": "promo-bidzaro-2026-xxyy",
-      "code": "BIDZARO2026",
-      "title": "Bidzaro Launch Offer",
-      "description": "Flat ₹10,000 off on orders above ₹1,00,000",
-      "type": "FIXED_AMOUNT",
-      "value": 10000.00,
-      "maxDiscountAmount": 10000.00,
-      "minOrderAmount": 100000.00,
-      "validFrom": "2026-02-24T00:00:00.000000Z",
-      "validTo": "2026-03-31T23:59:59.000000Z",
-      "usageLimitGlobal": 5000,
-      "usageLimitPerUser": 1,
-      "usedCount": 125,
-      "applicableTo": "ALL",
-      "applicableVendorIds": null,
-      "applicableCuisines": null,
-      "firstOrderOnly": false,
-      "status": "ACTIVE",
-      "createdAt": "2026-02-23T00:00:00.000000Z"
-    }
-  ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 20, "totalElements": 45, "totalPages": 3 }
-}
-```
+### Update Promo Code
+`PUT /admin/promos/{promoId}` 🔒
+Same body as create, all fields optional.
 
 ---
 
-# 18. DEACTIVATE PROMO CODE
-
-```http
-PATCH /admin/promos/{promoCodeId}/deactivate
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "message": "Promo code deactivated",
-  "data": {
-    "promoCodeId": "promo-bidzaro-2026-xxyy",
-    "code": "BIDZARO2026",
-    "status": "INACTIVE",
-    "...rest of PromoCodeResponse fields..."
-  }
-}
-```
+### Deactivate Promo Code
+`PUT /admin/promos/{promoId}/deactivate` 🔒
+**Response `200`:** Updated `PromoCodeResponse` with `status: INACTIVE`.
 
 ---
 
-# 19. GET ALL SUPPORT TICKETS (Admin)
+### Delete Promo Code
+`DELETE /admin/promos/{promoId}` 🔒
+**Response `200`:** `{ "success": true, "message": "Promo code deleted" }`
 
-```http
-GET /admin/support/tickets?page=0&size=20&status=OPEN&priority=HIGH
-Authorization: Bearer {accessToken}
-```
+---
 
-### Success Response `200 OK` — List of `TicketResponse` DTOs
+## 📢 Announcements
+
+### Get All Announcements
+`GET /admin/announcements?page=0&size=20` 🔒
+
+**Response `200`:**
 ```json
 {
-  "success": true,
   "data": [
     {
-      "ticketId": "tkt-99001-22334-eeff",
-      "ticketNumber": "TKT-20260224-001",
-      "createdBy": "550e8400-e29b-41d4-a716-446655440000",
-      "createdByName": "John Doe",
-      "category": "ORDER",
-      "subcategory": "DELIVERY_ISSUE",
+      "id": "uuid",
+      "title": "Platform Maintenance on March 10",
+      "content": "The platform will be down for maintenance from 2 AM to 4 AM IST on March 10.",
+      "targetAudience": "ALL",
       "priority": "HIGH",
-      "subject": "Food arrived 2 hours late for my wedding",
-      "description": "The catering team was supposed to arrive by 5 PM but arrived at 7 PM...",
-      "relatedEntities": {
-        "orderId": "order-54321-12345-ccdd",
-        "vendorId": "vendor-12345-67890",
-        "paymentId": null
-      },
-      "assignedTo": "agent-priya-001",
-      "assignedAt": "2026-02-24T10:31:00.000000Z",
-      "conversationId": "conv-support-tkt99001",
-      "status": "IN_PROGRESS",
-      "sla": {
-        "firstResponseDue": "2026-02-24T11:30:45.123456Z",
-        "resolutionDue": "2026-02-25T10:30:45.123456Z",
-        "firstResponseAt": "2026-02-24T11:00:00.000000Z",
-        "resolvedAt": null,
-        "slaBreached": false
-      },
-      "resolution": null,
-      "customerSatisfaction": null,
-      "createdAt": "2026-02-24T10:30:45.123456Z",
-      "closedAt": null
+      "isActive": true,
+      "startDate": "2026-03-09T00:00:00Z",
+      "endDate": "2026-03-10T06:00:00Z",
+      "createdBy": "admin-uuid",
+      "createdAt": "2026-03-06T10:00:00Z"
     }
-  ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 20, "totalElements": 156, "totalPages": 8 }
+  ]
 }
 ```
 
 ---
 
-# 20. INITIATE REFUND (Admin)
+### Create Announcement
+`POST /admin/announcements` 🔒
 
-```http
-POST /admin/payments/{transactionId}/refund
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
+| Field | Type | Required | Validation |
+|-------|------|----------|------------|
+| `title` | string | ✅ | 5–200 chars |
+| `content` | string | ✅ | 10–5000 chars |
+| `targetAudience` | string | ✅ | `ALL`, `USERS`, `VENDORS`, `SUPPORT_AGENTS`, `ADMINS` |
+| `priority` | string | ⬜ | `LOW`, `MEDIUM`, `HIGH`, `URGENT` |
+| `isActive` | boolean | ⬜ | Default true |
+| `startDate` | datetime | ⬜ | ISO-8601 |
+| `endDate` | datetime | ⬜ | ISO-8601 |
 
-### Request
+**Request:**
 ```json
 {
-  "refundAmount": 51318.75,
-  "reason": "Customer cancellation — event postponed more than 30 days. Full refund eligible."
-}
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "message": "Refund initiated successfully",
-  "data": {
-    "transactionId": "txn-99887-66554-eeff",
-    "refundId": "refund-001-aabb",
-    "orderId": "order-54321-12345-ccdd",
-    "refundAmount": 51318.75,
-    "currency": "INR",
-    "status": "REFUND_INITIATED",
-    "estimatedArrival": "5-7 business days",
-    "initiatedAt": "2026-02-26T10:00:00.000000Z"
-  }
-}
-```
-
----
-
-# 21. GET PLATFORM CONFIG
-
-```http
-GET /admin/platform-config/{country}
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK` — Full `PlatformConfig` fields
-```json
-{
-  "success": true,
-  "data": {
-    "configId": "config-india-001",
-    "country": "INDIA",
-    "biddingConfig": {
-      "competitivePeriodHours": 72,
-      "coolingPeriodHours": 24,
-      "paymentCoolingPeriodHours": 2,
-      "bidExpiryHours": 168,
-      "minVendorsForCompetitive": 3,
-      "maxBidRevisions": 5
-    },
-    "paymentConfig": {
-      "tokenPercentage": 25,
-      "enabledGateways": ["RAZORPAY"],
-      "defaultGateway": "RAZORPAY",
-      "paymentTimeoutHours": 24,
-      "autoRefundEnabled": true
-    },
-    "cancellationPolicy": {
-      "cancellationWindowDays": 30,
-      "refundTiers": [
-        { "daysBeforeEvent": 30, "refundPercentage": 100 },
-        { "daysBeforeEvent": 15, "refundPercentage": 75 },
-        { "daysBeforeEvent": 7,  "refundPercentage": 50 },
-        { "daysBeforeEvent": 3,  "refundPercentage": 25 },
-        { "daysBeforeEvent": 0,  "refundPercentage": 0 }
-      ]
-    },
-    "commissionConfig": {
-      "platformFeePercentage": 2,
-      "vendorCommissionPercentage": 10,
-      "paymentGatewayFeePercentage": 2
-    },
-    "updatedBy": "admin-001",
-    "updatedAt": "2026-02-01T00:00:00.000000Z"
-  }
-}
-```
-
----
-
-# 22. UPDATE PLATFORM CONFIG
-
-```http
-PUT /admin/platform-config/{country}
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request — Based on `UpdatePlatformConfigRequest` DTO
-```json
-{
-  "biddingConfig": {
-    "competitivePeriodHours": 96,
-    "coolingPeriodHours": 24,
-    "paymentCoolingPeriodHours": 2,
-    "bidExpiryHours": 168,
-    "minVendorsForCompetitive": 3,
-    "maxBidRevisions": 5
-  },
-  "paymentConfig": {
-    "tokenPercentage": 25,
-    "enabledGateways": ["RAZORPAY"],
-    "defaultGateway": "RAZORPAY",
-    "paymentTimeoutHours": 24,
-    "autoRefundEnabled": true
-  },
-  "cancellationPolicy": {
-    "cancellationWindowDays": 30,
-    "refundTiers": [
-      { "daysBeforeEvent": 30, "refundPercentage": 100 },
-      { "daysBeforeEvent": 15, "refundPercentage": 75 },
-      { "daysBeforeEvent": 7,  "refundPercentage": 50 },
-      { "daysBeforeEvent": 3,  "refundPercentage": 25 },
-      { "daysBeforeEvent": 0,  "refundPercentage": 0 }
-    ]
-  },
-  "commissionConfig": {
-    "platformFeePercentage": 2,
-    "vendorCommissionPercentage": 10,
-    "paymentGatewayFeePercentage": 2
-  }
-}
-```
-
-### Success Response `200 OK` — Full config returned (same shape as GET)
-
----
-
-# 23. CREATE ANNOUNCEMENT
-
-```http
-POST /admin/announcements
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request — Based on `CreateAnnouncementRequest` DTO
-```json
-{
-  "title": "Platform Maintenance — Feb 28, 2026",
-  "content": "Bidzaro will undergo scheduled maintenance on Feb 28, 2026 from 2 AM to 4 AM IST. Services will be temporarily unavailable.",
-  "type": "MAINTENANCE",
+  "title": "Platform Maintenance on March 10",
+  "content": "The platform will be down for scheduled maintenance from 2 AM to 4 AM IST on March 10, 2026.",
   "targetAudience": "ALL",
+  "priority": "HIGH",
   "isActive": true,
-  "expiresAt": "2026-02-28T06:00:00Z"
+  "startDate": "2026-03-09T00:00:00Z",
+  "endDate": "2026-03-10T06:00:00Z"
 }
 ```
 
-### Success Response `201 Created`
-```json
-{
-  "success": true,
-  "data": {
-    "announcementId": "ann-001-aabb",
-    "title": "Platform Maintenance — Feb 28, 2026",
-    "content": "Bidzaro will undergo scheduled maintenance on Feb 28, 2026 from 2 AM to 4 AM IST.",
-    "type": "MAINTENANCE",
-    "targetAudience": "ALL",
-    "isActive": true,
-    "expiresAt": "2026-02-28T06:00:00.000000Z",
-    "createdBy": "admin-001",
-    "createdAt": "2026-02-24T10:30:45.123456Z"
-  }
-}
-```
+**Response `201`:** Full announcement object (same as list item above).
 
 ---
 
-# 24. GET AUDIT LOGS
+### Update Announcement
+`PUT /admin/announcements/{announcementId}` 🔒
+Same body as create, all fields optional.
 
-```http
-GET /admin/audit-logs?page=0&size=20&action=VENDOR_APPROVED
-Authorization: Bearer {accessToken}
-```
+---
 
-### Success Response `200 OK`
+### Delete Announcement
+`DELETE /admin/announcements/{announcementId}` 🔒
+**Response `200`:** `{ "success": true, "message": "Announcement deleted" }`
+
+---
+
+## ⚙️ Platform Configuration
+
+### Get All Config Keys
+`GET /admin/config` 🔒
+
+**Response `200`:**
 ```json
 {
-  "success": true,
   "data": [
     {
-      "logId": "log-001-aabb",
-      "action": "VENDOR_APPROVED",
-      "performedBy": "admin-001",
-      "performedByName": "Super Admin",
-      "targetType": "VENDOR",
-      "targetId": "vendor-12345-67890",
-      "details": "Vendor approved. Notes: All documents verified. FSSAI license valid.",
-      "ipAddress": "203.0.113.45",
-      "createdAt": "2026-02-24T10:30:45.123456Z"
+      "id": "uuid",
+      "configKey": "TOKEN_PAYMENT_PERCENTAGE",
+      "configValue": "25",
+      "description": "Percentage of total order value charged as token payment",
+      "isActive": true,
+      "updatedAt": "2026-01-01T10:00:00Z"
     },
     {
-      "logId": "log-002-ccdd",
-      "action": "USER_SUSPENDED",
-      "performedBy": "admin-001",
-      "performedByName": "Super Admin",
-      "targetType": "USER",
-      "targetId": "550e8400-e29b-41d4-a716-446655440000",
-      "details": "User suspended. Reason: Multiple fraud reports received.",
-      "ipAddress": "203.0.113.45",
-      "createdAt": "2026-02-23T14:00:00.000000Z"
+      "configKey": "PLATFORM_FEE_PERCENTAGE",
+      "configValue": "2",
+      "description": "Platform commission percentage on each order"
+    },
+    {
+      "configKey": "BID_EXPIRY_HOURS",
+      "configValue": "72",
+      "description": "Hours after which a bid request expires"
+    },
+    {
+      "configKey": "MAX_BIDS_PER_REQUEST",
+      "configValue": "10",
+      "description": "Maximum vendor bids per bid request"
+    },
+    {
+      "configKey": "ORDER_AUTO_COMPLETE_HOURS",
+      "configValue": "24",
+      "description": "Hours after DELIVERED to auto-complete an order"
+    },
+    {
+      "configKey": "LOYALTY_POINTS_PER_RUPEE",
+      "configValue": "1",
+      "description": "Loyalty points earned per rupee spent"
     }
-  ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 20, "totalElements": 2500, "totalPages": 125 }
+  ]
 }
 ```
 
 ---
 
-# 25. PLATFORM ANALYTICS
+### Get Config by Key
+`GET /admin/config/{key}` 🔒
 
-```http
-GET /analytics/overview?period=MONTHLY
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK` — `AnalyticsOverviewResponse` DTO
+**Response `200`:**
 ```json
 {
-  "success": true,
   "data": {
-    "period": "MONTHLY",
-    "totalRevenue": 3800000.00,
-    "totalOrders": 840,
-    "totalBidRequests": 1200,
-    "totalNewUsers": 1250,
-    "totalNewVendors": 32,
-    "averageOrderValue": 4523.81,
-    "topCities": [
-      { "city": "Bangalore", "orderCount": 320, "revenue": 1450000.00 },
-      { "city": "Mumbai",    "orderCount": 215, "revenue": 980000.00  },
-      { "city": "Delhi",     "orderCount": 180, "revenue": 820000.00  }
-    ],
-    "topCuisines": [
-      { "cuisine": "South Indian", "orderCount": 380 },
-      { "cuisine": "North Indian", "orderCount": 290 }
-    ],
-    "topEventTypes": [
-      { "eventType": "WEDDING",    "count": 420 },
-      { "eventType": "CORPORATE",  "count": 225 },
-      { "eventType": "BIRTHDAY",   "count": 195 }
-    ]
+    "configKey": "TOKEN_PAYMENT_PERCENTAGE",
+    "configValue": "25",
+    "description": "Percentage of total order value charged as token payment",
+    "isActive": true
   }
 }
 ```
 
 ---
 
-# 📌 Admin Error Codes
+### Update Config
+`PUT /admin/config/{key}` 🔒
 
-| HTTP | Error Code | Description |
-|------|-----------|-------------|
-| 400 | `INVALID_STATUS` | Invalid status value provided |
-| 400 | `INVALID_CONFIG` | Invalid platform configuration |
-| 401 | `UNAUTHORIZED` | Token missing or expired |
-| 403 | `FORBIDDEN` | Not an admin account |
-| 404 | `USER_NOT_FOUND` | User does not exist |
-| 404 | `VENDOR_NOT_FOUND` | Vendor does not exist |
-| 404 | `ORDER_NOT_FOUND` | Order does not exist |
-| 404 | `PROMO_NOT_FOUND` | Promo code not found |
-| 409 | `PROMO_CODE_EXISTS` | Promo code already exists |
-| 409 | `VENDOR_ALREADY_APPROVED` | Vendor is already approved |
+| Field | Type | Required |
+|-------|------|----------|
+| `value` | string | ✅ |
+
+**Request:** `{ "value": "30" }`
+**Response `200`:** Updated config object.
 
 ---
 
-*ADMIN_API_DOCS.md — Based on actual Java DTOs (DashboardStatsResponse, UserResponse, VendorResponse, OrderResponse, BidRequestResponse, CategoryResponse, MenuItemResponse, PromoCodeResponse, TicketResponse, PlatformConfig, CreateAnnouncementRequest, UpdatePlatformConfigRequest, CreatePromoRequest)*
-*Bidzaro Catering Platform v1.0.0 | Generated: February 24, 2026*
+## 📜 Audit Logs
 
+### Get Audit Logs
+`GET /admin/audit?page=0&size=20&entityType=VENDOR&startDate=2026-03-01T00:00:00Z&endDate=2026-03-31T23:59:59Z` 🔒
+
+| Query Param | Type | Required | Description |
+|-------------|------|----------|-------------|
+| `page` | int | ⬜ | |
+| `size` | int | ⬜ | |
+| `entityType` | string | ⬜ | `USER`, `VENDOR`, `ORDER`, `PAYMENT`, `PROMO` |
+| `entityId` | string | ⬜ | Specific entity ID |
+| `action` | string | ⬜ | e.g. `VENDOR_APPROVED`, `USER_SUSPENDED` |
+| `performedBy` | string | ⬜ | Admin user ID |
+| `startDate` | datetime | ⬜ | ISO-8601 |
+| `endDate` | datetime | ⬜ | ISO-8601 |
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "auditId": "uuid",
+      "entityType": "VENDOR",
+      "entityId": "vendor-uuid",
+      "action": "VENDOR_APPROVED",
+      "performedBy": "admin-uuid",
+      "performedByName": "Admin Bidzaro",
+      "details": {
+        "vendorName": "Royal Catering Co.",
+        "notes": "All documents verified."
+      },
+      "ipAddress": "192.168.1.1",
+      "createdAt": "2026-03-06T10:00:00Z"
+    }
+  ],
+  "pageInfo": { "page": 0, "size": 20, "totalElements": 450 }
+}
+```
+
+---
+
+## 📦 Orders Overview
+
+### Get All Orders
+`GET /admin/orders?page=0&size=20&status=CONFIRMED` 🔒
+
+| Query Param | Type | Required | Values |
+|-------------|------|----------|--------|
+| `status` | string | ⬜ | Any `OrderStatus` value |
+| `vendorId` | string | ⬜ | Filter by vendor |
+| `userId` | string | ⬜ | Filter by user |
+| `page` | int | ⬜ | |
+| `size` | int | ⬜ | |
+
+**Response `200`:** Paginated list of full `OrderResponse` objects.
+
+---
+
+### Get Order by ID
+`GET /admin/orders/{orderId}` 🔒
+**Response `200`:** Full `OrderResponse` object.
+
+---
+
+### Update Order Status (Admin Override)
+`PUT /admin/orders/{orderId}/status` 🔒
+
+**Request:** `{ "status": "CANCELLED", "reason": "Vendor unable to fulfil due to emergency" }`
+**Response `200`:** Updated `OrderResponse`.
+
+---
+
+## 💳 Payments & Transactions
+
+### Get All Transactions
+`GET /admin/payments?page=0&size=20&status=SUCCESS` 🔒
+
+| Query Param | Type | Required |
+|-------------|------|----------|
+| `status` | string | ⬜ | Any `TransactionStatus` |
+| `gateway` | string | ⬜ | `RAZORPAY`, `STRIPE` |
+| `userId` | string | ⬜ | |
+| `orderId` | string | ⬜ | |
+| `page` | int | ⬜ | |
+| `size` | int | ⬜ | |
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "transactionId": "uuid",
+      "orderId": "uuid",
+      "bidId": "uuid",
+      "userId": "uuid",
+      "vendorId": "uuid",
+      "paymentType": "TOKEN",
+      "installmentNumber": null,
+      "amount": {
+        "currency": "INR",
+        "amount": 37913.40,
+        "platformFee": 758.27,
+        "vendorPayout": 37155.13
+      },
+      "paymentGateway": "RAZORPAY",
+      "gatewayTransactionId": "pay_XYZ789GHI012",
+      "gatewayOrderId": "order_ABC123DEF456",
+      "paymentMethod": "UPI",
+      "paymentMethodDetails": {
+        "cardLastFour": null,
+        "cardBrand": null,
+        "cardNetwork": null,
+        "upiId": "rahul@upi",
+        "bankName": null,
+        "walletName": null
+      },
+      "status": "SUCCESS",
+      "failureReason": null,
+      "initiatedAt": "2026-03-06T14:55:00Z",
+      "processedAt": "2026-03-06T15:00:00Z",
+      "settledAt": null,
+      "createdAt": "2026-03-06T14:55:00Z"
+    }
+  ],
+  "pageInfo": { "page": 0, "size": 20, "totalElements": 8450 }
+}
+```
+
+---
+
+### Get Revenue Stats
+`GET /admin/payments/stats` 🔒
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "totalRevenue": 45000000.00,
+    "currentMonthRevenue": 2500000.00,
+    "previousMonthRevenue": 2100000.00,
+    "revenueGrowth": 19.05,
+    "platformFees": 900000.00,
+    "vendorPayouts": 44100000.00,
+    "pendingPayouts": 150000.00,
+    "totalTransactions": 8450,
+    "successfulTransactions": 8220,
+    "failedTransactions": 180,
+    "refundedTransactions": 50
+  }
+}
+```
+
+---
+
+## ⚠️ Standard Error Response
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "Admin access required",
+    "path": "/api/v1/admin/users",
+    "timestamp": "2026-03-06T10:00:00Z",
+    "fieldErrors": {}
+  }
+}
+```
+
+**Admin Error Codes:**
+| Code | HTTP | Description |
+|------|------|-------------|
+| `UNAUTHORIZED` | 401 | Missing or expired token |
+| `FORBIDDEN` | 403 | Not an admin |
+| `RESOURCE_NOT_FOUND` | 404 | User/vendor/order not found |
+| `CONFLICT` | 409 | Promo code already exists |
+| `VALIDATION_ERROR` | 400 | Request validation failed |
+| `INVALID_STATUS_TRANSITION` | 400 | Cannot change to this status |

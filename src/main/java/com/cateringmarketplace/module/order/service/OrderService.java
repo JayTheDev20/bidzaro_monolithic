@@ -329,9 +329,9 @@ public class OrderService {
     // ==================== HELPER METHODS ====================
 
     private boolean isVendorOfOrder(Order order, String userId) {
-        // Check if user is a vendor in this order
+        // Check if the userId matches any vendor's userId in this order
         return order.getVendorOrders().stream()
-                .anyMatch(vo -> vo.getVendorId() != null);
+                .anyMatch(vo -> userId.equals(vo.getVendorUserId()));
     }
 
     private void validateStatusTransition(OrderStatus current, OrderStatus next) {

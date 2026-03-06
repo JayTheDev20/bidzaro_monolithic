@@ -121,15 +121,41 @@ public class AdminService {
     }
 
     private RevenueStats getRevenueStats(Instant startOfDay, Instant startOfWeek, Instant startOfMonth) {
-        // Simplified revenue calculation - in production, use aggregation queries
+        BigDecimal totalRevenue = sumSuccessfulTransactions(null, null);
+        BigDecimal revenueToday = sumSuccessfulTransactions(startOfDay, Instant.now());
+        BigDecimal revenueThisWeek = sumSuccessfulTransactions(startOfWeek, Instant.now());
+        BigDecimal revenueThisMonth = sumSuccessfulTransactions(startOfMonth, Instant.now());
+        BigDecimal platformFees = totalRevenue.multiply(BigDecimal.valueOf(0.02))
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+
         return RevenueStats.builder()
-                .totalRevenue(BigDecimal.ZERO) // TODO: Calculate from transactions
-                .revenueToday(BigDecimal.ZERO)
-                .revenueThisWeek(BigDecimal.ZERO)
-                .revenueThisMonth(BigDecimal.ZERO)
-                .platformFees(BigDecimal.ZERO)
+                .totalRevenue(totalRevenue)
+                .revenueToday(revenueToday)
+                .revenueThisWeek(revenueThisWeek)
+                .revenueThisMonth(revenueThisMonth)
+                .platformFees(platformFees)
                 .pendingPayouts(BigDecimal.ZERO)
                 .build();
+    }
+
+    private BigDecimal sumSuccessfulTransactions(Instant from, Instant to) {
+        try {
+            java.util.List<com.cateringmarketplace.module.payment.model.Transaction> txns;
+            if (from != null && to != null) {
+                txns = transactionRepository.findByCreatedAtBetween(from, to);
+            } else {
+                txns = transactionRepository.findAll();
+            }
+            return txns.stream()
+                    .filter(t -> t.getStatus() ==
+                            com.cateringmarketplace.module.payment.model.Transaction.TransactionStatus.SUCCESS)
+                    .filter(t -> t.getAmount() != null && t.getAmount().getAmount() != null)
+                    .map(t -> t.getAmount().getAmount())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        } catch (Exception e) {
+            log.error("Error summing transactions: {}", e.getMessage(), e);
+            return BigDecimal.ZERO;
+        }
     }
 
     private BidStats getBidStats() {
@@ -516,6 +542,79 @@ public class AdminService {
         createAuditLog("USER", agent.getUserId(), "CREATE_SUPPORT_AGENT", adminId, "ADMIN", changes);
 
         return UserResponse.fromEntity(agent);
+    }
+
+    /**
+     * Gets details of a support agent by ID.
+     */
+    public UserResponse getSupportAgent(String agentId) {
+        log.info("Retrieving support agent: {}", agentId);
+        User agent = userRepository.findByUserId(agentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Support agent not found"));
+
+        if (agent.getUserType() != UserType.SUPPORT_AGENT) {
+            throw new BadRequestException("NOT_AGENT", "User is not a support agent");
+        }
+
+        return UserResponse.fromEntity(agent);
+    }
+
+    /**
+     * Updates a support agent's details.
+     */
+    @Transactional
+    public UserResponse updateSupportAgent(String agentId, UserResponse request, String adminId) {
+        log.info("Admin {} updating support agent: {}", adminId, agentId);
+
+        User agent = userRepository.findByUserId(agentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Support agent not found"));
+
+        if (agent.getUserType() != UserType.SUPPORT_AGENT) {
+            throw new BadRequestException("NOT_AGENT", "User is not a support agent");
+        }
+
+        // Update allowed fields
+        if (request.getFirstName() != null) {
+            agent.setFirstName(request.getFirstName());
+        }
+        if (request.getLastName() != null) {
+            agent.setLastName(request.getLastName());
+        }
+
+        agent = userRepository.save(agent);
+
+        Map<String, Object> changes = new java.util.HashMap<>();
+        changes.put("firstName", agent.getFirstName());
+        changes.put("lastName", agent.getLastName());
+        createAuditLog("SUPPORT_AGENT", agentId, "UPDATE", adminId, "ADMIN", changes);
+
+        log.info("Support agent {} updated successfully", agentId);
+        return UserResponse.fromEntity(agent);
+    }
+
+    /**
+     * Gets workload statistics for a support agent.
+     */
+    public Map<String, Object> getAgentWorkload(String agentId) {
+        log.info("Retrieving workload for agent: {}", agentId);
+
+        User agent = userRepository.findByUserId(agentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Support agent not found"));
+
+        if (agent.getUserType() != UserType.SUPPORT_AGENT) {
+            throw new BadRequestException("NOT_AGENT", "User is not a support agent");
+        }
+
+        // Return agent workload statistics
+        Map<String, Object> workload = new java.util.HashMap<>();
+        workload.put("agentId", agentId);
+        workload.put("agentName", agent.getFirstName() + " " + agent.getLastName());
+        workload.put("activeTickets", 0); // TODO: Query ticket count for this agent
+        workload.put("resolvedToday", 0); // TODO: Query resolved tickets count for today
+        workload.put("averageResolutionTimeHours", 0.0); // TODO: Calculate from resolved tickets
+        workload.put("csatScore", 0.0); // TODO: Calculate from customer satisfaction ratings
+
+        return workload;
     }
 
     // ==================== GENERIC STATUS MANAGEMENT (Users, Vendors, Agents) ====================

@@ -143,4 +143,24 @@ public class OrderController {
                 PageInfo.from(orders)
         ));
     }
+
+    @GetMapping("/vendor/my")
+    @Operation(summary = "Get my vendor orders (shorthand)", description = "Returns orders assigned to vendor - shorthand for /vendor")
+    @PreAuthorize("hasRole('VENDOR')")
+    public ResponseEntity<ApiResponse<List<OrderResponse>>> getMyVendorOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        String vendorId = vendorService.getVendorByUserId(userDetails.getUserId()).getVendorId();
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<OrderResponse> orders = orderService.getVendorOrders(vendorId, pageable);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                orders.getContent(),
+                "Vendor orders retrieved",
+                PageInfo.from(orders)
+        ));
+    }
 }

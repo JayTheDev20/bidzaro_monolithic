@@ -7,7 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.index.GeospatialIndex;
 import org.springframework.data.mongodb.core.index.Index;
 import org.springframework.data.mongodb.core.index.IndexOperations;
 
@@ -25,9 +24,7 @@ public class DatabaseInitializer {
         try {
             IndexOperations vendorIndexOps = mongoTemplate.indexOps(Vendor.class);
 
-            // Create 2dsphere index for geospatial search
-            vendorIndexOps.ensureIndex(new GeospatialIndex("business_address.gps_coordinates"));
-            
+            // Note: 2dsphere index is managed by MongoIndexConfig — not duplicated here
             // Ensure other important indexes exist
             vendorIndexOps.ensureIndex(new Index().on("vendor_id", Sort.Direction.ASC).unique());
             vendorIndexOps.ensureIndex(new Index().on("user_id", Sort.Direction.ASC));

@@ -125,8 +125,12 @@ public class MenuController {
 
     // ==================== VENDOR MENU ITEM ENDPOINTS ====================
 
-    @GetMapping("/vendor-items")
-    @Operation(summary = "Get vendor menu items", description = "Returns menu items for a vendor")
+    /**
+     * Public endpoint: fetch any vendor's menu items by vendorId query param.
+     * Used by customers browsing a vendor's catalogue.
+     */
+    @GetMapping({"/vendor-items", "/vendor"})
+    @Operation(summary = "Get vendor menu items", description = "Returns menu items for a vendor (public, requires vendorId param)")
     public ResponseEntity<ApiResponse<List<VendorMenuItemResponse>>> getVendorMenuItems(
             @RequestParam String vendorId,
             @RequestParam(defaultValue = "0") int page,
@@ -142,7 +146,32 @@ public class MenuController {
         ));
     }
 
-    @GetMapping("/vendor-items/{vendorItemId}")
+    /**
+     * Authenticated endpoint: vendor fetches their OWN menu items.
+     * vendorId is resolved from the JWT token — no query param needed.
+     * Use: GET /api/v1/menu/vendor-items/my  (or /menu/vendor/my)
+     */
+    @GetMapping({"/vendor-items/my", "/vendor/my"})
+    @Operation(summary = "Get my menu items", description = "Returns the authenticated vendor's own menu items (no vendorId param needed)")
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('VENDOR')")
+    public ResponseEntity<ApiResponse<List<VendorMenuItemResponse>>> getMyVendorMenuItems(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        String vendorId = vendorService.getVendorByUserId(userDetails.getUserId()).getVendorId();
+        Pageable pageable = PageRequest.of(page, size);
+        Page<VendorMenuItemResponse> items = menuService.getVendorMenuItems(vendorId, pageable);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                items.getContent(),
+                "Vendor menu items retrieved",
+                PageInfo.from(items)
+        ));
+    }
+
+    @GetMapping({"/vendor-items/{vendorItemId}", "/vendor/{vendorItemId}"})
     @Operation(summary = "Get vendor menu item by ID", description = "Returns vendor menu item details")
     public ResponseEntity<ApiResponse<VendorMenuItemResponse>> getVendorMenuItemById(
             @PathVariable String vendorItemId) {
@@ -150,7 +179,7 @@ public class MenuController {
         return ResponseEntity.ok(ApiResponse.success(item));
     }
 
-    @PostMapping("/vendor-items")
+    @PostMapping({"/vendor-items", "/vendor"})
     @Operation(summary = "Add item to vendor menu", description = "Adds a master menu item to vendor's menu")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('VENDOR')")
@@ -165,7 +194,7 @@ public class MenuController {
                 .body(ApiResponse.created(item, "Item added to menu"));
     }
 
-    @PutMapping("/vendor-items/{vendorItemId}")
+    @PutMapping({"/vendor-items/{vendorItemId}", "/vendor/{vendorItemId}"})
     @Operation(summary = "Update vendor menu item", description = "Updates a vendor menu item")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('VENDOR')")
@@ -180,7 +209,7 @@ public class MenuController {
         return ResponseEntity.ok(ApiResponse.success(item, "Item updated"));
     }
 
-    @PatchMapping("/vendor-items/{vendorItemId}/availability")
+    @PatchMapping({"/vendor-items/{vendorItemId}/availability", "/vendor/{vendorItemId}/availability"})
     @Operation(summary = "Update item availability", description = "Updates availability of a vendor menu item")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('VENDOR')")
@@ -196,8 +225,7 @@ public class MenuController {
         return ResponseEntity.ok(ApiResponse.success(item, "Availability updated"));
     }
 
-
-    @DeleteMapping("/vendor-items/{vendorItemId}")
+    @DeleteMapping({"/vendor-items/{vendorItemId}", "/vendor/{vendorItemId}"})
     @Operation(summary = "Delete vendor menu item", description = "Removes an item from vendor's menu")
     @SecurityRequirement(name = "bearerAuth")
     @PreAuthorize("hasRole('VENDOR')")

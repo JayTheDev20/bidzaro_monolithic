@@ -49,7 +49,7 @@ public class AdminMenuController {
                 .body(ApiResponse.created(category, "Category created successfully"));
     }
 
-    @PutMapping("/categories/{categoryId}")
+    @PutMapping({"/categories/{categoryId}", "/menu/categories/{categoryId}"})
     @Operation(summary = "Update category", description = "Updates an existing category")
     public ResponseEntity<ApiResponse<CategoryResponse>> updateCategory(
             @PathVariable String categoryId,
@@ -77,7 +77,7 @@ public class AdminMenuController {
         return ResponseEntity.ok(ApiResponse.success(category, "Category retrieved"));
     }
 
-    @PatchMapping("/categories/{categoryId}/activate")
+    @PatchMapping({"/categories/{categoryId}/activate", "/menu/categories/{categoryId}/activate"})
     @Operation(summary = "Activate category", description = "Activates an inactive category")
     public ResponseEntity<ApiResponse<CategoryResponse>> activateCategory(
             @PathVariable String categoryId) {
@@ -86,7 +86,7 @@ public class AdminMenuController {
         return ResponseEntity.ok(ApiResponse.success(category, "Category activated successfully"));
     }
 
-    @PatchMapping("/categories/{categoryId}/inactivate")
+    @PatchMapping({"/categories/{categoryId}/inactivate", "/menu/categories/{categoryId}/inactivate"})
     @Operation(summary = "Inactivate category", description = "Inactivates an active category")
     public ResponseEntity<ApiResponse<CategoryResponse>> inactivateCategory(
             @PathVariable String categoryId) {
@@ -95,7 +95,7 @@ public class AdminMenuController {
         return ResponseEntity.ok(ApiResponse.success(category, "Category inactivated successfully"));
     }
 
-    @DeleteMapping("/categories/{categoryId}")
+    @DeleteMapping({"/categories/{categoryId}", "/menu/categories/{categoryId}"})
     @Operation(summary = "Delete category", description = "Permanently deletes a category. Fails if category has menu items.")
     public ResponseEntity<ApiResponse<Void>> deleteCategory(
             @PathVariable String categoryId) {
@@ -141,7 +141,7 @@ public class AdminMenuController {
                 .body(ApiResponse.created(item, "Menu item created successfully"));
     }
 
-    @PutMapping("/menu-items/{itemId}")
+    @PutMapping({"/menu-items/{itemId}", "/menu/items/{itemId}"})
     @Operation(summary = "Update menu item", description = "Updates an existing master menu item")
     public ResponseEntity<ApiResponse<MenuItemResponse>> updateMasterMenuItem(
             @PathVariable String itemId,
@@ -151,7 +151,7 @@ public class AdminMenuController {
         return ResponseEntity.ok(ApiResponse.success(item, "Menu item updated successfully"));
     }
 
-    @PatchMapping("/menu-items/{itemId}/activate")
+    @PatchMapping({"/menu-items/{itemId}/activate", "/menu/items/{itemId}/activate"})
     @Operation(summary = "Activate menu item", description = "Activates an inactive menu item")
     public ResponseEntity<ApiResponse<MenuItemResponse>> activateMenuItem(
             @PathVariable String itemId) {
@@ -160,7 +160,7 @@ public class AdminMenuController {
         return ResponseEntity.ok(ApiResponse.success(item, "Menu item activated successfully"));
     }
 
-    @PatchMapping("/menu-items/{itemId}/inactivate")
+    @PatchMapping({"/menu-items/{itemId}/inactivate", "/menu/items/{itemId}/inactivate"})
     @Operation(summary = "Inactivate menu item", description = "Inactivates an active menu item")
     public ResponseEntity<ApiResponse<MenuItemResponse>> inactivateMenuItem(
             @PathVariable String itemId) {
@@ -169,7 +169,7 @@ public class AdminMenuController {
         return ResponseEntity.ok(ApiResponse.success(item, "Menu item inactivated successfully"));
     }
 
-    @DeleteMapping("/menu-items/{itemId}")
+    @DeleteMapping({"/menu-items/{itemId}", "/menu/items/{itemId}"})
     @Operation(summary = "Delete menu item", description = "Permanently deletes a menu item")
     public ResponseEntity<ApiResponse<Void>> deleteMenuItem(
             @PathVariable String itemId) {

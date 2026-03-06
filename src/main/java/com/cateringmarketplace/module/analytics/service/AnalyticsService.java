@@ -8,7 +8,6 @@ import com.cateringmarketplace.module.analytics.dto.response.VendorDashboardResp
 import com.cateringmarketplace.module.auth.repository.UserRepository;
 import com.cateringmarketplace.module.bid.repository.BidRequestRepository;
 import com.cateringmarketplace.module.bid.repository.VendorBidRepository;
-import com.cateringmarketplace.module.order.model.Order;
 import com.cateringmarketplace.module.order.repository.OrderRepository;
 import com.cateringmarketplace.module.payment.repository.TransactionRepository;
 import com.cateringmarketplace.module.review.repository.ReviewRepository;
@@ -20,7 +19,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -52,12 +50,10 @@ public class AnalyticsService {
         Instant lastMonth = now.minus(30, ChronoUnit.DAYS);
         Instant previousMonth = now.minus(60, ChronoUnit.DAYS);
 
-        // Calculate metrics
         long totalUsers = userRepository.count();
         long totalVendors = vendorRepository.count();
         long totalOrders = orderRepository.count();
 
-        // Calculate growth
         long newUsersThisMonth = userRepository.countByCreatedAtAfter(lastMonth);
         long newUsersPrevMonth = userRepository.countByCreatedAtAfter(previousMonth) - newUsersThisMonth;
         double userGrowth = calculateGrowthPercentage(newUsersPrevMonth, newUsersThisMonth);
@@ -68,21 +64,30 @@ public class AnalyticsService {
         long ordersThisMonth = orderRepository.countByCreatedAtAfter(lastMonth);
         double orderGrowth = calculateGrowthPercentage(0, ordersThisMonth);
 
+        // Real revenue
+        BigDecimal totalRevenue = sumSuccessfulTransactions(null, null);
+        BigDecimal revenueThisMonth = sumSuccessfulTransactions(lastMonth, now);
+        BigDecimal revenuePrevMonth = sumSuccessfulTransactions(previousMonth, lastMonth);
+        double revenueGrowth = revenuePrevMonth.compareTo(BigDecimal.ZERO) == 0 ? 0
+                : revenueThisMonth.subtract(revenuePrevMonth)
+                    .divide(revenuePrevMonth, 4, java.math.RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100)).doubleValue();
+
         return AnalyticsOverviewResponse.builder()
                 .platformMetrics(PlatformMetrics.builder()
                         .totalUsers(totalUsers)
                         .totalVendors(totalVendors)
                         .totalOrders(totalOrders)
-                        .totalRevenue(BigDecimal.ZERO) // TODO: Calculate from transactions
-                        .platformEarnings(BigDecimal.ZERO)
-                        .averageOrderValue(0)
+                        .totalRevenue(totalRevenue)
+                        .platformEarnings(totalRevenue.multiply(BigDecimal.valueOf(0.02)).setScale(2, java.math.RoundingMode.HALF_UP))
+                        .averageOrderValue(totalOrders > 0 ? totalRevenue.divide(BigDecimal.valueOf(totalOrders), 2, java.math.RoundingMode.HALF_UP).doubleValue() : 0)
                         .conversionRate(0)
                         .build())
                 .growthMetrics(GrowthMetrics.builder()
                         .userGrowthPercentage(userGrowth)
                         .vendorGrowthPercentage(vendorGrowth)
                         .orderGrowthPercentage(orderGrowth)
-                        .revenueGrowthPercentage(0)
+                        .revenueGrowthPercentage(revenueGrowth)
                         .build())
                 .topVendors(getTopVendors(5))
                 .ordersByStatus(getOrdersByStatus())
@@ -93,12 +98,24 @@ public class AnalyticsService {
     public Map<String, Object> getRevenueAnalytics(String period) {
         log.info("Generating revenue analytics for period: {}", period);
 
+        Instant now = Instant.now();
+        Instant from = switch (period.toLowerCase()) {
+            case "day"   -> now.minus(1,  ChronoUnit.DAYS);
+            case "week"  -> now.minus(7,  ChronoUnit.DAYS);
+            case "year"  -> now.minus(365, ChronoUnit.DAYS);
+            default      -> now.minus(30, ChronoUnit.DAYS); // month
+        };
+
+        BigDecimal totalRevenue  = sumSuccessfulTransactions(from, now);
+        BigDecimal platformFees  = totalRevenue.multiply(BigDecimal.valueOf(0.02)).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal vendorPayouts = totalRevenue.subtract(platformFees);
+
         Map<String, Object> analytics = new HashMap<>();
         analytics.put("period", period);
-        analytics.put("totalRevenue", BigDecimal.ZERO);
-        analytics.put("platformFees", BigDecimal.ZERO);
-        analytics.put("vendorPayouts", BigDecimal.ZERO);
-        analytics.put("refunds", BigDecimal.ZERO);
+        analytics.put("totalRevenue",   totalRevenue);
+        analytics.put("platformFees",   platformFees);
+        analytics.put("vendorPayouts",  vendorPayouts);
+        analytics.put("refunds",        BigDecimal.ZERO); // refund tracking not yet implemented
         analytics.put("pendingPayments", BigDecimal.ZERO);
 
         return analytics;
@@ -225,7 +242,6 @@ public class AnalyticsService {
     }
 
     private List<TopVendor> getTopVendors(int limit) {
-        // Simplified - in production, use aggregation
         return vendorRepository.findAll(PageRequest.of(0, limit))
                 .stream()
                 .map(v -> TopVendor.builder()
@@ -240,14 +256,49 @@ public class AnalyticsService {
 
     private Map<String, Long> getOrdersByStatus() {
         Map<String, Long> statusCounts = new HashMap<>();
-        for (Order.OrderStatus status : Order.OrderStatus.values()) {
+        for (com.cateringmarketplace.module.order.model.Order.OrderStatus status :
+                com.cateringmarketplace.module.order.model.Order.OrderStatus.values()) {
             statusCounts.put(status.name(), orderRepository.countByStatus(status));
         }
         return statusCounts;
     }
 
     private List<RevenueDataPoint> getRevenueChart(int days) {
-        // Simplified - return empty for now
-        return new ArrayList<>();
+        List<RevenueDataPoint> chart = new ArrayList<>();
+        Instant now = Instant.now();
+        for (int i = days - 1; i >= 0; i--) {
+            Instant dayStart = now.minus(i + 1, ChronoUnit.DAYS);
+            Instant dayEnd   = now.minus(i,     ChronoUnit.DAYS);
+            BigDecimal rev   = sumSuccessfulTransactions(dayStart, dayEnd);
+            chart.add(RevenueDataPoint.builder()
+                    .date(dayStart.toString().substring(0, 10))
+                    .revenue(rev)
+                    .build());
+        }
+        return chart;
+    }
+
+    /**
+     * Sums the amounts of all SUCCESS transactions in the given date range.
+     * Pass null for both to get the all-time total.
+     */
+    private BigDecimal sumSuccessfulTransactions(Instant from, Instant to) {
+        try {
+            List<com.cateringmarketplace.module.payment.model.Transaction> txns;
+            if (from != null && to != null) {
+                txns = transactionRepository.findByCreatedAtBetween(from, to);
+            } else {
+                txns = transactionRepository.findAll();
+            }
+            return txns.stream()
+                    .filter(t -> t.getStatus() ==
+                            com.cateringmarketplace.module.payment.model.Transaction.TransactionStatus.SUCCESS)
+                    .filter(t -> t.getAmount() != null && t.getAmount().getAmount() != null)
+                    .map(t -> t.getAmount().getAmount())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        } catch (Exception e) {
+            log.error("Error computing revenue: {}", e.getMessage(), e);
+            return BigDecimal.ZERO;
+        }
     }
 }

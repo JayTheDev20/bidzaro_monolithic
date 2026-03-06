@@ -54,13 +54,25 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // 1. Raw WebSocket Endpoint
-        registry.addEndpoint("/ws/chat")
+        registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*") // Allow all for debugging
                 .addInterceptors(new JwtHandshakeInterceptor());
 
         // 2. SockJS Endpoint
-        registry.addEndpoint("/ws/sockjs/chat")
+        registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns("*") // Allow all for debugging
+                .addInterceptors(new JwtHandshakeInterceptor())
+                .withSockJS();
+
+        // Legacy endpoints for backward compatibility
+        // 3. Raw WebSocket Endpoint for chat
+        registry.addEndpoint("/ws/chat")
+                .setAllowedOriginPatterns("*")
+                .addInterceptors(new JwtHandshakeInterceptor());
+
+        // 4. SockJS Endpoint for chat
+        registry.addEndpoint("/ws/sockjs/chat")
+                .setAllowedOriginPatterns("*")
                 .addInterceptors(new JwtHandshakeInterceptor())
                 .withSockJS();
     }

@@ -83,6 +83,40 @@ public class BidController {
         ));
     }
 
+    @GetMapping("/requests/available")
+    @Operation(summary = "Get available bid requests for vendors", description = "Returns all active bid requests available for vendors to bid on")
+    @PreAuthorize("hasRole('VENDOR')")
+    public ResponseEntity<ApiResponse<List<BidRequestResponse>>> getAvailableBidRequests(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<BidRequestResponse> requests = bidService.getActiveBidRequests(pageable);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                requests.getContent(),
+                "Available bid requests retrieved",
+                PageInfo.from(requests)
+        ));
+    }
+
+    @GetMapping("/my")
+    @Operation(summary = "Get my bid requests (shorthand)", description = "Returns paginated list of user's bid requests - shorthand for /requests")
+    public ResponseEntity<ApiResponse<List<BidRequestResponse>>> getMyBidRequests(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        Page<BidRequestResponse> requests = bidService.getUserBidRequests(userDetails.getUserId(), pageable);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                requests.getContent(),
+                "Bid requests retrieved",
+                PageInfo.from(requests)
+        ));
+    }
+
     @GetMapping("/requests/{bidRequestId}")
     @Operation(summary = "Get bid request", description = "Returns bid request details by ID")
     public ResponseEntity<ApiResponse<BidRequestResponse>> getBidRequest(

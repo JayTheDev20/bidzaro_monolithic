@@ -1,155 +1,290 @@
-# 🎧 SUPPORT AGENT API DOCUMENTATION
-## Bidzaro Catering Platform — Complete Support Reference (Real DTO-Based)
+# 🎧 SUPPORT AGENT API Documentation
+**Bidzaro Catering Platform** | Base URL: `http://localhost:8080/api/v1`
 
-**Version:** 1.0.0 | **Base URL:** `http://localhost:8080/api/v1`
-**Auth:** `Authorization: Bearer {accessToken}` | **Role Required:** `SUPPORT_AGENT` or `ADMIN`
-**Content-Type:** `application/json`
-
-> All field names, types, and response shapes taken directly from actual Java DTO classes.
+> 🔒 = Requires `Authorization: Bearer <accessToken>` with `userType: SUPPORT_AGENT`
+> ✅ = Required field | ⬜ = Optional field
 
 ---
 
-## 🔐 Support Agent Auth
-```
-POST /auth/login  →  { identifier: "agent@bidzaro.com", password: "..." }
-All support APIs  →  Authorization: Bearer {accessToken}
-Role required     →  SUPPORT_AGENT or ADMIN
-```
+## 📋 Table of Contents
+1. [Enums Reference](#-enums-reference)
+2. [Authentication](#-authentication)
+3. [Ticket Management](#-ticket-management)
+4. [Chat with Users & Vendors](#-chat-with-users--vendors)
+5. [View User / Order Context](#-view-user--order-context)
+6. [Notifications](#-notifications)
 
 ---
 
-# 1. GET ALL TICKETS (Agent View)
+## 🔢 Enums Reference
 
-```http
-GET /support/tickets/all?page=0&size=20&status=OPEN&priority=HIGH
-Authorization: Bearer {accessToken}
+### TicketStatus
+| Value | Description | Who Sets It |
+|-------|-------------|-------------|
+| `OPEN` | Ticket created, not yet assigned | System (auto) |
+| `ASSIGNED` | Assigned to an agent | System (auto-assign) / Admin (manual) |
+| `IN_PROGRESS` | Agent actively working on it | Agent |
+| `WAITING_FOR_CUSTOMER` | Waiting for user's response | Agent |
+| `RESOLVED` | Issue resolved | Agent |
+| `CLOSED` | Closed after resolution or inactivity | Agent / System |
+| `ESCALATED` | Escalated due to SLA breach or complexity | System / Admin |
+
+**Valid Status Transitions:**
+```
+OPEN → ASSIGNED → IN_PROGRESS → WAITING_FOR_CUSTOMER → IN_PROGRESS → RESOLVED → CLOSED
+Any status → ESCALATED (by system/admin on SLA breach)
 ```
 
-### Query Parameters
-| Param | Type | Values |
-|-------|------|--------|
-| `page` | int | Page number (0-based) |
-| `size` | int | Page size (default 20) |
-| `status` | String | `OPEN`, `IN_PROGRESS`, `RESOLVED`, `CLOSED`, `ESCALATED` |
-| `priority` | String | `LOW`, `MEDIUM`, `HIGH`, `URGENT` |
-| `category` | String | `ORDER`, `PAYMENT`, `VENDOR`, `ACCOUNT`, `OTHER` |
-| `assignedTo` | String | Filter by agent userId |
-| `unassigned` | Boolean | `true` to show only unassigned |
+### TicketPriority
+| Value | First Response SLA | Resolution SLA | Auto-Escalation |
+|-------|-------------------|----------------|-----------------|
+| `URGENT` | 1 hour | 4 hours | After 2h unassigned |
+| `HIGH` | 4 hours | 24 hours | After 8h unassigned |
+| `MEDIUM` | 8 hours | 48 hours | After 24h unassigned |
+| `LOW` | 24 hours | 72 hours | After 48h unassigned |
 
-### Success Response `200 OK` — List of `TicketResponse` DTOs
+### ConversationType
+| Value | Description |
+|-------|-------------|
+| `USER_SUPPORT` | Chat between customer and support agent |
+| `VENDOR_SUPPORT` | Chat between vendor and support agent |
+| `USER_VENDOR` | Customer ↔ Vendor chat (agent can view only) |
+
+### MessageType
+| Value |
+|-------|
+| `TEXT` |
+| `IMAGE` |
+| `FILE` |
+| `SYSTEM` |
+
+### OrderStatus
+| Value | Description |
+|-------|-------------|
+| `PENDING_TOKEN_PAYMENT` | Awaiting token payment |
+| `CONFIRMED` | Token paid, confirmed |
+| `IN_PREPARATION` | Food being prepared |
+| `READY_FOR_DELIVERY` | Ready to deliver |
+| `DELIVERING` | Out for delivery |
+| `DELIVERED` | Delivered to venue |
+| `COMPLETED` | Order completed |
+| `CANCELLED` | Cancelled |
+
+### PaymentStatus
+| Value |
+|-------|
+| `TOKEN_PENDING` |
+| `TOKEN_PAID` |
+| `PARTIALLY_PAID` |
+| `FULLY_PAID` |
+
+### TransactionStatus
+| Value |
+|-------|
+| `PENDING` |
+| `PROCESSING` |
+| `SUCCESS` |
+| `FAILED` |
+| `REFUNDED` |
+| `PARTIALLY_REFUNDED` |
+
+### VendorStatus
+| Value |
+|-------|
+| `PENDING_APPROVAL` |
+| `ACTIVE` |
+| `SUSPENDED` |
+| `REJECTED` |
+
+### NotificationChannel
+| Value |
+|-------|
+| `EMAIL` |
+| `SMS` |
+| `PUSH` |
+| `IN_APP` |
+| `WHATSAPP` |
+
+---
+
+## 🔐 Authentication
+
+`POST /auth/login`
+
+| Field | Type | Required |
+|-------|------|----------|
+| `identifier` | string | ✅ | Email or phone |
+| `password` | string | ✅ | |
+| `fcmToken` | string | ⬜ | Firebase device token |
+
+**Request:**
+```json
+{
+  "identifier": "priya.support@bidzaro.com",
+  "password": "AgentPass@123",
+  "fcmToken": "firebase-device-token"
+}
+```
+
+**Response `200`:**
 ```json
 {
   "success": true,
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "tokenType": "Bearer",
+    "expiresIn": 604800,
+    "user": {
+      "userId": "uuid",
+      "vendorId": null,
+      "email": "priya.support@bidzaro.com",
+      "phone": "+919999988888",
+      "userType": "SUPPORT_AGENT",
+      "firstName": "Priya",
+      "lastName": "Reddy",
+      "fullName": "Priya Reddy",
+      "profilePictureUrl": null,
+      "dateOfBirth": null,
+      "gender": null,
+      "emailVerified": true,
+      "phoneVerified": true,
+      "twoFactorEnabled": false,
+      "preferredLanguage": "en",
+      "preferredCurrency": "INR",
+      "country": "INDIA",
+      "status": "ACTIVE",
+      "notificationPreferences": {
+        "emailNotifications": { "orderUpdates": true, "bidUpdates": true, "securityAlerts": true },
+        "pushNotifications": { "orderUpdates": true, "chatMessages": true, "bidUpdates": true }
+      },
+      "lastLoginAt": "2026-03-06T10:00:00Z",
+      "createdAt": "2026-01-20T10:00:00Z"
+    }
+  }
+}
+```
+
+---
+
+### Refresh Token
+`POST /auth/refresh`
+
+**Request:** `{ "refreshToken": "eyJhbGciOiJIUzI1NiJ9..." }`
+**Response `200`:** `{ "data": { "accessToken": "...", "refreshToken": "...", "tokenType": "Bearer", "expiresIn": 604800 } }`
+
+---
+
+### Logout
+`POST /auth/logout` 🔒
+
+**Request:** `{ "refreshToken": "eyJhbGciOiJIUzI1NiJ9..." }`
+**Response `200`:** `{ "success": true, "message": "Logged out successfully" }`
+
+---
+
+## 🎫 Ticket Management
+
+### Get My Assigned Tickets
+`GET /support/tickets/agent/my?page=0&size=20&status=IN_PROGRESS` 🔒
+
+| Query Param | Type | Required | Values |
+|-------------|------|----------|--------|
+| `page` | int | ⬜ | Default 0 |
+| `size` | int | ⬜ | Default 20 |
+| `status` | string | ⬜ | `OPEN`, `ASSIGNED`, `IN_PROGRESS`, `WAITING_FOR_CUSTOMER`, `RESOLVED`, `CLOSED`, `ESCALATED` |
+
+**Response `200`:**
+```json
+{
   "data": [
     {
-      "ticketId": "tkt-99001-22334-eeff",
-      "ticketNumber": "TKT-20260224-001",
-      "createdBy": "550e8400-e29b-41d4-a716-446655440000",
-      "createdByName": "John Doe",
+      "ticketId": "uuid",
+      "ticketNumber": "TKT-000001",
+      "createdBy": "user-uuid",
+      "createdByName": "Rahul Sharma",
       "category": "ORDER",
       "subcategory": "DELIVERY_ISSUE",
       "priority": "HIGH",
-      "subject": "Food arrived 2 hours late for my wedding",
-      "description": "The catering team was supposed to arrive by 5 PM but arrived at 7 PM, causing significant inconvenience to 500 guests. This impacted the entire wedding schedule.",
+      "subject": "Vendor not responding after payment",
+      "description": "I paid the token amount but the vendor hasn't confirmed the order.",
       "relatedEntities": {
-        "orderId": "order-54321-12345-ccdd",
-        "vendorId": "vendor-12345-67890",
-        "paymentId": null
+        "orderId": "order-uuid",
+        "vendorId": "vendor-uuid",
+        "paymentId": "payment-uuid"
       },
-      "assignedTo": null,
-      "assignedAt": null,
-      "conversationId": "conv-support-tkt99001",
-      "status": "OPEN",
-      "sla": {
-        "firstResponseDue": "2026-02-24T11:30:45.123456Z",
-        "resolutionDue": "2026-02-25T10:30:45.123456Z",
-        "firstResponseAt": null,
-        "resolvedAt": null,
-        "slaBreached": false
-      },
-      "resolution": null,
-      "customerSatisfaction": null,
-      "createdAt": "2026-02-24T10:30:45.123456Z",
-      "closedAt": null
-    },
-    {
-      "ticketId": "tkt-88002-33445-ffgg",
-      "ticketNumber": "TKT-20260224-002",
-      "createdBy": "user-aabb-ccdd-eeff",
-      "createdByName": "Priya Sharma",
-      "category": "PAYMENT",
-      "subcategory": "REFUND_NOT_RECEIVED",
-      "priority": "URGENT",
-      "subject": "Refund not received after 10 days",
-      "description": "I cancelled my order on Feb 14 and was told refund would arrive in 5-7 days. It is now 10 days and I have not received anything.",
-      "relatedEntities": {
-        "orderId": "order-11111-22222-aabb",
-        "vendorId": null,
-        "paymentId": "txn-77665-55443-xxyy"
-      },
-      "assignedTo": "agent-priya-001",
-      "assignedAt": "2026-02-24T09:00:00.000000Z",
-      "conversationId": "conv-support-tkt88002",
+      "assignedTo": "agent-uuid",
+      "assignedAt": "2026-03-06T10:05:00Z",
+      "conversationId": "chat-conv-uuid",
       "status": "IN_PROGRESS",
       "sla": {
-        "firstResponseDue": "2026-02-24T09:15:00.000000Z",
-        "resolutionDue": "2026-02-24T13:00:00.000000Z",
-        "firstResponseAt": "2026-02-24T09:10:00.000000Z",
+        "firstResponseDue": "2026-03-06T14:00:00Z",
+        "resolutionDue": "2026-03-07T10:00:00Z",
+        "firstResponseAt": "2026-03-06T10:30:00Z",
         "resolvedAt": null,
         "slaBreached": false
       },
       "resolution": null,
       "customerSatisfaction": null,
-      "createdAt": "2026-02-24T09:00:00.000000Z",
+      "createdAt": "2026-03-06T10:00:00Z",
       "closedAt": null
     }
   ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 20, "totalElements": 156, "totalPages": 8 }
+  "pageInfo": { "page": 0, "size": 20, "totalElements": 8 }
 }
 ```
 
 ---
 
-# 2. GET TICKET BY ID
+### Get All Open/Unassigned Tickets
+`GET /support/tickets/open?page=0&size=20` 🔒
 
-```http
-GET /support/tickets/{ticketId}
-Authorization: Bearer {accessToken}
-```
+**Response `200`:** Paginated list of `TicketResponse` with `status: OPEN`.
 
-### Success Response `200 OK` — Full `TicketResponse` DTO
+---
+
+### Get All Tickets (Support Queue)
+`GET /support/tickets?page=0&size=20&status=ASSIGNED` 🔒
+
+**Response `200`:** Paginated list of all `TicketResponse` visible to agent.
+
+---
+
+### Get Ticket by ID
+`GET /support/tickets/{ticketId}` 🔒
+
+**Response `200`:**
 ```json
 {
-  "success": true,
   "data": {
-    "ticketId": "tkt-99001-22334-eeff",
-    "ticketNumber": "TKT-20260224-001",
-    "createdBy": "550e8400-e29b-41d4-a716-446655440000",
-    "createdByName": "John Doe",
+    "ticketId": "uuid",
+    "ticketNumber": "TKT-000001",
+    "createdBy": "user-uuid",
+    "createdByName": "Rahul Sharma",
     "category": "ORDER",
     "subcategory": "DELIVERY_ISSUE",
     "priority": "HIGH",
-    "subject": "Food arrived 2 hours late for my wedding",
-    "description": "The catering team was supposed to arrive by 5 PM but arrived at 7 PM, causing significant inconvenience to 500 guests. This impacted the entire wedding schedule.",
+    "subject": "Vendor not responding after payment",
+    "description": "I paid the token amount but the vendor hasn't confirmed the order.",
     "relatedEntities": {
-      "orderId": "order-54321-12345-ccdd",
-      "vendorId": "vendor-12345-67890",
-      "paymentId": null
+      "orderId": "order-uuid",
+      "vendorId": "vendor-uuid",
+      "paymentId": "payment-uuid"
     },
-    "assignedTo": "agent-priya-001",
-    "assignedAt": "2026-02-24T10:31:00.000000Z",
-    "conversationId": "conv-support-tkt99001",
+    "assignedTo": "agent-uuid",
+    "assignedAt": "2026-03-06T10:05:00Z",
+    "conversationId": "chat-conv-uuid",
     "status": "IN_PROGRESS",
     "sla": {
-      "firstResponseDue": "2026-02-24T11:30:45.123456Z",
-      "resolutionDue": "2026-02-25T10:30:45.123456Z",
-      "firstResponseAt": "2026-02-24T11:00:00.000000Z",
+      "firstResponseDue": "2026-03-06T14:00:00Z",
+      "resolutionDue": "2026-03-07T10:00:00Z",
+      "firstResponseAt": "2026-03-06T10:30:00Z",
       "resolvedAt": null,
       "slaBreached": false
     },
     "resolution": null,
     "customerSatisfaction": null,
-    "createdAt": "2026-02-24T10:30:45.123456Z",
+    "createdAt": "2026-03-06T10:00:00Z",
     "closedAt": null
   }
 }
@@ -157,180 +292,68 @@ Authorization: Bearer {accessToken}
 
 ---
 
-# 3. ASSIGN TICKET TO AGENT
+### Update Ticket Status
+`PUT /support/tickets/{ticketId}/status` 🔒
 
-```http
-PATCH /support/tickets/{ticketId}/assign
-Authorization: Bearer {accessToken}
-Content-Type: application/json
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `status` | string | ✅ | Valid status value |
+
+**Request:**
+```json
+{ "status": "IN_PROGRESS" }
 ```
 
-### Request
-```json
-{ "agentId": "agent-priya-001" }
-```
+**Response `200`:** Updated `TicketResponse` with new status.
 
-### Success Response `200 OK` — Full `TicketResponse` DTO
-```json
-{
-  "success": true,
-  "message": "Ticket assigned successfully",
-  "data": {
-    "ticketId": "tkt-99001-22334-eeff",
-    "ticketNumber": "TKT-20260224-001",
-    "createdBy": "550e8400-e29b-41d4-a716-446655440000",
-    "createdByName": "John Doe",
-    "category": "ORDER",
-    "subcategory": "DELIVERY_ISSUE",
-    "priority": "HIGH",
-    "subject": "Food arrived 2 hours late for my wedding",
-    "description": "The catering team was supposed to arrive by 5 PM but arrived at 7 PM...",
-    "relatedEntities": { "orderId": "order-54321-12345-ccdd", "vendorId": "vendor-12345-67890", "paymentId": null },
-    "assignedTo": "agent-priya-001",
-    "assignedAt": "2026-02-24T10:31:00.000000Z",
-    "conversationId": "conv-support-tkt99001",
-    "status": "IN_PROGRESS",
-    "sla": {
-      "firstResponseDue": "2026-02-24T11:30:45.123456Z",
-      "resolutionDue": "2026-02-25T10:30:45.123456Z",
-      "firstResponseAt": null,
-      "resolvedAt": null,
-      "slaBreached": false
-    },
-    "resolution": null,
-    "customerSatisfaction": null,
-    "createdAt": "2026-02-24T10:30:45.123456Z",
-    "closedAt": null
-  }
-}
+**Valid Status Transitions for Agent:**
+```
+ASSIGNED → IN_PROGRESS
+IN_PROGRESS → WAITING_FOR_CUSTOMER
+WAITING_FOR_CUSTOMER → IN_PROGRESS
+IN_PROGRESS → RESOLVED
+RESOLVED → CLOSED
 ```
 
 ---
 
-# 4. UPDATE TICKET STATUS
+### Resolve Ticket
+`PUT /support/tickets/{ticketId}/resolve` 🔒
 
-```http
-PATCH /support/tickets/{ticketId}/status
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `resolutionNotes` | string | ✅ | Description of resolution |
+| `resolvedBy` | string | ✅ | Agent's userId |
 
-### Request
+**Request:**
 ```json
 {
-  "status": "IN_PROGRESS",
-  "notes": "Investigating the delivery delay. Contacted vendor for explanation."
+  "resolutionNotes": "Contacted vendor directly. Vendor has confirmed the order. User notified via chat and email.",
+  "resolvedBy": "agent-uuid"
 }
 ```
 
-| Status | Description |
-|--------|-------------|
-| `OPEN` | Newly created, unassigned |
-| `IN_PROGRESS` | Agent working on it |
-| `WAITING_FOR_CUSTOMER` | Waiting on customer info |
-| `WAITING_FOR_VENDOR` | Waiting on vendor info |
-| `ESCALATED` | Escalated to senior/admin |
-| `RESOLVED` | Issue resolved |
-| `CLOSED` | Ticket closed |
-
-### Success Response `200 OK` — Full `TicketResponse` DTO
+**Response `200`:**
 ```json
 {
-  "success": true,
-  "message": "Ticket status updated",
   "data": {
-    "ticketId": "tkt-99001-22334-eeff",
-    "ticketNumber": "TKT-20260224-001",
-    "createdBy": "550e8400-e29b-41d4-a716-446655440000",
-    "createdByName": "John Doe",
-    "category": "ORDER",
-    "subcategory": "DELIVERY_ISSUE",
-    "priority": "HIGH",
-    "subject": "Food arrived 2 hours late for my wedding",
-    "description": "The catering team was supposed to arrive by 5 PM...",
-    "relatedEntities": { "orderId": "order-54321-12345-ccdd", "vendorId": "vendor-12345-67890", "paymentId": null },
-    "assignedTo": "agent-priya-001",
-    "assignedAt": "2026-02-24T10:31:00.000000Z",
-    "conversationId": "conv-support-tkt99001",
-    "status": "IN_PROGRESS",
-    "sla": {
-      "firstResponseDue": "2026-02-24T11:30:45.123456Z",
-      "resolutionDue": "2026-02-25T10:30:45.123456Z",
-      "firstResponseAt": "2026-02-24T11:00:00.000000Z",
-      "resolvedAt": null,
-      "slaBreached": false
-    },
-    "resolution": null,
-    "customerSatisfaction": null,
-    "createdAt": "2026-02-24T10:30:45.123456Z",
-    "closedAt": null
-  }
-}
-```
-
----
-
-# 5. RESOLVE TICKET
-
-```http
-PATCH /support/tickets/{ticketId}/resolve
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request
-```json
-{
-  "resolutionType": "COMPENSATION",
-  "resolutionNotes": "Vendor confirmed the 2-hour delay was due to traffic. Issued ₹5,000 loyalty points compensation to customer. Vendor warned — third such complaint will result in suspension.",
-  "resolvedBy": "agent-priya-001"
-}
-```
-
-| resolutionType | Description |
-|----------------|-------------|
-| `RESOLVED` | Issue resolved, no compensation |
-| `COMPENSATION` | Compensation provided |
-| `REFUND` | Refund issued |
-| `ESCALATED` | Escalated to higher team |
-| `VENDOR_ACTION` | Action taken against vendor |
-| `NO_ACTION_REQUIRED` | Not a valid complaint |
-
-### Success Response `200 OK` — Full `TicketResponse` DTO with resolution
-```json
-{
-  "success": true,
-  "message": "Ticket resolved",
-  "data": {
-    "ticketId": "tkt-99001-22334-eeff",
-    "ticketNumber": "TKT-20260224-001",
-    "createdBy": "550e8400-e29b-41d4-a716-446655440000",
-    "createdByName": "John Doe",
-    "category": "ORDER",
-    "subcategory": "DELIVERY_ISSUE",
-    "priority": "HIGH",
-    "subject": "Food arrived 2 hours late for my wedding",
-    "description": "The catering team was supposed to arrive by 5 PM...",
-    "relatedEntities": { "orderId": "order-54321-12345-ccdd", "vendorId": "vendor-12345-67890", "paymentId": null },
-    "assignedTo": "agent-priya-001",
-    "assignedAt": "2026-02-24T10:31:00.000000Z",
-    "conversationId": "conv-support-tkt99001",
+    "ticketId": "uuid",
+    "ticketNumber": "TKT-000001",
     "status": "RESOLVED",
+    "resolution": {
+      "resolutionType": "RESOLVED",
+      "resolutionNotes": "Contacted vendor directly. Vendor has confirmed the order.",
+      "resolvedBy": "agent-uuid",
+      "resolvedAt": "2026-03-06T14:00:00Z"
+    },
     "sla": {
-      "firstResponseDue": "2026-02-24T11:30:45.123456Z",
-      "resolutionDue": "2026-02-25T10:30:45.123456Z",
-      "firstResponseAt": "2026-02-24T11:00:00.000000Z",
-      "resolvedAt": "2026-02-24T16:00:00.000000Z",
+      "firstResponseDue": "2026-03-06T14:00:00Z",
+      "resolutionDue": "2026-03-07T10:00:00Z",
+      "firstResponseAt": "2026-03-06T10:30:00Z",
+      "resolvedAt": "2026-03-06T14:00:00Z",
       "slaBreached": false
     },
-    "resolution": {
-      "resolutionType": "COMPENSATION",
-      "resolutionNotes": "Vendor confirmed the 2-hour delay was due to traffic. Issued ₹5,000 loyalty points compensation to customer. Vendor warned.",
-      "resolvedBy": "agent-priya-001",
-      "resolvedAt": "2026-02-24T16:00:00.000000Z"
-    },
     "customerSatisfaction": null,
-    "createdAt": "2026-02-24T10:30:45.123456Z",
     "closedAt": null
   }
 }
@@ -338,331 +361,329 @@ Content-Type: application/json
 
 ---
 
-# 6. ESCALATE TICKET
+### Close Ticket
+`PUT /support/tickets/{ticketId}/close` 🔒
+**Response `200`:** Updated `TicketResponse` with `status: CLOSED` and `closedAt` timestamp.
 
-```http
-PATCH /support/tickets/{ticketId}/escalate
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
+---
 
-### Request
+## 💬 Chat with Users & Vendors
+
+> When a ticket is created by a user or vendor, a **chat conversation is automatically created** between them and the assigned support agent. The `conversationId` is present on the `TicketResponse`.
+
+### Get Conversation (from ticket's conversationId)
+`GET /chat/conversations/{conversationId}` 🔒
+
+**Response `200`:**
 ```json
 {
-  "reason": "Customer is threatening legal action. Refund amount is ₹2,50,000. Requires senior approval.",
-  "escalateTo": "admin-001"
-}
-```
-
-### Success Response `200 OK` — Full `TicketResponse` DTO
-```json
-{
-  "success": true,
-  "message": "Ticket escalated",
   "data": {
-    "ticketId": "tkt-88002-33445-ffgg",
-    "ticketNumber": "TKT-20260224-002",
-    "createdBy": "user-aabb-ccdd-eeff",
-    "createdByName": "Priya Sharma",
-    "category": "PAYMENT",
-    "subcategory": "REFUND_NOT_RECEIVED",
-    "priority": "URGENT",
-    "subject": "Refund not received after 10 days",
-    "description": "I cancelled my order on Feb 14 and was told refund would arrive in 5-7 days...",
-    "relatedEntities": { "orderId": "order-11111-22222-aabb", "vendorId": null, "paymentId": "txn-77665-55443-xxyy" },
-    "assignedTo": "admin-001",
-    "assignedAt": "2026-02-24T12:00:00.000000Z",
-    "conversationId": "conv-support-tkt88002",
-    "status": "ESCALATED",
-    "sla": {
-      "firstResponseDue": "2026-02-24T09:15:00.000000Z",
-      "resolutionDue": "2026-02-24T13:00:00.000000Z",
-      "firstResponseAt": "2026-02-24T09:10:00.000000Z",
-      "resolvedAt": null,
-      "slaBreached": true
+    "conversationId": "uuid",
+    "participants": [
+      {
+        "userId": "user-uuid",
+        "userType": "USER",
+        "name": "Rahul Sharma",
+        "profilePictureUrl": null
+      },
+      {
+        "userId": "agent-uuid",
+        "userType": "SUPPORT_AGENT",
+        "name": "Priya Reddy",
+        "profilePictureUrl": null
+      }
+    ],
+    "conversationType": "USER_SUPPORT",
+    "relatedTo": {
+      "entityType": "TICKET",
+      "entityId": "ticket-uuid"
     },
-    "resolution": null,
-    "customerSatisfaction": null,
-    "createdAt": "2026-02-24T09:00:00.000000Z",
-    "closedAt": null
+    "lastMessage": {
+      "message": "I still haven't received confirmation from the vendor.",
+      "senderId": "user-uuid",
+      "timestamp": "2026-03-06T10:10:00Z"
+    },
+    "unreadCount": {
+      "agent-uuid": 1,
+      "user-uuid": 0
+    },
+    "status": "ACTIVE",
+    "createdAt": "2026-03-06T10:05:00Z",
+    "updatedAt": "2026-03-06T10:10:00Z"
   }
 }
 ```
 
 ---
 
-# 7. CLOSE TICKET
+### Get All My Chat Conversations
+`GET /chat/conversations?page=0&size=20` 🔒
 
-```http
-PATCH /support/tickets/{ticketId}/close
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request
-```json
-{ "reason": "Issue fully resolved. Customer confirmed satisfaction. Ticket closed." }
-```
-
-### Success Response `200 OK` — Full `TicketResponse` DTO
-```json
-{
-  "success": true,
-  "message": "Ticket closed",
-  "data": {
-    "ticketId": "tkt-99001-22334-eeff",
-    "ticketNumber": "TKT-20260224-001",
-    "createdBy": "550e8400-e29b-41d4-a716-446655440000",
-    "createdByName": "John Doe",
-    "category": "ORDER",
-    "subcategory": "DELIVERY_ISSUE",
-    "priority": "HIGH",
-    "subject": "Food arrived 2 hours late for my wedding",
-    "description": "The catering team was supposed to arrive by 5 PM...",
-    "relatedEntities": { "orderId": "order-54321-12345-ccdd", "vendorId": "vendor-12345-67890", "paymentId": null },
-    "assignedTo": "agent-priya-001",
-    "assignedAt": "2026-02-24T10:31:00.000000Z",
-    "conversationId": "conv-support-tkt99001",
-    "status": "CLOSED",
-    "sla": {
-      "firstResponseDue": "2026-02-24T11:30:45.123456Z",
-      "resolutionDue": "2026-02-25T10:30:45.123456Z",
-      "firstResponseAt": "2026-02-24T11:00:00.000000Z",
-      "resolvedAt": "2026-02-24T16:00:00.000000Z",
-      "slaBreached": false
-    },
-    "resolution": {
-      "resolutionType": "COMPENSATION",
-      "resolutionNotes": "Vendor confirmed the delay. Issued ₹5,000 loyalty points compensation.",
-      "resolvedBy": "agent-priya-001",
-      "resolvedAt": "2026-02-24T16:00:00.000000Z"
-    },
-    "customerSatisfaction": {
-      "rating": 4,
-      "feedback": "Agent was helpful and resolved quickly"
-    },
-    "createdAt": "2026-02-24T10:30:45.123456Z",
-    "closedAt": "2026-02-24T16:30:00.000000Z"
-  }
-}
-```
+**Response `200`:** Paginated list of `ConversationResponse` objects (see above for structure).
 
 ---
 
-# 8. REOPEN TICKET
+### Get Messages in Conversation
+`GET /chat/conversations/{conversationId}/messages?page=0&size=50` 🔒
 
-```http
-PATCH /support/tickets/{ticketId}/reopen
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request
-```json
-{ "reason": "Customer says issue was not resolved. Loyalty points were not credited to account." }
-```
-
-### Success Response `200 OK`
+**Response `200`:**
 ```json
 {
-  "success": true,
-  "message": "Ticket reopened",
-  "data": {
-    "ticketId": "tkt-99001-22334-eeff",
-    "ticketNumber": "TKT-20260224-001",
-    "status": "IN_PROGRESS",
-    "sla": {
-      "firstResponseDue": "2026-02-24T11:30:45.123456Z",
-      "resolutionDue": "2026-02-26T10:00:00.000000Z",
-      "firstResponseAt": "2026-02-24T11:00:00.000000Z",
-      "resolvedAt": null,
-      "slaBreached": false
-    },
-    "resolution": null,
-    "customerSatisfaction": null,
-    "createdAt": "2026-02-24T10:30:45.123456Z",
-    "closedAt": null,
-    "...rest of TicketResponse fields..."
-  }
-}
-```
-
----
-
-# 9. SEND MESSAGE TO CUSTOMER (via Ticket Chat)
-
-```http
-POST /support/tickets/{ticketId}/messages
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request
-```json
-{
-  "message": "Hi John, I have investigated the delivery delay with Spice Garden Catering. The vendor confirmed it was due to heavy traffic on Palace Grounds Road. I am issuing 5,000 loyalty points as compensation. Please check your loyalty balance. Apologies for the inconvenience.",
-  "isInternalNote": false,
-  "attachmentUrls": []
-}
-```
-
-| Field | Required | Notes |
-|-------|----------|-------|
-| `message` | ✅ | Message text (min 1 char) |
-| `isInternalNote` | ✅ | `true` = only visible to agents; `false` = visible to customer |
-| `attachmentUrls` | ❌ | List of file URLs |
-
-### Success Response `201 Created`
-```json
-{
-  "success": true,
-  "data": {
-    "messageId": "tmsg-001-aabb",
-    "ticketId": "tkt-99001-22334-eeff",
-    "ticketNumber": "TKT-20260224-001",
-    "senderId": "agent-priya-001",
-    "senderName": "Priya Sharma",
-    "senderRole": "SUPPORT_AGENT",
-    "message": "Hi John, I have investigated the delivery delay with Spice Garden Catering...",
-    "isInternalNote": false,
-    "attachmentUrls": [],
-    "createdAt": "2026-02-24T11:00:00.000000Z"
-  }
-}
-```
-
----
-
-# 10. GET TICKET MESSAGES
-
-```http
-GET /support/tickets/{ticketId}/messages?page=0&size=50
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
   "data": [
     {
-      "messageId": "tmsg-000-orig",
-      "ticketId": "tkt-99001-22334-eeff",
-      "ticketNumber": "TKT-20260224-001",
-      "senderId": "550e8400-e29b-41d4-a716-446655440000",
-      "senderName": "John Doe",
-      "senderRole": "USER",
-      "message": "The catering team was supposed to arrive by 5 PM but arrived at 7 PM, causing significant inconvenience to 500 guests.",
-      "isInternalNote": false,
-      "attachmentUrls": ["http://localhost:8080/uploads/images/complaint-photo-1.jpg"],
-      "createdAt": "2026-02-24T10:30:45.123456Z"
+      "messageId": "uuid",
+      "conversationId": "uuid",
+      "senderId": "user-uuid",
+      "senderType": "USER",
+      "message": "I still haven't received confirmation from the vendor.",
+      "messageType": "TEXT",
+      "attachments": [],
+      "readBy": [],
+      "isDeleted": false,
+      "deletedAt": null,
+      "timestamp": "2026-03-06T10:10:00Z",
+      "createdAt": "2026-03-06T10:10:00Z"
     },
     {
-      "messageId": "tmsg-001-note",
-      "ticketId": "tkt-99001-22334-eeff",
-      "ticketNumber": "TKT-20260224-001",
-      "senderId": "agent-priya-001",
-      "senderName": "Priya Sharma",
-      "senderRole": "SUPPORT_AGENT",
-      "message": "Internal note: Contacted vendor. Vendor claims traffic jam on Palace Grounds road. Checking GPS logs.",
-      "isInternalNote": true,
-      "attachmentUrls": [],
-      "createdAt": "2026-02-24T10:45:00.000000Z"
-    },
-    {
-      "messageId": "tmsg-002-reply",
-      "ticketId": "tkt-99001-22334-eeff",
-      "ticketNumber": "TKT-20260224-001",
-      "senderId": "agent-priya-001",
-      "senderName": "Priya Sharma",
-      "senderRole": "SUPPORT_AGENT",
-      "message": "Hi John, I have investigated the delivery delay. The vendor confirmed it was due to heavy traffic. I am issuing 5,000 loyalty points as compensation.",
-      "isInternalNote": false,
-      "attachmentUrls": [],
-      "createdAt": "2026-02-24T11:00:00.000000Z"
+      "messageId": "uuid",
+      "conversationId": "uuid",
+      "senderId": "agent-uuid",
+      "senderType": "SUPPORT_AGENT",
+      "message": "Hello Rahul! I have contacted the vendor on your behalf. They will respond within 2 hours. I'll keep you updated.",
+      "messageType": "TEXT",
+      "attachments": [],
+      "readBy": [
+        { "userId": "user-uuid", "readAt": "2026-03-06T10:32:00Z" }
+      ],
+      "isDeleted": false,
+      "deletedAt": null,
+      "timestamp": "2026-03-06T10:30:00Z",
+      "createdAt": "2026-03-06T10:30:00Z"
     }
   ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 50, "totalElements": 3, "totalPages": 1 }
+  "pageInfo": { "page": 0, "size": 50, "totalElements": 12 }
 }
 ```
 
 ---
 
-# 11. LOOK UP ORDER DETAILS (For Investigation)
+### Send Message to User/Vendor
+`POST /chat/conversations/{conversationId}/messages` 🔒
 
-```http
-GET /admin/orders/{orderId}
-Authorization: Bearer {accessToken}
-```
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `message` | string | ✅ | Message text |
+| `messageType` | string | ⬜ | `TEXT` (default), `IMAGE`, `FILE` |
+| `fileUrl` | string | ⬜ | For IMAGE or FILE type messages |
 
-### Success Response `200 OK` — Full `OrderResponse` DTO
+**Request:**
 ```json
 {
-  "success": true,
+  "message": "Hello Rahul! I have contacted the vendor on your behalf. They will confirm within 2 hours.",
+  "messageType": "TEXT"
+}
+```
+
+**Response `201`:**
+```json
+{
   "data": {
-    "orderId": "order-54321-12345-ccdd",
-    "userId": "550e8400-e29b-41d4-a716-446655440000",
-    "bidRequestId": "breq-88990-77665-aabb",
+    "messageId": "uuid",
+    "conversationId": "uuid",
+    "senderId": "agent-uuid",
+    "senderType": "SUPPORT_AGENT",
+    "message": "Hello Rahul! I have contacted the vendor on your behalf.",
+    "messageType": "TEXT",
+    "attachments": [],
+    "readBy": [],
+    "isDeleted": false,
+    "deletedAt": null,
+    "timestamp": "2026-03-06T10:30:00Z",
+    "createdAt": "2026-03-06T10:30:00Z"
+  }
+}
+```
+
+---
+
+### Send File/Image in Chat
+`POST /chat/conversations/{conversationId}/messages` 🔒
+
+**Request (file attachment):**
+```json
+{
+  "message": "Please review the attached screenshot.",
+  "messageType": "IMAGE",
+  "fileUrl": "http://localhost:8080/uploads/chat/screenshot-uuid.jpg"
+}
+```
+> First upload the file using `POST /upload/image`, then use the returned `fileUrl` in this request.
+
+---
+
+### Mark Messages as Read
+`PUT /chat/conversations/{conversationId}/read` 🔒
+**Response `200`:** `{ "success": true }`
+
+---
+
+### WebSocket Real-time Chat
+
+**Connection (SockJS/STOMP):**
+```
+ws://localhost:8080/api/v1/ws?token=<accessToken>
+```
+**SockJS fallback:**
+```
+http://localhost:8080/api/v1/ws/sockjs/chat?token=<accessToken>
+```
+
+**Subscribe to messages:**
+```
+SUBSCRIBE /topic/conversations.{conversationId}
+```
+
+**Receive message payload:**
+```json
+{
+  "messageId": "uuid",
+  "conversationId": "uuid",
+  "senderId": "user-uuid",
+  "senderType": "USER",
+  "message": "Please help me urgently!",
+  "messageType": "TEXT",
+  "timestamp": "2026-03-06T10:30:00Z"
+}
+```
+
+**Send message via WebSocket:**
+```
+SEND /app/chat/{conversationId}
+Body: { "message": "I am looking into your issue right now.", "messageType": "TEXT" }
+```
+
+**Subscribe to read receipts:**
+```
+SUBSCRIBE /topic/conversations.{conversationId}.read
+```
+
+**Receive read receipt payload:**
+```json
+{
+  "conversationId": "uuid",
+  "userId": "user-uuid",
+  "readAt": "2026-03-06T10:35:00Z"
+}
+```
+
+---
+
+## 🔍 View User / Order Context
+
+> Support agents can view full details of users, orders, and transactions to provide better assistance. These are read-only for agents.
+
+### View User Profile
+`GET /admin/users/{userId}` 🔒
+
+**Response `200`:** Full `UserResponse` object:
+```json
+{
+  "data": {
+    "userId": "uuid",
+    "email": "rahul@example.com",
+    "phone": "+919876543210",
+    "userType": "USER",
+    "firstName": "Rahul",
+    "lastName": "Sharma",
+    "fullName": "Rahul Sharma",
+    "emailVerified": true,
+    "phoneVerified": true,
+    "preferredCurrency": "INR",
+    "country": "INDIA",
+    "status": "ACTIVE",
+    "lastLoginAt": "2026-03-06T09:00:00Z",
+    "createdAt": "2026-01-15T10:00:00Z"
+  }
+}
+```
+
+---
+
+### View Order Details
+`GET /orders/{orderId}` 🔒
+
+**Response `200`:** Full `OrderResponse` object:
+```json
+{
+  "data": {
+    "orderId": "uuid",
+    "userId": "uuid",
+    "bidRequestId": "uuid",
     "eventDetails": {
       "eventType": "WEDDING",
-      "eventName": "Priya & Rahul Wedding",
-      "eventDate": "2026-05-20",
-      "eventTime": "18:00",
-      "numberOfGuests": 500,
+      "eventName": "Sharma Wedding Reception",
+      "eventDate": "2026-04-15",
+      "eventTime": "2026-04-15T18:00:00",
+      "numberOfGuests": 300,
       "venueAddress": {
-        "streetAddress": "Palace Grounds, Jayamahal Road",
-        "city": "Bangalore",
-        "state": "Karnataka",
-        "postalCode": "560080",
+        "streetAddress": "Taj Banjara Hotel",
+        "city": "Hyderabad",
+        "state": "Telangana",
+        "postalCode": "500034",
         "country": "India"
       }
     },
     "vendorOrders": [
       {
-        "vendorOrderId": "vorder-001-aabb",
-        "vendorId": "vendor-12345-67890",
-        "vendorUserId": null,
-        "vendorName": "Spice Garden Catering",
+        "vendorOrderId": "uuid",
+        "vendorId": "uuid",
+        "vendorUserId": "uuid",
+        "vendorName": "Royal Catering Co.",
         "items": [
-          { "vendorItemId": "vitem-001", "itemName": "Paneer Tikka", "quantity": 500, "pricePerPlate": 175.00, "totalPrice": 87500.00 },
-          { "vendorItemId": "vitem-002", "itemName": "Butter Chicken", "quantity": 400, "pricePerPlate": 218.75, "totalPrice": 87500.00 }
+          {
+            "vendorItemId": "uuid",
+            "itemName": "Chicken Biryani",
+            "quantity": 300,
+            "pricePerPlate": 400.00,
+            "totalPrice": 120000.00
+          }
         ],
-        "subtotal": 175000.00,
-        "serviceCharge": 17500.00,
-        "taxAmount": 8750.00,
-        "totalAmount": 201250.00,
-        "vendorStatus": "DELIVERED",
-        "deliveryStatus": "DELIVERED"
+        "subtotal": 120000.00,
+        "serviceCharge": 6000.00,
+        "taxAmount": 22680.00,
+        "totalAmount": 148680.00,
+        "vendorStatus": "ACCEPTED",
+        "deliveryStatus": "PENDING"
       }
     ],
     "pricing": {
       "currency": "INR",
-      "subtotal": 175000.00,
-      "serviceCharges": 17500.00,
-      "taxAmount": 8750.00,
-      "platformFee": 4025.00,
+      "subtotal": 120000.00,
+      "serviceCharges": 6000.00,
+      "taxAmount": 22680.00,
+      "platformFee": 2973.60,
       "discountAmount": 0.00,
-      "totalAmount": 205275.00
+      "totalAmount": 151653.60
     },
     "paymentDetails": {
-      "tokenAmount": 51318.75,
+      "tokenAmount": 37913.40,
       "tokenPaid": true,
-      "tokenPaidAt": "2026-02-25T11:05:00.000000Z",
-      "totalPaid": 51318.75,
-      "balanceDue": 153956.25,
+      "tokenPaidAt": "2026-03-06T15:00:00Z",
+      "totalPaid": 37913.40,
+      "balanceDue": 113740.20,
       "paymentStatus": "TOKEN_PAID"
     },
     "contactInfo": {
-      "primaryContactName": "John Doe",
-      "primaryContactPhone": "+917890123456",
-      "primaryContactEmail": "john.doe@gmail.com"
+      "primaryContactName": "Rahul Sharma",
+      "primaryContactPhone": "+919876543210",
+      "primaryContactEmail": "rahul@example.com"
     },
-    "specialInstructions": "Separate veg and non-veg sections. Food ready by 6:30 PM sharp.",
+    "specialInstructions": "Halal food only",
     "status": "CONFIRMED",
     "cancellation": null,
-    "createdAt": "2026-02-25T11:00:00.000000Z",
-    "confirmedAt": "2026-02-25T11:00:00.000000Z",
-    "deliveredAt": "2026-05-20T20:00:00.000000Z",
+    "createdAt": "2026-03-06T15:00:00Z",
+    "confirmedAt": "2026-03-06T15:00:00Z",
+    "deliveredAt": null,
     "completedAt": null
   }
 }
@@ -670,223 +691,98 @@ Authorization: Bearer {accessToken}
 
 ---
 
-# 12. LOOK UP USER DETAILS (For Investigation)
+### View Transaction Details
+`GET /payments/{transactionId}` 🔒
 
-```http
-GET /admin/users/{userId}
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK` — Full `UserResponse` DTO
+**Response `200`:** Full transaction object:
 ```json
 {
-  "success": true,
   "data": {
-    "userId": "550e8400-e29b-41d4-a716-446655440000",
-    "vendorId": null,
-    "email": "john.doe@gmail.com",
-    "phone": "+917890123456",
-    "userType": "USER",
-    "firstName": "John",
-    "lastName": "Doe",
-    "fullName": "John Doe",
-    "profilePictureUrl": "http://localhost:8080/uploads/images/profile-550e8400.jpg",
-    "dateOfBirth": "1992-06-15",
-    "gender": "MALE",
-    "emailVerified": true,
-    "phoneVerified": true,
-    "twoFactorEnabled": false,
-    "preferredLanguage": "en",
-    "preferredCurrency": "INR",
-    "country": "INDIA",
-    "status": "ACTIVE",
-    "notificationPreferences": {
-      "emailNotifications": { "orderUpdates": true, "bidUpdates": true, "promotional": false, "newsletter": false, "paymentReminders": true, "securityAlerts": true },
-      "smsNotifications": { "orderUpdates": true, "bidUpdates": true, "paymentReminders": true, "securityAlerts": true },
-      "pushNotifications": { "orderUpdates": true, "bidUpdates": true, "promotional": false, "paymentReminders": true },
-      "whatsappNotifications": { "orderUpdates": false, "bidUpdates": false }
+    "transactionId": "uuid",
+    "orderId": "uuid",
+    "bidId": "uuid",
+    "userId": "uuid",
+    "vendorId": "uuid",
+    "paymentType": "TOKEN",
+    "installmentNumber": null,
+    "amount": {
+      "currency": "INR",
+      "amount": 37913.40,
+      "platformFee": 758.27,
+      "vendorPayout": 37155.13
     },
-    "lastLoginAt": "2026-02-24T10:30:45.123456Z",
-    "createdAt": "2026-01-10T08:00:00.000000Z"
-  }
-}
-```
-
----
-
-# 13. LOOK UP VENDOR DETAILS (For Investigation)
-
-```http
-GET /admin/vendors/{vendorId}
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK` — Full `VendorResponse` DTO
-```json
-{
-  "success": true,
-  "data": {
-    "vendorId": "vendor-12345-67890",
-    "userId": "vendor-user-550e8400",
-    "registeredEmail": "owner@spicegarden.com",
-    "registeredPhone": "+917890123456",
-    "registeredEmailVerified": true,
-    "registeredPhoneVerified": true,
-    "businessName": "Spice Garden Catering",
-    "businessEmail": "info@spicegarden.com",
-    "businessPhone": "+917890123456",
-    "businessEmailVerified": true,
-    "businessPhoneVerified": true,
-    "businessType": "CATERING",
-    "businessRegistrationNumber": "KA-REG-2015-12345",
-    "taxId": "29ABCDE1234F1Z5",
-    "logoUrl": "http://localhost:8080/uploads/images/logo-spice.jpg",
-    "bannerUrl": "http://localhost:8080/uploads/images/banner-spice.jpg",
-    "description": "Authentic South Indian catering since 2010.",
-    "establishedYear": 2010,
-    "cuisinesOffered": ["South Indian", "North Indian", "Continental"],
-    "specialties": ["Weddings", "Corporate Events"],
-    "businessAddress": { "streetAddress": "25, 3rd Cross, Jayanagar 4th Block", "city": "Bangalore", "state": "Karnataka", "postalCode": "560041", "country": "India" },
-    "ownerInfo": { "firstName": "Rajesh", "lastName": "Kumar", "phone": "+917890123456", "email": "owner@spicegarden.com", "idProofType": "AADHAR", "idProofNumber": "XXXX-XXXX-9012" },
-    "serviceAreas": [ { "city": "Bangalore", "state": "Karnataka", "radiusKm": 30 } ],
-    "capacity": { "minGuests": 50, "maxGuests": 3000, "concurrentEvents": 4 },
-    "pricing": { "currency": "INR", "startingPricePerPlate": 350.00, "averagePricePerPlate": 500.00 },
-    "ratings": { "averageRating": 4.7, "totalReviews": 312 },
-    "stats": { "totalOrders": 600, "completedOrders": 596 },
-    "status": "ACTIVE",
-    "approvalStatus": "APPROVED",
-    "verified": true,
-    "featured": false,
-    "createdAt": "2026-01-15T08:00:00.000000Z",
-    "documents": [
-      {
-        "documentId": "doc-001-aabb",
-        "documentType": "BUSINESS_LICENSE",
-        "documentName": "FSSAI Food License",
-        "documentUrl": "http://localhost:8080/uploads/documents/fssai-license.pdf",
-        "documentNumber": "FSSAI-2024-123456",
-        "issueDate": "2024-01-15T00:00:00.000000Z",
-        "expiryDate": "2027-01-14T00:00:00.000000Z",
-        "verificationStatus": "VERIFIED",
-        "uploadedAt": "2026-01-15T08:00:00.000000Z"
-      }
-    ],
-    "country": "INDIA"
-  }
-}
-```
-
----
-
-# 14. LOOK UP PAYMENT / TRANSACTION (For Investigation)
-
-```http
-GET /admin/payments/{transactionId}
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "data": {
-    "transactionId": "txn-77665-55443-xxyy",
-    "orderId": "order-11111-22222-aabb",
-    "userId": "user-aabb-ccdd-eeff",
-    "vendorId": "vendor-12345-67890",
-    "paymentType": "FULL",
-    "amount": 205275.00,
-    "currency": "INR",
-    "status": "SUCCESS",
     "paymentGateway": "RAZORPAY",
-    "gatewayOrderId": "order_RazpABC1234567890XY",
-    "gatewayTransactionId": "pay_RazpDEF9876543210AB",
-    "refundStatus": "REFUND_INITIATED",
-    "refundAmount": 205275.00,
-    "refundInitiatedAt": "2026-02-14T12:00:00.000000Z",
-    "processedAt": "2026-02-10T09:00:00.000000Z",
-    "createdAt": "2026-02-10T09:00:00.000000Z"
+    "gatewayTransactionId": "pay_XYZ789GHI012",
+    "gatewayOrderId": "order_ABC123DEF456",
+    "paymentMethod": "UPI",
+    "paymentMethodDetails": {
+      "cardLastFour": null,
+      "cardBrand": null,
+      "cardNetwork": null,
+      "upiId": "rahul@upi",
+      "bankName": null,
+      "walletName": null
+    },
+    "status": "SUCCESS",
+    "failureReason": null,
+    "initiatedAt": "2026-03-06T14:55:00Z",
+    "processedAt": "2026-03-06T15:00:00Z",
+    "settledAt": null,
+    "createdAt": "2026-03-06T14:55:00Z"
   }
 }
 ```
 
 ---
 
-# 15. GET USER'S ORDERS (Investigation Context)
+### View Vendor Profile
+`GET /vendors/{vendorId}` 🔒
 
-```http
-GET /admin/orders?userId=550e8400-e29b-41d4-a716-446655440000&page=0&size=20
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK` — Paginated list of `OrderResponse` DTOs (same structure as section 11)
+**Response `200`:** Full `VendorResponse` object including all documents, ratings, and stats.
 
 ---
 
-# 16. CHAT WITH USER (Support Conversation)
+## 🔔 Notifications
 
-```http
-POST /chat/conversations
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
+### Get My Notifications
+`GET /notifications?page=0&size=20` 🔒
 
-### Request
-```json
-{ "otherUserId": "550e8400-e29b-41d4-a716-446655440000", "type": "SUPPORT" }
-```
-
-### Success Response `201 Created` — `ConversationResponse` DTO
+**Response `200`:**
 ```json
 {
-  "success": true,
-  "data": {
-    "conversationId": "conv-support-99001-aabb",
-    "participants": [
-      { "userId": "agent-priya-001", "userType": "SUPPORT_AGENT", "name": "Priya Sharma" },
-      { "userId": "550e8400-e29b-41d4-a716-446655440000", "userType": "USER", "name": "John Doe" }
-    ],
-    "otherParticipant": { "userId": "550e8400-e29b-41d4-a716-446655440000", "userType": "USER", "name": "John Doe" },
-    "lastMessage": null,
-    "unreadCount": 0,
-    "status": "ACTIVE",
-    "createdAt": "2026-02-24T10:31:00.000000Z",
-    "updatedAt": "2026-02-24T10:31:00.000000Z"
-  }
-}
-```
-
----
-
-# 17. GET SUPPORT CONVERSATIONS
-
-```http
-GET /chat/conversations?page=0&size=20
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
   "data": [
     {
-      "conversationId": "conv-support-99001-aabb",
-      "participants": [
-        { "userId": "agent-priya-001", "userType": "SUPPORT_AGENT", "name": "Priya Sharma" },
-        { "userId": "550e8400-e29b-41d4-a716-446655440000", "userType": "USER", "name": "John Doe" }
-      ],
-      "otherParticipant": { "userId": "550e8400-e29b-41d4-a716-446655440000", "userType": "USER", "name": "John Doe" },
-      "lastMessage": {
-        "message": "Hi Priya, I still haven't received the loyalty points.",
-        "senderId": "550e8400-e29b-41d4-a716-446655440000",
-        "senderType": "USER",
-        "timestamp": "2026-02-24T16:45:00.000000Z"
-      },
-      "unreadCount": 1,
-      "status": "ACTIVE",
-      "createdAt": "2026-02-24T10:31:00.000000Z",
-      "updatedAt": "2026-02-24T16:45:00.000000Z"
+      "notificationId": "uuid",
+      "userId": "agent-uuid",
+      "title": "New Ticket Assigned",
+      "message": "Ticket TKT-000001 has been assigned to you.",
+      "type": "TICKET_ASSIGNED",
+      "channel": "IN_APP",
+      "isRead": false,
+      "data": { "ticketId": "uuid", "ticketNumber": "TKT-000001" },
+      "createdAt": "2026-03-06T10:05:00Z"
+    },
+    {
+      "notificationId": "uuid",
+      "userId": "agent-uuid",
+      "title": "SLA Breach Warning",
+      "message": "Ticket TKT-000003 URGENT priority response deadline in 30 minutes.",
+      "type": "SLA_WARNING",
+      "channel": "IN_APP",
+      "isRead": false,
+      "data": { "ticketId": "uuid", "ticketNumber": "TKT-000003" },
+      "createdAt": "2026-03-06T11:30:00Z"
+    },
+    {
+      "notificationId": "uuid",
+      "userId": "agent-uuid",
+      "title": "New Message",
+      "message": "Rahul Sharma sent a message: 'Has the vendor responded yet?'",
+      "type": "NEW_CHAT_MESSAGE",
+      "channel": "IN_APP",
+      "isRead": false,
+      "data": { "conversationId": "uuid", "ticketId": "uuid" },
+      "createdAt": "2026-03-06T11:00:00Z"
     }
   ]
 }
@@ -894,141 +790,73 @@ Authorization: Bearer {accessToken}
 
 ---
 
-# 18. GET CHAT MESSAGES IN CONVERSATION
+### Get Unread Count
+`GET /notifications/unread/count` 🔒
+**Response `200`:** `{ "data": { "count": 3 } }`
 
-```http
-GET /chat/conversations/{conversationId}/messages?page=0&size=50
-Authorization: Bearer {accessToken}
-```
+---
 
-### Success Response `200 OK`
+### Mark as Read
+`PUT /notifications/{notificationId}/read` 🔒
+**Response `200`:** `{ "success": true }`
+
+---
+
+### Mark All as Read
+`PUT /notifications/read-all` 🔒
+**Response `200`:** `{ "success": true }`
+
+---
+
+## 📊 Agent Workload Info
+
+The system **auto-assigns** new tickets to the agent with the fewest active tickets (load balancing). Active ticket statuses counted for workload:
+- `OPEN`
+- `ASSIGNED`
+- `IN_PROGRESS`
+- `WAITING_FOR_CUSTOMER`
+
+---
+
+## 📌 SLA Monitoring (Automatic)
+
+The `SLAMonitorScheduler` runs every **15 minutes** and:
+
+1. **Marks `slaBreached: true`** on tickets that exceeded resolution deadline
+2. **Escalates** unassigned tickets based on priority:
+
+| Priority | Escalate After |
+|----------|---------------|
+| `URGENT` | 2 hours unassigned |
+| `HIGH` | 8 hours unassigned |
+| `MEDIUM` | 24 hours unassigned |
+| `LOW` | 48 hours unassigned |
+
+3. **Sends SLA breach notifications** to agents and admins
+
+---
+
+## ⚠️ Standard Error Response
+
 ```json
 {
-  "success": true,
-  "data": [
-    {
-      "messageId": "msg-001-aaaa",
-      "conversationId": "conv-support-99001-aabb",
-      "senderId": "agent-priya-001",
-      "senderType": "SUPPORT_AGENT",
-      "senderName": null,
-      "message": "Hi John, we've processed 5,000 loyalty points to your account. Please check your balance.",
-      "messageType": "TEXT",
-      "attachments": null,
-      "timestamp": "2026-02-24T11:30:00.000000Z"
-    },
-    {
-      "messageId": "msg-002-bbbb",
-      "conversationId": "conv-support-99001-aabb",
-      "senderId": "550e8400-e29b-41d4-a716-446655440000",
-      "senderType": "USER",
-      "senderName": null,
-      "message": "Hi Priya, I still haven't received the loyalty points.",
-      "messageType": "TEXT",
-      "attachments": null,
-      "timestamp": "2026-02-24T16:45:00.000000Z"
-    }
-  ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 50, "totalElements": 2, "totalPages": 1 }
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "You are not authorized to access this ticket",
+    "path": "/api/v1/support/tickets/uuid",
+    "timestamp": "2026-03-06T10:00:00Z",
+    "fieldErrors": {}
+  }
 }
 ```
 
-### WebSocket — Support Agent Real-Time Chat
-```
-SEND to: /app/chat.sendMessage
-{
-  "conversationId": "conv-support-99001-aabb",
-  "message": "I can see the points were issued. Please try refreshing your loyalty balance page.",
-  "messageType": "TEXT"
-}
-SUBSCRIBE: /topic/conversations.conv-support-99001-aabb
-```
-
----
-
-# 📌 SLA Reference Table
-
-| Priority | First Response Due | Resolution Due |
-|----------|--------------------|----------------|
-| `URGENT` | 15 minutes | 4 hours |
-| `HIGH` | 1 hour | 24 hours |
-| `MEDIUM` | 4 hours | 48 hours |
-| `LOW` | 24 hours | 72 hours |
-
-> `slaBreached: true` means SLA was violated. Monitor these tickets immediately.
-
----
-
-# 📌 Ticket Category Reference
-
-| Category | Subcategories |
-|----------|--------------|
-| `ORDER` | `DELIVERY_ISSUE`, `QUALITY_COMPLAINT`, `WRONG_ITEMS`, `MISSING_ITEMS`, `VENDOR_NO_SHOW` |
-| `PAYMENT` | `REFUND_NOT_RECEIVED`, `DOUBLE_CHARGED`, `PAYMENT_FAILED`, `INCORRECT_AMOUNT` |
-| `VENDOR` | `VENDOR_FRAUD`, `VENDOR_UNRESPONSIVE`, `QUALITY_ISSUE`, `WRONG_QUOTE` |
-| `ACCOUNT` | `LOGIN_ISSUE`, `ACCOUNT_LOCKED`, `PROFILE_UPDATE`, `DATA_ISSUE` |
-| `OTHER` | `GENERAL_INQUIRY`, `FEATURE_REQUEST`, `BUG_REPORT` |
-
----
-
-# 📌 Common Investigation Workflows
-
-## 🔍 Scenario 1: Delivery Delay Complaint
-```
-1. GET /admin/orders/{orderId}           → Check vendorStatus and deliveredAt
-2. GET /admin/users/{userId}             → Verify customer is legitimate
-3. GET /admin/vendors/{vendorId}         → Check vendor history (stats.completedOrders)
-4. POST /support/tickets/{id}/messages   → Reply to customer with findings
-5. PATCH /support/tickets/{id}/resolve   → resolutionType: COMPENSATION or VENDOR_ACTION
-```
-
-## 🔍 Scenario 2: Refund Not Received
-```
-1. GET /admin/payments/{transactionId}   → Check refundStatus, refundInitiatedAt
-2. GET /admin/orders/{orderId}           → Check cancellation.refundStatus
-3. POST /support/tickets/{id}/messages   → Inform customer of refund timeline
-4. POST /admin/payments/{id}/refund      → If refund not initiated yet, trigger it
-5. PATCH /support/tickets/{id}/resolve   → resolutionType: REFUND
-```
-
-## 🔍 Scenario 3: Wrong Items Delivered
-```
-1. GET /admin/orders/{orderId}           → Check vendorOrders[].items vs customer claim
-2. GET /admin/vendors/{vendorId}         → Check vendor complaint history
-3. POST /support/tickets/{id}/messages   → Ask customer for photo evidence
-4. PATCH /support/tickets/{id}/escalate  → If amount > ₹50,000, escalate to admin
-5. PATCH /support/tickets/{id}/resolve   → resolutionType: COMPENSATION or REFUND
-```
-
-## 🔍 Scenario 4: Login / Account Issue
-```
-1. GET /admin/users?search={email}       → Find user account
-2. GET /admin/users/{userId}             → Check status (LOCKED, SUSPENDED)
-3. PATCH /admin/users/{id}/activate      → If wrongly locked, reactivate
-4. POST /support/tickets/{id}/messages   → Guide customer
-5. PATCH /support/tickets/{id}/resolve   → resolutionType: RESOLVED
-```
-
----
-
-# 📌 Error Code Reference
-
-| HTTP | Error Code | Description |
-|------|-----------|-------------|
-| 400 | `BAD_REQUEST` | Invalid request data |
-| 400 | `TICKET_ALREADY_CLOSED` | Cannot update closed ticket |
-| 400 | `INVALID_STATUS_TRANSITION` | Invalid status change |
-| 401 | `UNAUTHORIZED` | Token missing or expired |
-| 403 | `FORBIDDEN` | Not a support agent or admin |
-| 404 | `TICKET_NOT_FOUND` | Ticket does not exist |
-| 404 | `ORDER_NOT_FOUND` | Order does not exist |
-| 404 | `USER_NOT_FOUND` | User does not exist |
-| 404 | `VENDOR_NOT_FOUND` | Vendor does not exist |
-| 404 | `TRANSACTION_NOT_FOUND` | Transaction does not exist |
-| 409 | `TICKET_ALREADY_ASSIGNED` | Ticket is already assigned |
-
----
-
-*SUPPORT_API_DOCS.md — Based on actual Java DTOs (TicketResponse, CreateTicketRequest, UserResponse, VendorResponse, OrderResponse, ChatMessageResponse, ConversationResponse, PaymentInitiationResponse)*
-*Bidzaro Catering Platform v1.0.0 | Generated: February 24, 2026*
-
+**Support Agent Error Codes:**
+| Code | HTTP | Description |
+|------|------|-------------|
+| `UNAUTHORIZED` | 401 | Not authenticated |
+| `FORBIDDEN` | 403 | Ticket assigned to another agent |
+| `RESOURCE_NOT_FOUND` | 404 | Ticket, message, or conversation not found |
+| `INVALID_STATUS` | 400 | Invalid ticket status value |
+| `INVALID_STATUS_TRANSITION` | 400 | Cannot change to this status from current state |
+| `TICKET_ALREADY_RESOLVED` | 400 | Ticket is already resolved/closed |

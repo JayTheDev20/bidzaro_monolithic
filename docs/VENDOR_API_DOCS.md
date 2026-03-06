@@ -1,446 +1,473 @@
-# 🏪 VENDOR API DOCUMENTATION
-## Bidzaro Catering Platform — Complete Vendor Reference (Real DTO-Based)
+# 🏪 VENDOR API Documentation
+**Bidzaro Catering Platform** | Base URL: `http://localhost:8080/api/v1`
 
-**Version:** 1.0.0 | **Base URL:** `http://localhost:8080/api/v1`
-**Auth:** `Authorization: Bearer {accessToken}` | **Content-Type:** `application/json`
-
-> All field names, types, and response shapes taken directly from actual Java DTO classes.
+> 🔒 = Requires `Authorization: Bearer <accessToken>` with `userType: VENDOR`
+> ✅ = Required field | ⬜ = Optional field
 
 ---
 
-## 🔐 Vendor Auth Flow
-```
-Step 1: Register as USER    → POST /auth/register  (userType: "VENDOR")
-Step 2: Login               → POST /auth/login
-Step 3: Create Vendor Profile → POST /vendors/register
-Step 4: Upload Documents    → POST /uploads/document
-Step 5: Wait for Approval   → PENDING → APPROVED by admin
-Step 6: Manage Menu & Bids  → All vendor APIs
-```
+## 📋 Table of Contents
+1. [Enums Reference](#-enums-reference)
+2. [Authentication](#-authentication)
+3. [Vendor Profile](#-vendor-profile)
+4. [Menu Management](#-menu-management)
+5. [Bid Marketplace](#-bid-marketplace)
+6. [Order Management](#-order-management)
+7. [Reviews](#-reviews)
+8. [Analytics Dashboard](#-analytics-dashboard)
+9. [Notifications](#-notifications)
+10. [Chat](#-chat)
+11. [File Upload](#-file-upload)
+12. [Support Tickets](#-support-tickets)
 
 ---
 
-# 1. VENDOR REGISTRATION (Create Business Profile)
+## 🔢 Enums Reference
 
-```http
-POST /vendors/register
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
+### VendorStatus
+| Value | Description |
+|-------|-------------|
+| `PENDING_APPROVAL` | Profile submitted, awaiting admin review |
+| `ACTIVE` | Approved and can receive bids |
+| `SUSPENDED` | Temporarily suspended by admin |
+| `REJECTED` | Application rejected |
+| `DELETED` | Soft deleted |
 
-### Request — All Fields
+### ApprovalStatus
+| Value | Description |
+|-------|-------------|
+| `PENDING` | Not yet reviewed |
+| `APPROVED` | Admin approved |
+| `REJECTED` | Admin rejected |
+| `UNDER_REVIEW` | Currently being reviewed |
+
+### BusinessType
+| Value |
+|-------|
+| `CATERING` |
+| `RESTAURANT` |
+| `CLOUD_KITCHEN` |
+| `HOME_CHEF` |
+| `BAKERY` |
+
+### DocumentVerificationStatus
+| Value |
+|-------|
+| `PENDING` |
+| `VERIFIED` |
+| `REJECTED` |
+
+### BidStatus (VendorBid)
+| Value | Description |
+|-------|-------------|
+| `SUBMITTED` | Bid submitted and visible to user |
+| `REVISED` | Bid revised (up to 5 times) |
+| `ACCEPTED` | User accepted this bid |
+| `REJECTED` | User rejected or accepted another |
+| `EXPIRED` | Validity period expired |
+| `WITHDRAWN` | Vendor withdrew the bid |
+
+### VendorOrderStatus
+| Value |
+|-------|
+| `PENDING` |
+| `ACCEPTED` |
+| `CONFIRMED` |
+| `IN_PREPARATION` |
+| `READY` |
+| `DELIVERED` |
+| `COMPLETED` |
+
+### DeliveryStatus
+| Value |
+|-------|
+| `PENDING` |
+| `ON_THE_WAY` |
+| `DELIVERED` |
+
+### OrderStatus (Full order)
+| Value | Description |
+|-------|-------------|
+| `PENDING_TOKEN_PAYMENT` | Awaiting user's token payment |
+| `CONFIRMED` | Token paid, order confirmed |
+| `IN_PREPARATION` | Food being prepared |
+| `READY_FOR_DELIVERY` | Ready to deliver |
+| `DELIVERING` | Out for delivery |
+| `DELIVERED` | Delivered to venue |
+| `COMPLETED` | Event completed |
+| `CANCELLED` | Cancelled |
+
+### VendorMenuItem Status
+| Value |
+|-------|
+| `ACTIVE` |
+| `INACTIVE` |
+| `OUT_OF_STOCK` |
+
+### FoodType
+| Value |
+|-------|
+| `VEG` |
+| `NON_VEG` |
+| `VEGAN` |
+| `EGG` |
+
+### SpiceLevel
+| Value |
+|-------|
+| `MILD` |
+| `MEDIUM` |
+| `HOT` |
+| `EXTRA_HOT` |
+
+### ConversationType
+| Value | Description |
+|-------|-------------|
+| `USER_VENDOR` | Chat with customer |
+| `VENDOR_SUPPORT` | Chat with support agent |
+
+### MessageType
+| Value |
+|-------|
+| `TEXT` |
+| `IMAGE` |
+| `FILE` |
+| `SYSTEM` |
+
+### PaymentMethod
+| Value |
+|-------|
+| `CARD` |
+| `UPI` |
+| `NET_BANKING` |
+| `WALLET` |
+
+---
+
+## 🔐 Authentication
+
+Vendors use the same auth endpoints. Register with `userType: VENDOR`.
+
+### Register as Vendor
+`POST /auth/register`
+
+| Field | Type | Required | Validation |
+|-------|------|----------|------------|
+| `email` | string | ✅ | Valid email |
+| `phone` | string | ✅ | E.164 e.g. `+919876543210` |
+| `password` | string | ✅ | Min 8 chars, complexity required |
+| `firstName` | string | ✅ | 1–50 chars |
+| `lastName` | string | ⬜ | Max 50 chars |
+| `country` | string | ⬜ | `INDIA` or `USA` |
+| `userType` | string | ✅ | Must be `VENDOR` |
+| `fcmToken` | string | ⬜ | Firebase device token |
+
+**Request:**
 ```json
 {
-  "businessName": "Spice Garden Catering",
-  "businessEmail": "info@spicegarden.com",
-  "businessPhone": "+917890123456",
+  "email": "ravi@royalcatering.com",
+  "phone": "+919876543210",
+  "password": "SecurePass@123",
+  "firstName": "Ravi",
+  "lastName": "Kumar",
+  "country": "INDIA",
+  "userType": "VENDOR",
+  "fcmToken": "firebase-device-token"
+}
+```
+
+**Response `201`:**
+```json
+{
+  "success": true,
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "tokenType": "Bearer",
+    "expiresIn": 604800,
+    "user": {
+      "userId": "uuid",
+      "vendorId": null,
+      "email": "ravi@royalcatering.com",
+      "phone": "+919876543210",
+      "userType": "VENDOR",
+      "firstName": "Ravi",
+      "lastName": "Kumar",
+      "fullName": "Ravi Kumar",
+      "profilePictureUrl": null,
+      "emailVerified": false,
+      "phoneVerified": false,
+      "preferredLanguage": "en",
+      "preferredCurrency": "INR",
+      "country": "INDIA",
+      "status": "PENDING_VERIFICATION",
+      "createdAt": "2026-03-06T10:00:00Z"
+    }
+  }
+}
+```
+> ⏰ After registration you receive reminders to complete your vendor profile: **5 min → 1h (×3) → 24h (×3)** then account deleted if no profile created.
+
+---
+
+### Login
+`POST /auth/login`
+
+**Request:**
+```json
+{
+  "identifier": "ravi@royalcatering.com",
+  "password": "SecurePass@123",
+  "fcmToken": "firebase-device-token"
+}
+```
+**Response `200`:** Same structure as register response. `vendorId` will be populated if vendor profile exists.
+
+---
+
+## 🏪 Vendor Profile
+
+### Create Vendor Profile (Onboarding)
+`POST /vendors` 🔒
+
+| Field | Type | Required | Validation |
+|-------|------|----------|------------|
+| `businessName` | string | ✅ | 2–100 chars |
+| `businessEmail` | string | ✅ | Valid email |
+| `businessPhone` | string | ✅ | Valid phone |
+| `businessType` | string | ✅ | `CATERING`, `RESTAURANT`, `CLOUD_KITCHEN`, `HOME_CHEF`, `BAKERY` |
+| `businessRegistrationNumber` | string | ⬜ | |
+| `taxId` | string | ⬜ | GST/Tax ID |
+| `description` | string | ⬜ | Business description |
+| `establishedYear` | integer | ⬜ | Year established |
+| `cuisinesOffered` | array | ⬜ | e.g. `["North Indian", "Chinese"]` |
+| `specialties` | array | ⬜ | e.g. `["Biryani", "Buffets"]` |
+| `country` | string | ✅ | `INDIA` or `USA` |
+| `businessAddress` | object | ⬜ | |
+| `businessAddress.streetAddress` | string | ✅ (if address given) | |
+| `businessAddress.city` | string | ✅ (if address given) | |
+| `businessAddress.state` | string | ✅ (if address given) | |
+| `businessAddress.postalCode` | string | ✅ (if address given) | |
+| `businessAddress.latitude` | double | ⬜ | For geospatial matching |
+| `businessAddress.longitude` | double | ⬜ | For geospatial matching |
+| `ownerInfo` | object | ⬜ | |
+| `ownerInfo.firstName` | string | ✅ (if ownerInfo given) | |
+| `ownerInfo.lastName` | string | ✅ (if ownerInfo given) | |
+| `ownerInfo.phone` | string | ⬜ | |
+| `ownerInfo.email` | string | ⬜ | |
+| `ownerInfo.idProofType` | string | ⬜ | e.g. `AADHAAR`, `PAN` |
+| `ownerInfo.idProofNumber` | string | ⬜ | |
+| `serviceAreas` | array | ⬜ | |
+| `serviceAreas[].city` | string | ⬜ | |
+| `serviceAreas[].state` | string | ⬜ | |
+| `serviceAreas[].radiusKm` | integer | ⬜ | Service radius |
+| `capacity` | object | ⬜ | |
+| `capacity.minGuests` | integer | ⬜ | Min 10 |
+| `capacity.maxGuests` | integer | ⬜ | Max 10000 |
+| `capacity.concurrentEvents` | integer | ⬜ | |
+| `pricing` | object | ⬜ | |
+| `pricing.currency` | string | ⬜ | |
+| `pricing.startingPricePerPlate` | decimal | ⬜ | Must be positive |
+| `pricing.averagePricePerPlate` | decimal | ⬜ | |
+| `documents` | array | ⬜ | |
+| `documents[].documentType` | string | ✅ (if doc given) | e.g. `FSSAI_LICENSE`, `GST_CERTIFICATE` |
+| `documents[].documentName` | string | ✅ (if doc given) | |
+| `documents[].documentUrl` | string | ✅ (if doc given) | Uploaded file URL |
+| `documents[].documentNumber` | string | ⬜ | |
+| `documents[].issueDate` | datetime | ⬜ | ISO-8601 |
+| `documents[].expiryDate` | datetime | ⬜ | |
+
+**Request:**
+```json
+{
+  "businessName": "Royal Catering Co.",
+  "businessEmail": "info@royalcatering.com",
+  "businessPhone": "+919876543211",
   "businessType": "CATERING",
-  "businessRegistrationNumber": "KA-REG-2015-12345",
-  "taxId": "29ABCDE1234F1Z5",
-  "description": "Authentic South Indian catering since 2010, serving weddings and corporate events.",
-  "establishedYear": 2010,
-  "cuisinesOffered": ["South Indian", "North Indian", "Continental"],
-  "specialties": ["Weddings", "Corporate Events", "Birthday Parties"],
+  "businessRegistrationNumber": "REG123456",
+  "taxId": "36AABCR1234F1ZV",
+  "description": "Premium catering for weddings, corporate events and parties",
+  "establishedYear": 2015,
+  "cuisinesOffered": ["North Indian", "Mughlai", "Chinese"],
+  "specialties": ["Biryani", "Dal Makhani", "Live Counters"],
+  "country": "INDIA",
   "businessAddress": {
-    "streetAddress": "25, 3rd Cross, Jayanagar 4th Block",
-    "city": "Bangalore",
-    "state": "Karnataka",
-    "postalCode": "560041",
-    "country": "India"
+    "streetAddress": "45, Road No 10, Banjara Hills",
+    "city": "Hyderabad",
+    "state": "Telangana",
+    "postalCode": "500034",
+    "latitude": 17.4234,
+    "longitude": 78.4481
   },
   "ownerInfo": {
-    "firstName": "Rajesh",
+    "firstName": "Ravi",
     "lastName": "Kumar",
-    "phone": "+917890123456",
-    "email": "owner@spicegarden.com",
-    "idProofType": "AADHAR",
+    "phone": "+919876543210",
+    "email": "ravi@royalcatering.com",
+    "idProofType": "AADHAAR",
     "idProofNumber": "1234-5678-9012"
   },
   "serviceAreas": [
-    { "city": "Bangalore", "state": "Karnataka", "radiusKm": 30 },
-    { "city": "Mysore", "state": "Karnataka", "radiusKm": 20 }
+    { "city": "Hyderabad", "state": "Telangana", "radiusKm": 50 },
+    { "city": "Secunderabad", "state": "Telangana", "radiusKm": 30 }
   ],
   "capacity": {
     "minGuests": 50,
-    "maxGuests": 3000,
-    "concurrentEvents": 4
+    "maxGuests": 2000,
+    "concurrentEvents": 3
   },
   "pricing": {
     "currency": "INR",
-    "startingPricePerPlate": 350.00,
-    "averagePricePerPlate": 500.00
+    "startingPricePerPlate": 250.00,
+    "averagePricePerPlate": 450.00
   },
-  "country": "INDIA"
-}
-```
-
-| Field | Required | Notes |
-|-------|----------|-------|
-| `businessName` | ✅ | Catering business name |
-| `businessEmail` | ✅ | Business contact email |
-| `businessPhone` | ✅ | Business contact phone |
-| `businessType` | ✅ | `CATERING`, `RESTAURANT`, `HOME_CHEF`, `CLOUD_KITCHEN` |
-| `businessAddress` | ✅ | Full business address object |
-| `ownerInfo` | ✅ | Owner details and ID proof |
-| `capacity.minGuests` | ✅ | Minimum guests you can serve |
-| `capacity.maxGuests` | ✅ | Maximum guests you can serve |
-| `pricing.currency` | ✅ | `INR` or `USD` |
-| `pricing.startingPricePerPlate` | ✅ | Starting price per head |
-| `country` | ✅ | `INDIA` or `USA` |
-| `businessRegistrationNumber` | ❌ | Company registration number |
-| `taxId` | ❌ | GST / Tax ID |
-| `description` | ❌ | Business description (max 2000 chars) |
-| `establishedYear` | ❌ | Year business started |
-| `cuisinesOffered` | ❌ | List of cuisine types |
-| `specialties` | ❌ | Event types specialised in |
-| `serviceAreas` | ❌ | List of cities/states you serve |
-| `capacity.concurrentEvents` | ❌ | Simultaneous events capacity |
-| `pricing.averagePricePerPlate` | ❌ | Average price per head |
-
-### Success Response `201 Created`
-```json
-{
-  "success": true,
-  "message": "Vendor registered successfully. Pending approval.",
-  "data": {
-    "vendorId": "vendor-12345-67890",
-    "userId": "vendor-user-550e8400",
-    "registeredEmail": "owner@spicegarden.com",
-    "registeredPhone": "+917890123456",
-    "registeredEmailVerified": false,
-    "registeredPhoneVerified": false,
-    "businessName": "Spice Garden Catering",
-    "businessEmail": "info@spicegarden.com",
-    "businessPhone": "+917890123456",
-    "businessEmailVerified": false,
-    "businessPhoneVerified": false,
-    "businessType": "CATERING",
-    "businessRegistrationNumber": "KA-REG-2015-12345",
-    "taxId": "29ABCDE1234F1Z5",
-    "logoUrl": null,
-    "bannerUrl": null,
-    "description": "Authentic South Indian catering since 2010...",
-    "establishedYear": 2010,
-    "cuisinesOffered": ["South Indian", "North Indian", "Continental"],
-    "specialties": ["Weddings", "Corporate Events", "Birthday Parties"],
-    "businessAddress": {
-      "streetAddress": "25, 3rd Cross, Jayanagar 4th Block",
-      "city": "Bangalore",
-      "state": "Karnataka",
-      "postalCode": "560041",
-      "country": "India"
-    },
-    "ownerInfo": {
-      "firstName": "Rajesh",
-      "lastName": "Kumar",
-      "phone": "+917890123456",
-      "email": "owner@spicegarden.com",
-      "idProofType": "AADHAR",
-      "idProofNumber": "1234-5678-9012"
-    },
-    "serviceAreas": [
-      { "city": "Bangalore", "state": "Karnataka", "radiusKm": 30 },
-      { "city": "Mysore", "state": "Karnataka", "radiusKm": 20 }
-    ],
-    "capacity": { "minGuests": 50, "maxGuests": 3000, "concurrentEvents": 4 },
-    "pricing": { "currency": "INR", "startingPricePerPlate": 350.00, "averagePricePerPlate": 500.00 },
-    "ratings": null,
-    "stats": null,
-    "status": "PENDING",
-    "approvalStatus": "PENDING",
-    "verified": false,
-    "featured": false,
-    "createdAt": "2026-02-24T10:30:45.123456Z",
-    "documents": null,
-    "country": "INDIA"
-  }
-}
-```
-
----
-
-# 2. GET MY VENDOR PROFILE
-
-```http
-GET /vendors/my-profile
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "data": {
-    "vendorId": "vendor-12345-67890",
-    "userId": "vendor-user-550e8400",
-    "registeredEmail": "owner@spicegarden.com",
-    "registeredPhone": "+917890123456",
-    "registeredEmailVerified": true,
-    "registeredPhoneVerified": true,
-    "businessName": "Spice Garden Catering",
-    "businessEmail": "info@spicegarden.com",
-    "businessPhone": "+917890123456",
-    "businessEmailVerified": true,
-    "businessPhoneVerified": true,
-    "businessType": "CATERING",
-    "businessRegistrationNumber": "KA-REG-2015-12345",
-    "taxId": "29ABCDE1234F1Z5",
-    "logoUrl": "http://localhost:8080/uploads/images/logo-spice.jpg",
-    "bannerUrl": "http://localhost:8080/uploads/images/banner-spice.jpg",
-    "description": "Authentic South Indian catering since 2010.",
-    "establishedYear": 2010,
-    "cuisinesOffered": ["South Indian", "North Indian", "Continental"],
-    "specialties": ["Weddings", "Corporate Events"],
-    "businessAddress": {
-      "streetAddress": "25, 3rd Cross, Jayanagar 4th Block",
-      "city": "Bangalore",
-      "state": "Karnataka",
-      "postalCode": "560041",
-      "country": "India"
-    },
-    "ownerInfo": {
-      "firstName": "Rajesh",
-      "lastName": "Kumar",
-      "phone": "+917890123456",
-      "email": "owner@spicegarden.com",
-      "idProofType": "AADHAR",
-      "idProofNumber": "XXXX-XXXX-9012"
-    },
-    "serviceAreas": [
-      { "city": "Bangalore", "state": "Karnataka", "radiusKm": 30 },
-      { "city": "Mysore", "state": "Karnataka", "radiusKm": 20 }
-    ],
-    "capacity": { "minGuests": 50, "maxGuests": 3000, "concurrentEvents": 4 },
-    "pricing": { "currency": "INR", "startingPricePerPlate": 350.00, "averagePricePerPlate": 500.00 },
-    "ratings": { "averageRating": 4.7, "totalReviews": 312 },
-    "stats": { "totalOrders": 600, "completedOrders": 596 },
-    "status": "ACTIVE",
-    "approvalStatus": "APPROVED",
-    "verified": true,
-    "featured": false,
-    "createdAt": "2026-01-15T08:00:00.000000Z",
-    "documents": [
-      {
-        "documentId": "doc-001-aabb",
-        "documentType": "BUSINESS_LICENSE",
-        "documentName": "FSSAI Food License",
-        "documentUrl": "http://localhost:8080/uploads/documents/fssai-license.pdf",
-        "documentNumber": "FSSAI-2024-123456",
-        "issueDate": "2024-01-15T00:00:00.000000Z",
-        "expiryDate": "2027-01-14T00:00:00.000000Z",
-        "verificationStatus": "VERIFIED",
-        "uploadedAt": "2026-01-15T08:00:00.000000Z"
-      },
-      {
-        "documentId": "doc-002-ccdd",
-        "documentType": "TAX_CERTIFICATE",
-        "documentName": "GST Certificate",
-        "documentUrl": "http://localhost:8080/uploads/documents/gst-cert.pdf",
-        "documentNumber": "29ABCDE1234F1Z5",
-        "issueDate": "2020-06-01T00:00:00.000000Z",
-        "expiryDate": null,
-        "verificationStatus": "VERIFIED",
-        "uploadedAt": "2026-01-15T08:00:00.000000Z"
-      }
-    ],
-    "country": "INDIA"
-  }
-}
-```
-
----
-
-# 3. UPDATE VENDOR PROFILE
-
-```http
-PUT /vendors/{vendorId}
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request — All Fields
-```json
-{
-  "businessName": "Spice Garden Premium Catering",
-  "businessEmail": "info@spicegarden.com",
-  "businessPhone": "+917890123456",
-  "description": "Updated description — Premium authentic South Indian catering since 2010.",
-  "cuisinesOffered": ["South Indian", "North Indian", "Continental", "Chinese"],
-  "specialties": ["Weddings", "Corporate Events", "Birthday Parties"],
-  "logoUrl": "http://localhost:8080/uploads/images/logo-spice-new.jpg",
-  "bannerUrl": "http://localhost:8080/uploads/images/banner-spice-new.jpg",
-  "serviceAreas": [
-    { "city": "Bangalore", "state": "Karnataka", "radiusKm": 40 },
-    { "city": "Mysore", "state": "Karnataka", "radiusKm": 25 }
-  ],
-  "capacity": { "minGuests": 50, "maxGuests": 5000, "concurrentEvents": 5 },
-  "pricing": { "currency": "INR", "startingPricePerPlate": 400.00, "averagePricePerPlate": 600.00 }
-}
-```
-
-### Success Response `200 OK`
-Same shape as `VendorResponse` DTO — full vendor object returned.
-
----
-
-# 4. UPLOAD VENDOR DOCUMENT
-
-```http
-POST /uploads/document
-Authorization: Bearer {accessToken}
-Content-Type: multipart/form-data
-```
-
-### Form Fields
-```
-file:        <binary file data — PDF, JPG, PNG>
-entityType:  VENDOR_DOCUMENT
-entityId:    vendor-12345-67890
-```
-
-### Success Response `201 Created`
-```json
-{
-  "success": true,
-  "data": {
-    "fileId": "file-doc-001-aabb",
-    "fileName": "fssai-license-1708773045123.pdf",
-    "originalName": "FSSAI_License.pdf",
-    "fileType": "DOCUMENT",
-    "contentType": "application/pdf",
-    "fileSize": 245678,
-    "fileUrl": "http://localhost:8080/uploads/documents/fssai-license-1708773045123.pdf",
-    "createdAt": "2026-02-24T10:30:45.123456Z"
-  }
-}
-```
-
-> Use the returned `fileUrl` when adding documents to vendor profile.
-
----
-
-# 5. ADD MENU ITEM (Vendor Menu)
-
-```http
-POST /menu/vendor-items
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request — All Fields
-```json
-{
-  "masterItemId": "item-001",
-  "customName": "Spice Garden Special Paneer Tikka",
-  "customDescription": "Our signature paneer tikka with secret spice blend",
-  "pricing": {
-    "currency": "INR",
-    "pricePerPlate": 200.00,
-    "minimumOrderQuantity": 10,
-    "discountPercentage": 10.00,
-    "discountedPrice": 180.00
-  },
-  "availability": {
-    "isAvailable": true,
-    "unavailableReason": null,
-    "unavailableUntil": null,
-    "advanceNoticeHours": 24,
-    "maxDailyCapacity": 500
-  },
-  "preparationTimeMinutes": 25,
-  "customizationOptions": [
+  "documents": [
     {
-      "optionName": "Spice Level",
-      "choices": ["Mild", "Medium", "Spicy", "Extra Spicy"],
-      "additionalCost": 0.00,
-      "isRequired": false
+      "documentType": "FSSAI_LICENSE",
+      "documentName": "FSSAI License 2026",
+      "documentUrl": "http://localhost:8080/uploads/documents/fssai.pdf",
+      "documentNumber": "FSSAI123456",
+      "issueDate": "2025-01-01T00:00:00Z",
+      "expiryDate": "2027-01-01T00:00:00Z"
     }
   ]
 }
 ```
 
-| Field | Required | Notes |
-|-------|----------|-------|
-| `masterItemId` | ✅ | Must exist in master menu catalog |
-| `pricing.pricePerPlate` | ✅ | Your price per plate |
-| `pricing.currency` | ✅ | `INR` or `USD` |
-| `availability.isAvailable` | ✅ | `true`/`false` |
-| `customName` | ❌ | Override item name |
-| `customDescription` | ❌ | Override item description |
-| `pricing.minimumOrderQuantity` | ❌ | Minimum plates to order |
-| `pricing.discountPercentage` | ❌ | Discount % (0–100) |
-| `pricing.discountedPrice` | ❌ | Calculated discounted price |
-| `availability.advanceNoticeHours` | ❌ | Booking notice required |
-| `availability.maxDailyCapacity` | ❌ | Max plates per day |
-| `preparationTimeMinutes` | ❌ | Prep time in minutes |
-| `customizationOptions` | ❌ | List of option sets |
-
-### Success Response `201 Created`
+**Response `201`:** Full `VendorResponse` object:
 ```json
 {
   "success": true,
   "data": {
-    "vendorItemId": "vitem-001",
-    "vendorId": "vendor-12345-67890",
-    "masterItemId": "item-001",
-    "customName": "Spice Garden Special Paneer Tikka",
-    "customDescription": "Our signature paneer tikka with secret spice blend",
-    "pricing": {
-      "currency": "INR",
-      "pricePerPlate": 200.00,
-      "minimumOrderQuantity": 10,
-      "discountPercentage": 10.00,
-      "discountedPrice": 180.00
+    "vendorId": "uuid",
+    "userId": "uuid",
+    "registeredEmail": "ravi@royalcatering.com",
+    "registeredPhone": "+919876543210",
+    "businessName": "Royal Catering Co.",
+    "businessEmail": "info@royalcatering.com",
+    "businessPhone": "+919876543211",
+    "businessEmailVerified": false,
+    "businessPhoneVerified": false,
+    "businessType": "CATERING",
+    "businessRegistrationNumber": "REG123456",
+    "taxId": "36AABCR1234F1ZV",
+    "logoUrl": null,
+    "bannerUrl": null,
+    "description": "Premium catering for weddings, corporate events and parties",
+    "establishedYear": 2015,
+    "cuisinesOffered": ["North Indian", "Mughlai", "Chinese"],
+    "specialties": ["Biryani", "Dal Makhani", "Live Counters"],
+    "businessAddress": {
+      "streetAddress": "45, Road No 10, Banjara Hills",
+      "city": "Hyderabad",
+      "state": "Telangana",
+      "postalCode": "500034",
+      "country": null
     },
-    "availability": {
-      "isAvailable": true,
-      "unavailableReason": null,
-      "unavailableUntil": null,
-      "advanceNoticeHours": 24,
-      "maxDailyCapacity": 500
+    "ownerInfo": {
+      "firstName": "Ravi",
+      "lastName": "Kumar",
+      "phone": "+919876543210",
+      "email": "ravi@royalcatering.com",
+      "idProofType": "AADHAAR",
+      "idProofNumber": "1234-5678-9012"
     },
-    "preparationTimeMinutes": 25,
-    "customizationOptions": [
+    "serviceAreas": [
+      { "city": "Hyderabad", "state": "Telangana", "radiusKm": 50 }
+    ],
+    "capacity": { "minGuests": 50, "maxGuests": 2000, "concurrentEvents": 3 },
+    "pricing": { "currency": "INR", "startingPricePerPlate": 250.00, "averagePricePerPlate": 450.00 },
+    "ratings": { "averageRating": 0.00, "totalReviews": 0 },
+    "stats": { "totalOrders": 0, "completedOrders": 0, "ordersCount": 0 },
+    "status": "PENDING_APPROVAL",
+    "approvalStatus": "PENDING",
+    "verified": false,
+    "featured": false,
+    "country": "INDIA",
+    "documents": [
       {
-        "optionName": "Spice Level",
-        "choices": ["Mild", "Medium", "Spicy", "Extra Spicy"],
-        "additionalCost": 0.00,
-        "isRequired": false
+        "documentId": "uuid",
+        "documentType": "FSSAI_LICENSE",
+        "documentName": "FSSAI License 2026",
+        "documentUrl": "http://localhost:8080/uploads/documents/fssai.pdf",
+        "documentNumber": "FSSAI123456",
+        "issueDate": "2025-01-01T00:00:00Z",
+        "expiryDate": "2027-01-01T00:00:00Z",
+        "verificationStatus": "PENDING",
+        "uploadedAt": "2026-03-06T10:00:00Z"
       }
     ],
-    "stats": { "totalOrders": 0, "averageRating": null, "totalReviews": 0 },
-    "status": "ACTIVE",
-    "createdAt": "2026-02-24T10:30:45.123456Z"
+    "createdAt": "2026-03-06T10:00:00Z"
   }
 }
 ```
 
 ---
 
-# 6. GET MY MENU ITEMS
+### Get My Vendor Profile
+`GET /vendors/me` 🔒
+**Response `200`:** Full `VendorResponse` object (same as above).
 
-```http
-GET /menu/vendor-items/my-items?page=0&size=20&status=ACTIVE
-Authorization: Bearer {accessToken}
-```
+---
 
-### Success Response `200 OK`
+### Update Vendor Profile
+`PUT /vendors/me` 🔒
+
+All fields same as create, all optional. Only sends fields you want to update.
+
+**Request (partial update example):**
 ```json
 {
-  "success": true,
+  "description": "Updated description – now serving pan-Asian cuisine too",
+  "cuisinesOffered": ["North Indian", "Mughlai", "Chinese", "Thai"],
+  "pricing": {
+    "currency": "INR",
+    "startingPricePerPlate": 300.00,
+    "averagePricePerPlate": 500.00
+  }
+}
+```
+**Response `200`:** Updated `VendorResponse` object.
+
+---
+
+### Update Logo
+`PUT /vendors/me/logo` 🔒
+
+**Request:** `{ "logoUrl": "http://localhost:8080/uploads/images/logo-new.jpg" }`
+**Response `200`:** Updated `VendorResponse` object.
+
+---
+
+### Update Banner
+`PUT /vendors/me/banner` 🔒
+
+**Request:** `{ "bannerUrl": "http://localhost:8080/uploads/images/banner-new.jpg" }`
+**Response `200`:** Updated `VendorResponse` object.
+
+---
+
+## 🍽️ Menu Management
+
+### Get My Menu Items
+`GET /menu/vendor/my?page=0&size=20` 🔒
+
+**Response `200`:** Paginated list of `VendorMenuItemResponse` objects:
+```json
+{
   "data": [
     {
-      "vendorItemId": "vitem-001",
-      "vendorId": "vendor-12345-67890",
-      "masterItemId": "item-001",
-      "customName": "Spice Garden Special Paneer Tikka",
-      "customDescription": "Our signature paneer tikka with secret spice blend",
+      "vendorItemId": "uuid",
+      "vendorId": "uuid",
+      "masterItemId": "uuid",
+      "customName": "Special Hyderabadi Dum Biryani",
+      "customDescription": "Slow-cooked aromatic rice with tender chicken",
       "pricing": {
         "currency": "INR",
-        "pricePerPlate": 200.00,
+        "pricePerPlate": 320.00,
         "minimumOrderQuantity": 10,
-        "discountPercentage": 10.00,
-        "discountedPrice": 180.00
+        "discountPercentage": 5.00,
+        "discountedPrice": 304.00
       },
       "availability": {
         "isAvailable": true,
@@ -449,833 +476,168 @@ Authorization: Bearer {accessToken}
         "advanceNoticeHours": 24,
         "maxDailyCapacity": 500
       },
-      "preparationTimeMinutes": 25,
+      "preparationTimeMinutes": 120,
       "customizationOptions": [
-        { "optionName": "Spice Level", "choices": ["Mild", "Medium", "Spicy"], "additionalCost": 0.00, "isRequired": false }
+        {
+          "optionName": "Spice Level",
+          "choices": ["Mild", "Medium", "Hot"],
+          "additionalCost": 0.00,
+          "isRequired": false
+        }
       ],
-      "stats": { "totalOrders": 1200, "averageRating": 4.80, "totalReviews": 85 },
-      "status": "ACTIVE",
-      "createdAt": "2026-01-20T10:00:00.000000Z"
-    },
-    {
-      "vendorItemId": "vitem-002",
-      "vendorId": "vendor-12345-67890",
-      "masterItemId": "item-002",
-      "customName": null,
-      "customDescription": null,
-      "pricing": {
-        "currency": "INR",
-        "pricePerPlate": 220.00,
-        "minimumOrderQuantity": 10,
-        "discountPercentage": null,
-        "discountedPrice": null
+      "stats": {
+        "totalOrders": 120,
+        "averageRating": 4.50,
+        "totalReviews": 45
       },
-      "availability": {
-        "isAvailable": false,
-        "unavailableReason": "Chicken supply issue",
-        "unavailableUntil": "2026-02-26T00:00:00.000000Z",
-        "advanceNoticeHours": 24,
-        "maxDailyCapacity": 300
-      },
-      "preparationTimeMinutes": 30,
-      "customizationOptions": null,
-      "stats": { "totalOrders": 890, "averageRating": 4.60, "totalReviews": 60 },
       "status": "ACTIVE",
-      "createdAt": "2026-01-20T10:00:00.000000Z"
+      "createdAt": "2026-01-10T10:00:00Z"
     }
   ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 20, "totalElements": 18, "totalPages": 1 }
+  "pageInfo": { "page": 0, "size": 20, "totalElements": 12 }
 }
 ```
 
 ---
 
-# 7. UPDATE MENU ITEM
+### Add Menu Item
+`POST /menu/vendor` 🔒
 
-```http
-PUT /menu/vendor-items/{vendorItemId}
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
+| Field | Type | Required | Validation |
+|-------|------|----------|------------|
+| `masterItemId` | string | ✅ | Must exist in platform master menu |
+| `customName` | string | ⬜ | Override item name |
+| `customDescription` | string | ⬜ | Override description |
+| `pricePerPlate` | decimal | ✅ | Must be > 0 |
+| `minimumOrderQuantity` | integer | ⬜ | Min 1 |
+| `discountPercentage` | decimal | ⬜ | 0–100 |
+| `isAvailable` | boolean | ⬜ | Default true |
+| `unavailableReason` | string | ⬜ | |
+| `advanceNoticeHours` | integer | ⬜ | Min 0 |
+| `maxDailyCapacity` | integer | ⬜ | Min 1 |
+| `preparationTimeMinutes` | integer | ⬜ | Min 1 |
+| `customizationOptions` | array | ⬜ | |
+| `customizationOptions[].optionName` | string | ✅ (if option given) | |
+| `customizationOptions[].choices` | array | ✅ (if option given) | Non-empty list |
+| `customizationOptions[].additionalCost` | decimal | ⬜ | Min 0 |
+| `customizationOptions[].isRequired` | boolean | ⬜ | |
 
-### Request — All Fields (same as Add Menu Item)
+**Request:**
 ```json
 {
-  "customName": "Spice Garden Signature Paneer Tikka",
-  "pricing": {
-    "currency": "INR",
-    "pricePerPlate": 210.00,
-    "minimumOrderQuantity": 10,
-    "discountPercentage": 5.00,
-    "discountedPrice": 199.50
-  },
-  "availability": {
-    "isAvailable": true,
-    "advanceNoticeHours": 24,
-    "maxDailyCapacity": 600
-  },
-  "preparationTimeMinutes": 20
+  "masterItemId": "uuid",
+  "customName": "Special Hyderabadi Dum Biryani",
+  "customDescription": "Slow-cooked aromatic rice with tender chicken",
+  "pricePerPlate": 320.00,
+  "minimumOrderQuantity": 10,
+  "discountPercentage": 5.00,
+  "isAvailable": true,
+  "advanceNoticeHours": 24,
+  "maxDailyCapacity": 500,
+  "preparationTimeMinutes": 120,
+  "customizationOptions": [
+    {
+      "optionName": "Spice Level",
+      "choices": ["Mild", "Medium", "Hot"],
+      "additionalCost": 0.00,
+      "isRequired": false
+    },
+    {
+      "optionName": "Meat Type",
+      "choices": ["Chicken", "Mutton"],
+      "additionalCost": 50.00,
+      "isRequired": true
+    }
+  ]
 }
 ```
 
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "data": {
-    "vendorItemId": "vitem-001",
-    "vendorId": "vendor-12345-67890",
-    "masterItemId": "item-001",
-    "customName": "Spice Garden Signature Paneer Tikka",
-    "customDescription": "Our signature paneer tikka with secret spice blend",
-    "pricing": {
-      "currency": "INR",
-      "pricePerPlate": 210.00,
-      "minimumOrderQuantity": 10,
-      "discountPercentage": 5.00,
-      "discountedPrice": 199.50
-    },
-    "availability": {
-      "isAvailable": true,
-      "unavailableReason": null,
-      "unavailableUntil": null,
-      "advanceNoticeHours": 24,
-      "maxDailyCapacity": 600
-    },
-    "preparationTimeMinutes": 20,
-    "customizationOptions": [
-      { "optionName": "Spice Level", "choices": ["Mild", "Medium", "Spicy", "Extra Spicy"], "additionalCost": 0.00, "isRequired": false }
-    ],
-    "stats": { "totalOrders": 1200, "averageRating": 4.80, "totalReviews": 85 },
-    "status": "ACTIVE",
-    "createdAt": "2026-01-20T10:00:00.000000Z"
-  }
-}
-```
+**Response `201`:** Full `VendorMenuItemResponse` object.
 
 ---
 
-# 8. TOGGLE ITEM AVAILABILITY
-
-```http
-PATCH /menu/vendor-items/{vendorItemId}/availability
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request
-```json
-{
-  "isAvailable": false,
-  "reason": "Ingredient shortage — back in stock Feb 26"
-}
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "message": "Item availability updated",
-  "data": {
-    "vendorItemId": "vitem-002",
-    "vendorId": "vendor-12345-67890",
-    "masterItemId": "item-002",
-    "customName": null,
-    "customDescription": null,
-    "pricing": { "currency": "INR", "pricePerPlate": 220.00, "minimumOrderQuantity": 10, "discountPercentage": null, "discountedPrice": null },
-    "availability": {
-      "isAvailable": false,
-      "unavailableReason": "Ingredient shortage — back in stock Feb 26",
-      "unavailableUntil": null,
-      "advanceNoticeHours": 24,
-      "maxDailyCapacity": 300
-    },
-    "preparationTimeMinutes": 30,
-    "customizationOptions": null,
-    "stats": { "totalOrders": 890, "averageRating": 4.60, "totalReviews": 60 },
-    "status": "ACTIVE",
-    "createdAt": "2026-01-20T10:00:00.000000Z"
-  }
-}
-```
+### Update Menu Item
+`PUT /menu/vendor/{vendorItemId}` 🔒
+Same body as Add Menu Item, all fields optional.
+**Response `200`:** Updated `VendorMenuItemResponse` object.
 
 ---
 
-# 9. GET AVAILABLE BID LEADS (Bid Requests for Vendor)
+### Toggle Item Availability
+`PUT /menu/vendor/{vendorItemId}/availability` 🔒
 
-```http
-GET /bids/available-leads?page=0&size=20
-Authorization: Bearer {accessToken}
-```
+| Field | Type | Required |
+|-------|------|----------|
+| `isAvailable` | boolean | ✅ |
+| `unavailableReason` | string | ⬜ |
 
-> Returns open BidRequests in vendor's service area where competitive period is still ACTIVE.
+**Request:** `{ "isAvailable": false, "unavailableReason": "Out of stock until next week" }`
+**Response `200`:** Updated `VendorMenuItemResponse` object.
 
-### Success Response `200 OK`
+---
+
+### Delete Menu Item
+`DELETE /menu/vendor/{vendorItemId}` 🔒
+**Response `200`:** `{ "success": true, "message": "Menu item removed" }`
+
+---
+
+## 📋 Bid Marketplace
+
+### Get Available Bid Requests
+`GET /bids/requests/available?page=0&size=20` 🔒
+
+> Returns bid requests in vendor's service area that haven't reached bid limit.
+
+**Response `200`:** Paginated list of `BidRequestResponse`:
 ```json
 {
-  "success": true,
   "data": [
     {
-      "bidRequestId": "breq-88990-77665-aabb",
-      "userId": "550e8400-e29b-41d4-a716-446655440000",
+      "bidRequestId": "uuid",
+      "userId": "uuid",
       "eventDetails": {
         "eventType": "WEDDING",
-        "eventName": "Priya & Rahul Wedding",
-        "eventDate": "2026-05-20T18:00:00",
+        "eventName": "Sharma Wedding Reception",
+        "eventDate": "2026-04-15T00:00:00",
         "eventStartTime": "18:00",
-        "eventEndTime": "23:30",
-        "numberOfGuests": 500,
+        "eventEndTime": "23:00",
+        "numberOfGuests": 300,
         "venueAddress": {
-          "streetAddress": "Palace Grounds, Jayamahal Road",
-          "city": "Bangalore",
-          "state": "Karnataka",
-          "postalCode": "560080",
+          "streetAddress": "Taj Banjara Hotel",
+          "city": "Hyderabad",
+          "state": "Telangana",
+          "postalCode": "500034",
           "country": "India"
         }
       },
       "menuItems": [
-        { "vendorItemId": null, "masterItemId": "item-001", "itemName": "Paneer Tikka", "quantity": 500 },
-        { "vendorItemId": null, "masterItemId": "item-002", "itemName": "Butter Chicken", "quantity": 400 },
-        { "vendorItemId": null, "masterItemId": "item-010", "itemName": "Gulab Jamun", "quantity": 500 }
+        { "vendorItemId": "uuid", "masterItemId": "uuid", "itemName": "Chicken Biryani", "quantity": 300 }
       ],
       "additionalRequirements": {
         "serviceStaffNeeded": true,
-        "numberOfStaff": 25,
+        "numberOfStaff": 10,
         "decorationNeeded": false,
-        "liveCounters": ["Dosa Counter", "Chaat Counter"],
-        "specialInstructions": "Separate veg and non-veg sections. Food ready by 6:30 PM."
+        "liveCounters": ["Biryani Station"],
+        "specialInstructions": "Halal food preferred"
       },
-      "budget": { "currency": "INR", "estimatedBudget": 200000, "budgetRange": "200000-250000" },
+      "budget": {
+        "currency": "INR",
+        "estimatedBudget": 150000.00,
+        "budgetRange": "100000-200000"
+      },
       "targetedVendors": [],
       "competitivePeriod": {
-        "startTime": "2026-02-24T10:30:45.123456Z",
-        "endTime": "2026-02-27T10:30:45.123456Z",
+        "startTime": "2026-03-06T10:00:00Z",
+        "endTime": "2026-03-09T10:00:00Z",
         "status": "ACTIVE"
       },
       "acceptedBid": null,
       "status": "ACTIVE",
       "totalBidsReceived": 2,
-      "lowestBidAmount": 195000.00,
-      "createdAt": "2026-02-24T10:30:45.123456Z",
-      "expiresAt": "2026-03-03T10:30:45.123456Z"
-    }
-  ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 20, "totalElements": 12, "totalPages": 1 }
-}
-```
-
----
-
-# 10. SUBMIT A BID
-
-```http
-POST /bids/submit
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request — All Fields
-```json
-{
-  "bidRequestId": "breq-88990-77665-aabb",
-  "quotedPrice": {
-    "currency": "INR",
-    "subtotal": 175000.00,
-    "serviceCharge": 17500.00,
-    "taxPercentage": 5.00,
-    "taxAmount": 8750.00,
-    "totalAmount": 201250.00
-  },
-  "itemizedPricing": [
-    { "vendorItemId": "vitem-001", "itemName": "Paneer Tikka", "quantity": 500, "pricePerPlate": 175.00, "totalPrice": 87500.00 },
-    { "vendorItemId": "vitem-002", "itemName": "Butter Chicken", "quantity": 400, "pricePerPlate": 218.75, "totalPrice": 87500.00 },
-    { "vendorItemId": "vitem-010", "itemName": "Gulab Jamun", "quantity": 500, "pricePerPlate": 0.00, "totalPrice": 0.00 }
-  ],
-  "deliveryDetails": {
-    "estimatedSetupTime": "2026-05-20T16:00:00",
-    "foodReadyTime": "2026-05-20T18:00:00",
-    "cleanupTime": "2026-05-21T00:30:00"
-  },
-  "staffProvided": {
-    "chefs": 8,
-    "servers": 15,
-    "cleaners": 5
-  },
-  "termsAndConditions": "50% balance due on event day. No cancellation within 3 days of event.",
-  "validityPeriodHours": 48,
-  "advancePercentage": 25.00,
-  "requiredAdvanceAmount": 50312.50
-}
-```
-
-| Field | Required | Notes |
-|-------|----------|-------|
-| `bidRequestId` | ✅ | The bid request you are quoting for |
-| `quotedPrice.currency` | ✅ | `INR` or `USD` |
-| `quotedPrice.totalAmount` | ✅ | Final quoted total |
-| `advancePercentage` | ✅ | Token/advance % (typically 25%) |
-| `requiredAdvanceAmount` | ✅ | Calculated advance amount |
-| `validityPeriodHours` | ✅ | Hours bid is valid (24–168) |
-| `itemizedPricing` | ❌ | Per-item breakdown |
-| `deliveryDetails` | ❌ | Setup/ready/cleanup times |
-| `staffProvided` | ❌ | Chefs/servers/cleaners count |
-| `termsAndConditions` | ❌ | Your T&C text |
-| `quotedPrice.serviceCharge` | ❌ | Service charge amount |
-| `quotedPrice.taxPercentage` | ❌ | Tax % applied |
-
-### Success Response `201 Created`
-```json
-{
-  "success": true,
-  "message": "Bid submitted successfully",
-  "data": {
-    "bidId": "bid-spice-001-aa11",
-    "bidRequestId": "breq-88990-77665-aabb",
-    "vendorId": "vendor-12345-67890",
-    "vendorName": "Spice Garden Catering",
-    "eventDetails": null,
-    "quotedPrice": {
-      "currency": "INR",
-      "subtotal": 175000.00,
-      "serviceCharge": 17500.00,
-      "taxPercentage": 5.00,
-      "taxAmount": 8750.00,
-      "totalAmount": 201250.00
-    },
-    "itemizedPricing": [
-      { "vendorItemId": "vitem-001", "itemName": "Paneer Tikka", "quantity": 500, "pricePerPlate": 175.00, "totalPrice": 87500.00 },
-      { "vendorItemId": "vitem-002", "itemName": "Butter Chicken", "quantity": 400, "pricePerPlate": 218.75, "totalPrice": 87500.00 },
-      { "vendorItemId": "vitem-010", "itemName": "Gulab Jamun", "quantity": 500, "pricePerPlate": 0.00, "totalPrice": 0.00 }
-    ],
-    "deliveryDetails": {
-      "estimatedSetupTime": "2026-05-20T16:00:00",
-      "foodReadyTime": "2026-05-20T18:00:00",
-      "cleanupTime": "2026-05-21T00:30:00"
-    },
-    "staffProvided": { "chefs": 8, "servers": 15, "cleaners": 5 },
-    "termsAndConditions": "50% balance due on event day. No cancellation within 3 days of event.",
-    "validityPeriodHours": 48,
-    "advancePercentage": 25.00,
-    "requiredAdvanceAmount": 50312.50,
-    "revisionCount": 0,
-    "status": "PENDING",
-    "isLowest": true,
-    "rank": 1,
-    "submittedAt": "2026-02-24T12:00:00.000000Z",
-    "expiresAt": "2026-02-26T12:00:00.000000Z"
-  }
-}
-```
-
----
-
-# 11. GET MY SUBMITTED BIDS
-
-```http
-GET /bids/my-bids?page=0&size=20&status=PENDING
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "bidId": "bid-spice-001-aa11",
-      "bidRequestId": "breq-88990-77665-aabb",
-      "vendorId": "vendor-12345-67890",
-      "vendorName": "Spice Garden Catering",
-      "eventDetails": {
-        "eventType": "WEDDING",
-        "eventName": "Priya & Rahul Wedding",
-        "eventDate": "2026-05-20T18:00:00",
-        "eventStartTime": "18:00",
-        "eventEndTime": "23:30",
-        "numberOfGuests": 500,
-        "venueAddress": { "streetAddress": "Palace Grounds", "city": "Bangalore", "state": "Karnataka", "postalCode": "560080", "country": "India" }
-      },
-      "quotedPrice": {
-        "currency": "INR",
-        "subtotal": 175000.00,
-        "serviceCharge": 17500.00,
-        "taxPercentage": 5.00,
-        "taxAmount": 8750.00,
-        "totalAmount": 201250.00
-      },
-      "itemizedPricing": [
-        { "vendorItemId": "vitem-001", "itemName": "Paneer Tikka", "quantity": 500, "pricePerPlate": 175.00, "totalPrice": 87500.00 }
-      ],
-      "deliveryDetails": { "estimatedSetupTime": "2026-05-20T16:00:00", "foodReadyTime": "2026-05-20T18:00:00", "cleanupTime": "2026-05-21T00:30:00" },
-      "staffProvided": { "chefs": 8, "servers": 15, "cleaners": 5 },
-      "termsAndConditions": "50% balance due on event day.",
-      "validityPeriodHours": 48,
-      "advancePercentage": 25.00,
-      "requiredAdvanceAmount": 50312.50,
-      "revisionCount": 0,
-      "status": "PENDING",
-      "isLowest": true,
-      "rank": 1,
-      "submittedAt": "2026-02-24T12:00:00.000000Z",
-      "expiresAt": "2026-02-26T12:00:00.000000Z"
-    }
-  ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 20, "totalElements": 8, "totalPages": 1 }
-}
-```
-
----
-
-# 12. REVISE A BID
-
-```http
-PUT /bids/{bidId}
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request (only send fields you want to update)
-```json
-{
-  "quotedPrice": {
-    "currency": "INR",
-    "subtotal": 168000.00,
-    "serviceCharge": 16800.00,
-    "taxPercentage": 5.00,
-    "taxAmount": 8400.00,
-    "totalAmount": 193200.00
-  },
-  "advancePercentage": 25.00,
-  "requiredAdvanceAmount": 48300.00,
-  "validityPeriodHours": 48
-}
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "message": "Bid revised successfully",
-  "data": {
-    "bidId": "bid-spice-001-aa11",
-    "bidRequestId": "breq-88990-77665-aabb",
-    "vendorId": "vendor-12345-67890",
-    "vendorName": "Spice Garden Catering",
-    "eventDetails": null,
-    "quotedPrice": {
-      "currency": "INR",
-      "subtotal": 168000.00,
-      "serviceCharge": 16800.00,
-      "taxPercentage": 5.00,
-      "taxAmount": 8400.00,
-      "totalAmount": 193200.00
-    },
-    "itemizedPricing": null,
-    "deliveryDetails": { "estimatedSetupTime": "2026-05-20T16:00:00", "foodReadyTime": "2026-05-20T18:00:00", "cleanupTime": "2026-05-21T00:30:00" },
-    "staffProvided": { "chefs": 8, "servers": 15, "cleaners": 5 },
-    "termsAndConditions": "50% balance due on event day.",
-    "validityPeriodHours": 48,
-    "advancePercentage": 25.00,
-    "requiredAdvanceAmount": 48300.00,
-    "revisionCount": 1,
-    "status": "PENDING",
-    "isLowest": true,
-    "rank": 1,
-    "submittedAt": "2026-02-24T12:00:00.000000Z",
-    "expiresAt": "2026-02-26T12:00:00.000000Z"
-  }
-}
-```
-
-> **Max revisions:** 5 per bid (configured in platform settings). `revisionCount` increments each time.
-
----
-
-# 13. WITHDRAW A BID
-
-```http
-DELETE /bids/{bidId}
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK`
-```json
-{ "success": true, "message": "Bid withdrawn successfully" }
-```
-
----
-
-# 14. GET MY ORDERS (As Vendor)
-
-```http
-GET /orders/vendor-orders?page=0&size=20&status=CONFIRMED
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "orderId": "order-54321-12345-ccdd",
-      "userId": "550e8400-e29b-41d4-a716-446655440000",
-      "bidRequestId": "breq-88990-77665-aabb",
-      "eventDetails": {
-        "eventType": "WEDDING",
-        "eventName": "Priya & Rahul Wedding",
-        "eventDate": "2026-05-20",
-        "eventTime": "18:00",
-        "numberOfGuests": 500,
-        "venueAddress": {
-          "streetAddress": "Palace Grounds, Jayamahal Road",
-          "city": "Bangalore",
-          "state": "Karnataka",
-          "postalCode": "560080",
-          "country": "India"
-        }
-      },
-      "vendorOrders": [
-        {
-          "vendorOrderId": "vorder-001-aabb",
-          "vendorId": "vendor-12345-67890",
-          "vendorUserId": null,
-          "vendorName": "Spice Garden Catering",
-          "items": [
-            { "vendorItemId": "vitem-001", "itemName": "Paneer Tikka", "quantity": 500, "pricePerPlate": 175.00, "totalPrice": 87500.00 },
-            { "vendorItemId": "vitem-002", "itemName": "Butter Chicken", "quantity": 400, "pricePerPlate": 218.75, "totalPrice": 87500.00 }
-          ],
-          "subtotal": 175000.00,
-          "serviceCharge": 17500.00,
-          "taxAmount": 8750.00,
-          "totalAmount": 201250.00,
-          "vendorStatus": "ACCEPTED",
-          "deliveryStatus": "PENDING"
-        }
-      ],
-      "pricing": {
-        "currency": "INR",
-        "subtotal": 175000.00,
-        "serviceCharges": 17500.00,
-        "taxAmount": 8750.00,
-        "platformFee": 4025.00,
-        "discountAmount": 0.00,
-        "totalAmount": 205275.00
-      },
-      "paymentDetails": {
-        "tokenAmount": 51318.75,
-        "tokenPaid": true,
-        "tokenPaidAt": "2026-02-25T11:05:00.000000Z",
-        "totalPaid": 51318.75,
-        "balanceDue": 153956.25,
-        "paymentStatus": "TOKEN_PAID"
-      },
-      "contactInfo": {
-        "primaryContactName": "John Doe",
-        "primaryContactPhone": "+917890123456",
-        "primaryContactEmail": "john.doe@gmail.com"
-      },
-      "specialInstructions": "Separate veg and non-veg sections. Food ready by 6:30 PM sharp.",
-      "status": "CONFIRMED",
-      "cancellation": null,
-      "createdAt": "2026-02-25T11:00:00.000000Z",
-      "confirmedAt": "2026-02-25T11:00:00.000000Z",
-      "deliveredAt": null,
-      "completedAt": null
-    }
-  ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 20, "totalElements": 12, "totalPages": 1 }
-}
-```
-
----
-
-# 15. UPDATE ORDER STATUS
-
-```http
-PATCH /orders/{orderId}/vendor-status
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request
-```json
-{
-  "vendorStatus": "IN_PREPARATION",
-  "deliveryStatus": "PENDING",
-  "notes": "Started food preparation"
-}
-```
-
-| Status Flow | vendorStatus values |
-|-------------|-------------------|
-| Initial | `ACCEPTED` |
-| Cooking | `IN_PREPARATION` |
-| Dispatched | `DISPATCHED` |
-| On-site | `SETUP_IN_PROGRESS` |
-| Food Ready | `DELIVERED` |
-| Done | `COMPLETED` |
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "message": "Order status updated",
-  "data": {
-    "orderId": "order-54321-12345-ccdd",
-    "userId": "550e8400-e29b-41d4-a716-446655440000",
-    "bidRequestId": "breq-88990-77665-aabb",
-    "eventDetails": { "eventType": "WEDDING", "eventName": "Priya & Rahul Wedding", "eventDate": "2026-05-20", "eventTime": "18:00", "numberOfGuests": 500, "venueAddress": { "city": "Bangalore", "state": "Karnataka" } },
-    "vendorOrders": [
-      {
-        "vendorOrderId": "vorder-001-aabb",
-        "vendorId": "vendor-12345-67890",
-        "vendorUserId": null,
-        "vendorName": "Spice Garden Catering",
-        "items": null,
-        "subtotal": 175000.00,
-        "serviceCharge": 17500.00,
-        "taxAmount": 8750.00,
-        "totalAmount": 201250.00,
-        "vendorStatus": "IN_PREPARATION",
-        "deliveryStatus": "PENDING"
-      }
-    ],
-    "pricing": { "currency": "INR", "subtotal": 175000.00, "serviceCharges": 17500.00, "taxAmount": 8750.00, "platformFee": 4025.00, "discountAmount": 0.00, "totalAmount": 205275.00 },
-    "paymentDetails": { "tokenAmount": 51318.75, "tokenPaid": true, "tokenPaidAt": "2026-02-25T11:05:00.000000Z", "totalPaid": 51318.75, "balanceDue": 153956.25, "paymentStatus": "TOKEN_PAID" },
-    "contactInfo": { "primaryContactName": "John Doe", "primaryContactPhone": "+917890123456", "primaryContactEmail": "john.doe@gmail.com" },
-    "specialInstructions": "Separate veg and non-veg sections.",
-    "status": "CONFIRMED",
-    "cancellation": null,
-    "createdAt": "2026-02-25T11:00:00.000000Z",
-    "confirmedAt": "2026-02-25T11:00:00.000000Z",
-    "deliveredAt": null,
-    "completedAt": null
-  }
-}
-```
-
----
-
-# 16. GET MY REVIEWS
-
-```http
-GET /reviews/vendor/{vendorId}?page=0&size=20
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "reviewId": "rev-11223-44556-ccdd",
-      "orderId": "order-54321-12345-ccdd",
-      "vendorId": "vendor-12345-67890",
-      "userId": "550e8400-e29b-41d4-a716-446655440000",
-      "userName": "John Doe",
-      "rating": 5,
-      "foodQualityRating": 5,
-      "serviceQualityRating": 4,
-      "hygieneRating": 5,
-      "valueForMoneyRating": 4,
-      "punctualityRating": 4,
-      "reviewText": "Outstanding food quality! Paneer Tikka was excellent.",
-      "images": ["http://localhost:8080/uploads/images/wedding-food-1.jpg"],
-      "vendorResponse": null,
-      "helpfulCount": 8,
-      "status": "APPROVED",
-      "createdAt": "2026-05-21T10:00:00.000000Z"
-    }
-  ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 20, "totalElements": 312, "totalPages": 16 }
-}
-```
-
----
-
-# 17. RESPOND TO A REVIEW
-
-```http
-POST /reviews/{reviewId}/vendor-response
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request
-```json
-{ "responseText": "Thank you so much John! We are thrilled you enjoyed the food. Looking forward to serving you again!" }
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "data": {
-    "reviewId": "rev-11223-44556-ccdd",
-    "orderId": "order-54321-12345-ccdd",
-    "vendorId": "vendor-12345-67890",
-    "userId": "550e8400-e29b-41d4-a716-446655440000",
-    "userName": "John Doe",
-    "rating": 5,
-    "foodQualityRating": 5,
-    "serviceQualityRating": 4,
-    "hygieneRating": 5,
-    "valueForMoneyRating": 4,
-    "punctualityRating": 4,
-    "reviewText": "Outstanding food quality! Paneer Tikka was excellent.",
-    "images": ["http://localhost:8080/uploads/images/wedding-food-1.jpg"],
-    "vendorResponse": {
-      "responseText": "Thank you so much John! We are thrilled you enjoyed the food. Looking forward to serving you again!",
-      "respondedAt": "2026-05-22T09:00:00.000000Z"
-    },
-    "helpfulCount": 8,
-    "status": "APPROVED",
-    "createdAt": "2026-05-21T10:00:00.000000Z"
-  }
-}
-```
-
----
-
-# 18. VENDOR ANALYTICS DASHBOARD
-
-```http
-GET /analytics/vendor/dashboard
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "data": {
-    "vendorId": "vendor-12345-67890",
-    "vendorName": "Spice Garden Catering",
-    "metrics": {
-      "totalOrders": 600,
-      "completedOrders": 596,
-      "pendingOrders": 2,
-      "cancelledOrders": 2,
-      "totalRevenue": 12500000.00,
-      "pendingPayouts": 350000.00,
-      "thisMonthRevenue": 450000.00,
-      "currency": "INR"
-    },
-    "bidMetrics": {
-      "totalBidsSubmitted": 850,
-      "acceptedBids": 600,
-      "pendingBids": 12,
-      "acceptanceRate": 70.59,
-      "averageBidAmount": 180000.00
-    },
-    "recentOrders": [
-      {
-        "orderId": "order-54321-12345-ccdd",
-        "eventName": "Priya & Rahul Wedding",
-        "eventDate": "2026-05-20",
-        "guestCount": 500,
-        "amount": 201250.00,
-        "status": "CONFIRMED"
-      },
-      {
-        "orderId": "order-11111-22222-eeff",
-        "eventName": "TCS Annual Day",
-        "eventDate": "2026-03-15",
-        "guestCount": 1200,
-        "amount": 480000.00,
-        "status": "CONFIRMED"
-      }
-    ],
-    "upcomingEvents": [
-      {
-        "orderId": "order-54321-12345-ccdd",
-        "eventName": "Priya & Rahul Wedding",
-        "eventDate": "2026-05-20",
-        "eventTime": "18:00",
-        "venue": "Palace Grounds, Bangalore",
-        "guestCount": 500,
-        "daysUntil": 85
-      }
-    ],
-    "performance": {
-      "averageRating": 4.7,
-      "totalReviews": 312,
-      "responseRate": 95.5,
-      "onTimeDeliveryRate": 98.2,
-      "repeatCustomers": 120
-    }
-  }
-}
-```
-
----
-
-# 19. CHAT WITH CUSTOMER
-
-```http
-POST /chat/conversations
-Authorization: Bearer {accessToken}
-Content-Type: application/json
-```
-
-### Request
-```json
-{ "otherUserId": "550e8400-e29b-41d4-a716-446655440000", "type": "USER_VENDOR" }
-```
-
-### Success Response `201 Created`
-```json
-{
-  "success": true,
-  "data": {
-    "conversationId": "conv-77665-88990-aabb",
-    "participants": [
-      { "userId": "vendor-user-550e8400", "userType": "VENDOR", "name": "Spice Garden Catering" },
-      { "userId": "550e8400-e29b-41d4-a716-446655440000", "userType": "USER", "name": "John Doe" }
-    ],
-    "otherParticipant": { "userId": "550e8400-e29b-41d4-a716-446655440000", "userType": "USER", "name": "John Doe" },
-    "lastMessage": null,
-    "unreadCount": 0,
-    "status": "ACTIVE",
-    "createdAt": "2026-02-24T10:30:45.123456Z",
-    "updatedAt": "2026-02-24T10:30:45.123456Z"
-  }
-}
-```
-
----
-
-# 20. GET CONVERSATIONS
-
-```http
-GET /chat/conversations?page=0&size=20
-Authorization: Bearer {accessToken}
-```
-
-### Success Response `200 OK`
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "conversationId": "conv-77665-88990-aabb",
-      "participants": [
-        { "userId": "vendor-user-550e8400", "userType": "VENDOR", "name": "Spice Garden Catering" },
-        { "userId": "550e8400-e29b-41d4-a716-446655440000", "userType": "USER", "name": "John Doe" }
-      ],
-      "otherParticipant": { "userId": "550e8400-e29b-41d4-a716-446655440000", "userType": "USER", "name": "John Doe" },
-      "lastMessage": {
-        "message": "Hi, can you cater for 500 guests on May 20?",
-        "senderId": "550e8400-e29b-41d4-a716-446655440000",
-        "senderType": "USER",
-        "timestamp": "2026-02-24T10:31:00.000000Z"
-      },
-      "unreadCount": 1,
-      "status": "ACTIVE",
-      "createdAt": "2026-02-24T10:30:45.123456Z",
-      "updatedAt": "2026-02-24T10:31:00.000000Z"
+      "lowestBidAmount": 145000.00,
+      "createdAt": "2026-03-06T10:00:00Z",
+      "expiresAt": "2026-03-09T10:00:00Z"
     }
   ]
 }
@@ -1283,100 +645,565 @@ Authorization: Bearer {accessToken}
 
 ---
 
-# 21. GET CHAT MESSAGES
+### Submit a Bid
+`POST /bids/{bidRequestId}/submit` 🔒
 
-```http
-GET /chat/conversations/{conversationId}/messages?page=0&size=50
-Authorization: Bearer {accessToken}
-```
+| Field | Type | Required | Validation |
+|-------|------|----------|------------|
+| `quotedPrice` | object | ✅ | |
+| `quotedPrice.currency` | string | ⬜ | Default from vendor |
+| `quotedPrice.subtotal` | decimal | ✅ | Must be positive |
+| `quotedPrice.serviceCharge` | decimal | ⬜ | |
+| `quotedPrice.taxPercentage` | decimal | ⬜ | |
+| `quotedPrice.taxAmount` | decimal | ⬜ | |
+| `quotedPrice.totalAmount` | decimal | ✅ | Must be positive |
+| `itemizedPricing` | array | ⬜ | Per-item breakdown |
+| `itemizedPricing[].vendorItemId` | string | ⬜ | |
+| `itemizedPricing[].itemName` | string | ⬜ | |
+| `itemizedPricing[].quantity` | integer | ⬜ | Min 1 |
+| `itemizedPricing[].pricePerPlate` | decimal | ⬜ | Min 0 |
+| `itemizedPricing[].totalPrice` | decimal | ⬜ | |
+| `deliveryDetails` | object | ⬜ | |
+| `deliveryDetails.estimatedSetupTime` | string | ⬜ | e.g. `16:00` |
+| `deliveryDetails.foodReadyTime` | string | ⬜ | |
+| `deliveryDetails.cleanupTime` | string | ⬜ | |
+| `staffProvided` | object | ⬜ | |
+| `staffProvided.chefs` | integer | ⬜ | |
+| `staffProvided.servers` | integer | ⬜ | |
+| `staffProvided.cleaners` | integer | ⬜ | |
+| `termsAndConditions` | string | ⬜ | |
+| `validityPeriodHours` | integer | ⬜ | Default 168 (7 days) |
+| `advancePercentage` | decimal | ⬜ | 0–100 |
 
-### Success Response `200 OK`
+**Request:**
 ```json
 {
-  "success": true,
-  "data": [
+  "quotedPrice": {
+    "currency": "INR",
+    "subtotal": 120000.00,
+    "serviceCharge": 6000.00,
+    "taxPercentage": 18.00,
+    "taxAmount": 22680.00,
+    "totalAmount": 148680.00
+  },
+  "itemizedPricing": [
     {
-      "messageId": "msg-001-aaaa",
-      "conversationId": "conv-77665-88990-aabb",
-      "senderId": "550e8400-e29b-41d4-a716-446655440000",
-      "senderType": "USER",
-      "senderName": null,
-      "message": "Hi, can you cater for 500 guests on May 20, 2026?",
-      "messageType": "TEXT",
-      "attachments": null,
-      "timestamp": "2026-02-24T10:31:00.000000Z"
-    },
-    {
-      "messageId": "msg-002-bbbb",
-      "conversationId": "conv-77665-88990-aabb",
-      "senderId": "vendor-user-550e8400",
-      "senderType": "VENDOR",
-      "senderName": null,
-      "message": "Yes! We can handle 500 guests. Starting ₹500/plate. Here is our menu brochure.",
-      "messageType": "TEXT",
-      "attachments": [
-        {
-          "fileName": "spice-garden-menu-2026.pdf",
-          "fileUrl": "http://localhost:8080/uploads/documents/spice-garden-menu-2026.pdf",
-          "fileType": "DOCUMENT",
-          "fileSize": 512000
-        }
-      ],
-      "timestamp": "2026-02-24T11:00:00.000000Z"
+      "vendorItemId": "uuid",
+      "itemName": "Chicken Biryani",
+      "quantity": 300,
+      "pricePerPlate": 400.00,
+      "totalPrice": 120000.00
     }
   ],
-  "pageInfo": { "pageNumber": 0, "pageSize": 50, "totalElements": 2, "totalPages": 1 }
+  "deliveryDetails": {
+    "estimatedSetupTime": "16:00",
+    "foodReadyTime": "17:30",
+    "cleanupTime": "00:00"
+  },
+  "staffProvided": {
+    "chefs": 4,
+    "servers": 10,
+    "cleaners": 2
+  },
+  "termsAndConditions": "25% advance required at confirmation. Full payment 7 days before event.",
+  "validityPeriodHours": 168,
+  "advancePercentage": 25.00
 }
 ```
 
-### WebSocket — Send Message as Vendor
-```
-SEND to: /app/chat.sendMessage
+**Response `201`:** Full `VendorBidResponse`:
+```json
 {
-  "conversationId": "conv-77665-88990-aabb",
-  "message": "We can provide 8 chefs and 15 servers for your event.",
+  "data": {
+    "bidId": "uuid",
+    "bidRequestId": "uuid",
+    "vendorId": "uuid",
+    "vendorName": "Royal Catering Co.",
+    "eventDetails": null,
+    "quotedPrice": {
+      "currency": "INR",
+      "subtotal": 120000.00,
+      "serviceCharge": 6000.00,
+      "taxPercentage": 18.00,
+      "taxAmount": 22680.00,
+      "totalAmount": 148680.00
+    },
+    "itemizedPricing": [
+      {
+        "vendorItemId": "uuid",
+        "itemName": "Chicken Biryani",
+        "quantity": 300,
+        "pricePerPlate": 400.00,
+        "totalPrice": 120000.00
+      }
+    ],
+    "deliveryDetails": {
+      "estimatedSetupTime": "16:00",
+      "foodReadyTime": "17:30",
+      "cleanupTime": "00:00"
+    },
+    "staffProvided": { "chefs": 4, "servers": 10, "cleaners": 2 },
+    "termsAndConditions": "25% advance required at confirmation.",
+    "validityPeriodHours": 168,
+    "advancePercentage": 25.00,
+    "requiredAdvanceAmount": 37170.00,
+    "revisionCount": 0,
+    "status": "SUBMITTED",
+    "isLowest": true,
+    "rank": 1,
+    "submittedAt": "2026-03-06T12:00:00Z",
+    "expiresAt": "2026-03-13T12:00:00Z"
+  }
+}
+```
+
+---
+
+### Get My Submitted Bids
+`GET /bids/my?page=0&size=20` 🔒
+
+---
+
+### Get Bid by ID
+`GET /bids/{bidId}` 🔒
+**Response `200`:** Single `VendorBidResponse` object.
+
+---
+
+### Revise a Bid
+`PUT /bids/{bidId}` 🔒
+
+Same body as Submit Bid. Maximum **5 revisions** allowed.
+
+**Response `200`:** Updated `VendorBidResponse` with incremented `revisionCount`.
+
+---
+
+### Withdraw a Bid
+`DELETE /bids/{bidId}` 🔒
+**Response `200`:** `{ "success": true, "message": "Bid withdrawn successfully" }`
+
+---
+
+## 📦 Order Management
+
+### Get My Orders
+`GET /orders/vendor/my?page=0&size=20` 🔒
+
+**Response `200`:** Paginated list of `OrderResponse` objects (same as client order response).
+
+---
+
+### Get Order by ID
+`GET /orders/{orderId}` 🔒
+**Response `200`:** Full `OrderResponse` object including all `vendorOrders`, `pricing`, `paymentDetails`, etc.
+
+---
+
+### Update Order Status
+`PUT /orders/{orderId}/status` 🔒
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `status` | string | ✅ | Valid vendor-controlled statuses |
+
+**Valid status transitions for vendor:**
+```
+CONFIRMED → IN_PREPARATION → READY_FOR_DELIVERY → DELIVERING → DELIVERED
+```
+
+**Request:**
+```json
+{ "status": "IN_PREPARATION" }
+```
+
+**Response `200`:** Updated `OrderResponse` with new status and timestamps.
+
+> ⚠️ Only the assigned vendor can update their order status. Other status changes (`CONFIRMED`, `COMPLETED`, `CANCELLED`) are system or user controlled.
+
+---
+
+### Get Upcoming Orders (Next 30 Days)
+`GET /orders/vendor/upcoming?page=0&size=20` 🔒
+
+---
+
+## ⭐ Reviews
+
+### Get My Reviews
+`GET /reviews/vendor/my?page=0&size=10` 🔒
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "reviewId": "uuid",
+      "orderId": "uuid",
+      "vendorId": "uuid",
+      "userId": "uuid",
+      "rating": 5,
+      "foodQualityRating": 5,
+      "serviceQualityRating": 4,
+      "hygieneRating": 5,
+      "valueForMoneyRating": 4,
+      "punctualityRating": 5,
+      "reviewText": "Excellent food and service!",
+      "images": ["http://localhost:8080/uploads/images/review1.jpg"],
+      "vendorResponse": null,
+      "helpfulCount": 12,
+      "reportedCount": 0,
+      "status": "APPROVED",
+      "moderationNotes": null,
+      "createdAt": "2026-03-01T10:00:00Z",
+      "updatedAt": "2026-03-01T10:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### Respond to a Review
+`POST /reviews/{reviewId}/respond` 🔒
+
+| Field | Type | Required | Validation |
+|-------|------|----------|------------|
+| `responseText` | string | ✅ | Max 1000 chars |
+
+**Request:**
+```json
+{
+  "responseText": "Thank you for your kind words! We are delighted you enjoyed the biryani. We look forward to serving you again!"
+}
+```
+
+**Response `200`:** Updated `ReviewResponse` with `vendorResponse`:
+```json
+{
+  "data": {
+    "reviewId": "uuid",
+    "vendorResponse": {
+      "responseText": "Thank you for your kind words!...",
+      "respondedAt": "2026-03-06T10:00:00Z"
+    }
+  }
+}
+```
+
+---
+
+## 📊 Analytics Dashboard
+
+### Get Vendor Dashboard
+`GET /analytics/vendor/dashboard` 🔒
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "revenueMetrics": {
+      "totalRevenue": 450000.00,
+      "currentMonthRevenue": 120000.00,
+      "lastMonthRevenue": 98000.00,
+      "revenueGrowth": 22.44,
+      "pendingPayouts": 15000.00
+    },
+    "orderMetrics": {
+      "totalOrders": 48,
+      "completedOrders": 42,
+      "cancelledOrders": 3,
+      "activeOrders": 3,
+      "completionRate": 87.50,
+      "cancellationRate": 6.25
+    },
+    "bidMetrics": {
+      "totalBidsSubmitted": 85,
+      "bidsAccepted": 48,
+      "bidsRejected": 20,
+      "bidsPending": 17,
+      "bidSuccessRate": 56.47
+    },
+    "ratingMetrics": {
+      "averageRating": 4.50,
+      "totalReviews": 42,
+      "fiveStarCount": 30,
+      "fourStarCount": 8,
+      "threeStarCount": 3,
+      "twoStarCount": 1,
+      "oneStarCount": 0
+    },
+    "upcomingEvents": [
+      {
+        "orderId": "uuid",
+        "eventType": "WEDDING",
+        "eventDate": "2026-04-15",
+        "numberOfGuests": 300,
+        "totalAmount": 148680.00,
+        "status": "CONFIRMED"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 🔔 Notifications
+
+### Get My Notifications
+`GET /notifications?page=0&size=20` 🔒
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "notificationId": "uuid",
+      "userId": "uuid",
+      "title": "New Bid Request!",
+      "message": "A new bid request for 300 guests wedding in Hyderabad matches your service area.",
+      "type": "NEW_BID_REQUEST",
+      "channel": "IN_APP",
+      "isRead": false,
+      "data": { "bidRequestId": "uuid" },
+      "createdAt": "2026-03-06T10:00:00Z"
+    },
+    {
+      "notificationId": "uuid",
+      "userId": "uuid",
+      "title": "Bid Accepted!",
+      "message": "Your bid for wedding event on April 15 has been accepted.",
+      "type": "BID_ACCEPTED",
+      "channel": "IN_APP",
+      "isRead": false,
+      "data": { "bidId": "uuid", "bidRequestId": "uuid" },
+      "createdAt": "2026-03-06T14:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### Get Unread Count
+`GET /notifications/unread/count` 🔒
+**Response `200`:** `{ "data": { "count": 5 } }`
+
+---
+
+### Mark as Read
+`PUT /notifications/{notificationId}/read` 🔒
+**Response `200`:** `{ "success": true }`
+
+---
+
+### Mark All as Read
+`PUT /notifications/read-all` 🔒
+**Response `200`:** `{ "success": true }`
+
+---
+
+## 💬 Chat
+
+### Get My Conversations
+`GET /chat/conversations?page=0&size=20` 🔒
+
+**Response `200`:** Paginated list of `ConversationResponse`:
+```json
+{
+  "data": [
+    {
+      "conversationId": "uuid",
+      "participants": [
+        { "userId": "user-uuid", "userType": "USER", "name": "Rahul Sharma", "profilePictureUrl": null },
+        { "userId": "vendor-user-uuid", "userType": "VENDOR", "name": "Royal Catering Co.", "profilePictureUrl": "http://..." }
+      ],
+      "conversationType": "USER_VENDOR",
+      "relatedTo": { "entityType": "VENDOR", "entityId": "vendor-uuid" },
+      "lastMessage": {
+        "message": "What is the per-plate cost?",
+        "senderId": "user-uuid",
+        "timestamp": "2026-03-06T11:00:00Z"
+      },
+      "unreadCount": { "vendor-user-uuid": 1, "user-uuid": 0 },
+      "status": "ACTIVE",
+      "createdAt": "2026-03-06T10:00:00Z",
+      "updatedAt": "2026-03-06T11:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### Get Messages in Conversation
+`GET /chat/conversations/{conversationId}/messages?page=0&size=50` 🔒
+
+**Response `200`:**
+```json
+{
+  "data": [
+    {
+      "messageId": "uuid",
+      "conversationId": "uuid",
+      "senderId": "user-uuid",
+      "senderType": "USER",
+      "message": "Hello, can you cater for 300 guests for our wedding?",
+      "messageType": "TEXT",
+      "attachments": [],
+      "readBy": [
+        { "userId": "vendor-user-uuid", "readAt": "2026-03-06T10:06:00Z" }
+      ],
+      "isDeleted": false,
+      "deletedAt": null,
+      "timestamp": "2026-03-06T10:05:00Z",
+      "createdAt": "2026-03-06T10:05:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### Send Message
+`POST /chat/conversations/{conversationId}/messages` 🔒
+
+| Field | Type | Required |
+|-------|------|----------|
+| `message` | string | ✅ |
+| `messageType` | string | ⬜ | Default `TEXT` |
+| `fileUrl` | string | ⬜ | For IMAGE/FILE type |
+
+**Request:**
+```json
+{
+  "message": "Yes, we can cater for 300 guests. Our per-plate rate starts at ₹400.",
   "messageType": "TEXT"
 }
-SUBSCRIBE: /topic/conversations.conv-77665-88990-aabb
+```
+**Response `201`:** Message object.
+
+---
+
+### Mark Messages as Read
+`PUT /chat/conversations/{conversationId}/read` 🔒
+**Response `200`:** `{ "success": true }`
+
+---
+
+### WebSocket Chat (Real-time)
+**Connect:** `ws://localhost:8080/api/v1/ws?token=<accessToken>`
+**Subscribe:** `SUBSCRIBE /topic/conversations.{conversationId}`
+**Send:** `SEND /app/chat/{conversationId}` — body: `{ "message": "Hello!", "messageType": "TEXT" }`
+
+---
+
+## 📤 File Upload
+
+### Upload Image (Logo/Banner/Menu Photos)
+`POST /upload/image` 🔒
+`Content-Type: multipart/form-data`
+
+| Form Field | Type | Required | Notes |
+|-----------|------|----------|-------|
+| `file` | file | ✅ | Max 5MB, JPEG/PNG/GIF/WebP |
+| `entityType` | string | ⬜ | `VENDOR_LOGO`, `VENDOR_BANNER`, `MENU_ITEM`, `VENDOR_DOCUMENT` |
+| `entityId` | string | ⬜ | vendorId or itemId |
+
+**Response `200`:**
+```json
+{
+  "data": {
+    "fileId": "uuid",
+    "fileName": "uuid.jpg",
+    "originalName": "logo.jpg",
+    "fileUrl": "http://localhost:8080/uploads/images/uuid.jpg",
+    "fileType": "IMAGE",
+    "contentType": "image/jpeg",
+    "fileSize": 102400,
+    "entityType": "VENDOR_LOGO",
+    "entityId": "vendor-uuid",
+    "uploadedBy": "uuid",
+    "createdAt": "2026-03-06T10:00:00Z"
+  }
+}
 ```
 
 ---
 
-# 📌 Vendor Status Reference
-
-| Status | Description |
-|--------|-------------|
-| `PENDING` | Awaiting admin review |
-| `APPROVED` | Approved — can receive leads |
-| `REJECTED` | Rejected — need to re-apply |
-| `SUSPENDED` | Suspended — contact support |
-| `ACTIVE` | Live and operational |
-| `INACTIVE` | Temporarily inactive |
-
-# 📌 Bid Status Reference
-
-| Status | Description |
-|--------|-------------|
-| `PENDING` | Submitted, awaiting customer decision |
-| `ACCEPTED` | Customer accepted your bid |
-| `REJECTED` | Customer chose another vendor |
-| `EXPIRED` | Bid validity period passed |
-| `WITHDRAWN` | You withdrew the bid |
-
-# 📌 Order vendorStatus Reference
-
-| Status | Description |
-|--------|-------------|
-| `ACCEPTED` | Order confirmed, you accepted |
-| `IN_PREPARATION` | Cooking in progress |
-| `DISPATCHED` | Food dispatched to venue |
-| `SETUP_IN_PROGRESS` | Setting up at venue |
-| `DELIVERED` | Food served / delivered |
-| `COMPLETED` | Order fully completed |
-| `CANCELLED` | Order was cancelled |
+### Upload Document (Business License, GST etc.)
+`POST /upload/document` 🔒
+Max 10MB. Supported: PDF, DOC, DOCX, JPEG, PNG.
+Same response structure as image upload.
 
 ---
 
-*VENDOR_API_DOCS.md — Based on actual Java DTOs (VendorRegistrationRequest, VendorUpdateRequest, VendorResponse, VendorMenuItemResponse, SubmitBidDTO, VendorBidResponse, BidRequestResponse, OrderResponse, ReviewResponse, VendorDashboardResponse, ConversationResponse, ChatMessageResponse, FileUploadResponse)*
-*Bidzaro Catering Platform v1.0.0 | Generated: February 24, 2026*
+## 🎫 Support Tickets
 
+### Create Ticket
+`POST /support/tickets` 🔒
+
+| Field | Type | Required | Validation |
+|-------|------|----------|------------|
+| `category` | string | ✅ | e.g. `PAYMENT`, `ACCOUNT`, `ORDER`, `TECHNICAL` |
+| `subcategory` | string | ⬜ | e.g. `PAYOUT_DELAY`, `BID_ISSUE` |
+| `priority` | string | ⬜ | `LOW`, `MEDIUM`, `HIGH`, `URGENT` |
+| `subject` | string | ✅ | 5–200 chars |
+| `description` | string | ✅ | 10–2000 chars |
+| `orderId` | string | ⬜ | |
+| `vendorId` | string | ⬜ | Your own vendor ID |
+| `paymentId` | string | ⬜ | |
+| `attachmentUrls` | array | ⬜ | |
+
+**Request:**
+```json
+{
+  "category": "PAYMENT",
+  "subcategory": "PAYOUT_DELAY",
+  "subject": "Payment not received for order completed on March 1",
+  "description": "Order was completed on March 1 but I haven't received the payout yet.",
+  "priority": "HIGH",
+  "orderId": "uuid",
+  "paymentId": "uuid",
+  "attachmentUrls": []
+}
+```
+
+**Response `201`:** Full `TicketResponse` object (same as client support response).
+
+---
+
+### Get My Tickets
+`GET /support/tickets/my?page=0&size=20` 🔒
+**Response `200`:** Paginated `TicketResponse` list.
+
+---
+
+## ⚠️ Standard Error Response
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN",
+    "message": "You are not authorized to access this resource",
+    "path": "/api/v1/orders/uuid",
+    "timestamp": "2026-03-06T10:00:00Z",
+    "fieldErrors": {}
+  }
+}
+```
+
+**Common Vendor Error Codes:**
+| Code | HTTP | Description |
+|------|------|-------------|
+| `UNAUTHORIZED` | 401 | Invalid or missing token |
+| `FORBIDDEN` | 403 | Not your order/bid |
+| `RESOURCE_NOT_FOUND` | 404 | Bid request or order not found |
+| `VENDOR_NOT_APPROVED` | 403 | Vendor profile not approved yet |
+| `DUPLICATE_BID` | 409 | Already submitted a bid for this request |
+| `BID_INACTIVE` | 400 | Bid request no longer accepting bids |
+| `MAX_REVISIONS` | 400 | Maximum 5 bid revisions reached |
+| `VALIDATION_ERROR` | 400 | Request validation failed |
+| `INVALID_STATUS_TRANSITION` | 400 | Cannot change to this order status |

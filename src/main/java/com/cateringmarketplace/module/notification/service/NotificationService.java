@@ -30,6 +30,7 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final TwilioService twilioService;
+    private final FirebaseService firebaseService;
 
     /**
      * Sends a notification to a user.
@@ -204,9 +205,23 @@ public class NotificationService {
             log.debug("No FCM token available for push notification");
             return false;
         }
-        // TODO: Implement Firebase push notification
-        log.debug("Sending push notification with title: {}", title);
-        return true;
+        try {
+            // Convert Map<String,Object> to Map<String,String> for Firebase
+            Map<String, String> stringData = null;
+            if (data != null) {
+                stringData = new java.util.HashMap<>();
+                for (Map.Entry<String, Object> entry : data.entrySet()) {
+                    if (entry.getValue() != null) {
+                        stringData.put(entry.getKey(), entry.getValue().toString());
+                    }
+                }
+            }
+            firebaseService.sendPushNotification(fcmToken, title, body, stringData);
+            return true;
+        } catch (Exception e) {
+            log.error("Failed to send push notification: {}", e.getMessage(), e);
+            return false;
+        }
     }
 
     private boolean sendWhatsApp(String phone, String message) {

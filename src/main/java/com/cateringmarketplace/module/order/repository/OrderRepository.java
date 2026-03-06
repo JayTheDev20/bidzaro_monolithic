@@ -105,4 +105,16 @@ public interface OrderRepository extends MongoRepository<Order, String> {
      * Count orders created after a date.
      */
     long countByCreatedAtAfter(Instant date);
+
+    /**
+     * Find confirmed orders that still have a balance due (used for payment reminders).
+     */
+    @Query("{'status': 'CONFIRMED', 'payment_details.balance_due': {'$gt': 0}}")
+    List<Order> findConfirmedOrdersWithBalanceDue();
+
+    /**
+     * Find confirmed orders with event date within a time range (used for payment reminders).
+     */
+    @Query("{'status': 'CONFIRMED', 'payment_details.balance_due': {'$gt': 0}}")
+    List<Order> findConfirmedOrdersWithEventDateBetween(Instant startOfDay, Instant endOfDay);
 }

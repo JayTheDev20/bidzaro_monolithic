@@ -407,5 +407,94 @@ public class AdminController {
         AnnouncementResponse announcement = adminService.changeAnnouncementStatus(announcementId, request.getIsActive(), userDetails.getUserId());
         return ResponseEntity.ok(ApiResponse.success(announcement, "Announcement status changed"));
     }
+
+    // ==================== SUPPORT AGENTS MANAGEMENT ====================
+
+    @GetMapping("/agents")
+    @Operation(summary = "Get all support agents", description = "Returns paginated list of all support agents")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> getAllSupportAgents(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+
+        Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // Filter by userType SUPPORT_AGENT
+        Page<UserResponse> agents = adminService.getAllUsers(pageable, status, "SUPPORT_AGENT");
+
+        return ResponseEntity.ok(ApiResponse.success(
+                agents.getContent(),
+                "Support agents retrieved",
+                PageInfo.from(agents)
+        ));
+    }
+
+    @GetMapping("/support-agents")
+    @Operation(summary = "Get all support agents (alternative endpoint)", description = "Returns paginated list of all support agents - alternative naming for /agents")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> getAllSupportAgentsAlt(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+
+        Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        // Filter by userType SUPPORT_AGENT
+        Page<UserResponse> agents = adminService.getAllUsers(pageable, status, "SUPPORT_AGENT");
+
+        return ResponseEntity.ok(ApiResponse.success(
+                agents.getContent(),
+                "Support agents retrieved",
+                PageInfo.from(agents)
+        ));
+    }
+
+    @PostMapping("/agents")
+    @Operation(summary = "Create support agent", description = "Creates a new support agent account")
+    public ResponseEntity<ApiResponse<UserResponse>> createSupportAgent(
+            @Valid @RequestBody RegisterRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Admin {} creating new support agent: {}", userDetails.getUserId(), request.getEmail());
+        // Set userType to SUPPORT_AGENT
+        request.setUserType("SUPPORT_AGENT");
+        // Register the agent (without sending welcome email to support email)
+        UserResponse response = adminService.createSupportAgent(request, userDetails.getUserId());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created(response, "Support agent created successfully"));
+    }
+
+    @GetMapping("/agents/{agentId}")
+    @Operation(summary = "Get support agent details", description = "Returns details of a specific support agent")
+    public ResponseEntity<ApiResponse<UserResponse>> getSupportAgent(
+            @PathVariable String agentId) {
+        log.info("Getting support agent details: {}", agentId);
+        UserResponse agent = adminService.getSupportAgent(agentId);
+        return ResponseEntity.ok(ApiResponse.success(agent, "Support agent retrieved"));
+    }
+
+    @PutMapping("/agents/{agentId}")
+    @Operation(summary = "Update support agent", description = "Updates support agent details")
+    public ResponseEntity<ApiResponse<UserResponse>> updateSupportAgent(
+            @PathVariable String agentId,
+            @RequestBody UserResponse request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Admin {} updating support agent: {}", userDetails.getUserId(), agentId);
+        UserResponse response = adminService.updateSupportAgent(agentId, request, userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(response, "Support agent updated"));
+    }
+
+    @GetMapping("/agents/{agentId}/workload")
+    @Operation(summary = "Get agent workload", description = "Returns workload statistics for a support agent")
+    public ResponseEntity<ApiResponse<?>> getAgentWorkload(
+            @PathVariable String agentId) {
+        log.info("Getting workload for agent: {}", agentId);
+        Object workload = adminService.getAgentWorkload(agentId);
+        return ResponseEntity.ok(ApiResponse.success(workload, "Agent workload retrieved"));
+    }
 }
 

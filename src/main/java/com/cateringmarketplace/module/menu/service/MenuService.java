@@ -566,8 +566,8 @@ public class MenuService {
             throw new BadRequestException("FORBIDDEN", "You cannot delete this item");
         }
 
-        // Soft delete by changing status
-        item.setStatus(VendorItemStatus.INACTIVE);
-        vendorMenuItemRepository.save(item);
+        // Hard delete — actually remove from database
+        vendorMenuItemRepository.delete(item);
+        log.info("Vendor menu item deleted successfully: {}", vendorItemId);
     }
 }

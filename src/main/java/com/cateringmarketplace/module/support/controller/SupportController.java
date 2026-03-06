@@ -49,7 +49,7 @@ public class SupportController {
                 .body(ApiResponse.created(response, "Ticket created successfully"));
     }
 
-    @GetMapping("/tickets")
+    @GetMapping({"/tickets", "/tickets/my"})
     @Operation(summary = "Get my tickets", description = "Returns user's support tickets")
     public ResponseEntity<ApiResponse<List<TicketResponse>>> getMyTickets(
             @RequestParam(defaultValue = "0") int page,

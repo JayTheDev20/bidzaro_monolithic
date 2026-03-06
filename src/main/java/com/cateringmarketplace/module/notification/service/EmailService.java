@@ -31,6 +31,7 @@ public class EmailService {
 
     /**
      * Sends a simple text email (wrapped in HTML template).
+     * Failures are logged but do not block the calling thread (async).
      */
     @Async("emailExecutor")
     public void sendSimpleEmail(String to, String subject, String body, String role) {
@@ -53,9 +54,18 @@ public class EmailService {
 
             mailSender.send(message);
 
-            log.info("Email sent successfully to: {}", to);
+            log.info("✅ Email sent successfully to: {}", to);
         } catch (Exception e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage(), e);
+            // Log error but don't rethrow - email failures should not block user operations
+            log.warn("⚠️ Failed to send email to {}: {} | Cause: {}",
+                to, e.getClass().getSimpleName(), e.getMessage());
+            log.debug("Full stack trace:", e);
+
+            // TODO: Queue failed email to retry mechanism or fallback service
+            // Consider:
+            // 1. Store in EmailQueue collection with retry count
+            // 2. Schedule batch retry job (every 5 min, max 3 retries)
+            // 3. Send SMS/notification as fallback if email fails
         }
     }
 
@@ -201,9 +211,11 @@ public class EmailService {
 
             mailSender.send(message);
 
-            log.info("HTML email sent successfully to: {}", to);
-        } catch (MessagingException e) {
-            log.error("Failed to send HTML email to {}: {}", to, e.getMessage(), e);
+            log.info("✅ HTML email sent successfully to: {}", to);
+        } catch (Exception e) {
+            log.warn("⚠️ Failed to send HTML email to {}: {} | Cause: {}",
+                to, e.getClass().getSimpleName(), e.getMessage());
+            log.debug("Full stack trace:", e);
         }
     }
 
