@@ -16,6 +16,10 @@
 | [SUPPORT_API_DOCS.md](SUPPORT_API_DOCS.md) | 🎧 Support Agent | Ticket management, resolution workflow, chat with users/vendors, SLA monitoring |
 | [CHAT_INTEGRATION_GUIDE.md](CHAT_INTEGRATION_GUIDE.md) | 💻 Frontend Dev | WebSocket/STOMP setup, React/React Native code, message types, read receipts, file sharing |
 | [FIREBASE_IMPLEMENTATION_GUIDE.md](FIREBASE_IMPLEMENTATION_GUIDE.md) | 💻 Frontend + Backend Dev | Firebase project setup, service account, FCM token management, push notification integration |
+| [WISHLIST_CART_API_COMPLETE.md](WISHLIST_CART_API_COMPLETE.md) | 👤 Frontend Dev | Complete wishlist & cart API specs with all 20 endpoints, request/response formats, examples |
+| [WISHLIST_CART_QUICK_REFERENCE.md](WISHLIST_CART_QUICK_REFERENCE.md) | 👤 Frontend Dev | Quick reference guide for wishlist, cart, and draft cart APIs |
+| [WISHLIST_CART_API_FIX.md](WISHLIST_CART_API_FIX.md) | 🔧 Debugging | Issue analysis (405 errors), root causes, and fixes for POST endpoints |
+| [WISHLIST_CART_SUMMARY.md](WISHLIST_CART_SUMMARY.md) | 📊 Overview | Summary of all 20 wishlist/cart APIs, endpoint checklist, and key differences |
 
 ---
 
