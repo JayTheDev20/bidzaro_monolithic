@@ -98,6 +98,17 @@ public class VendorController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @PutMapping("/me")
+    @Operation(summary = "Update my vendor profile", description = "Updates the vendor profile of the authenticated user")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<ApiResponse<VendorResponse>> updateMyVendorProfile(
+            @Valid @RequestBody VendorUpdateRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Vendor update request for current user: {}", userDetails.getUserId());
+        VendorResponse response = vendorService.updateVendorByUserId(userDetails.getUserId(), request);
+        return ResponseEntity.ok(ApiResponse.success(response, "Vendor updated successfully"));
+    }
+
     @PutMapping("/{vendorId}")
     @Operation(summary = "Update vendor profile", description = "Updates the vendor profile")
     @SecurityRequirement(name = "bearerAuth")

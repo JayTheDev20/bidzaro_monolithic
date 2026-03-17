@@ -113,4 +113,15 @@ public class CartController {
         BigDecimal total = cartService.getCartTotal(userDetails.getUserId());
         return ResponseEntity.ok(ApiResponse.success(Map.of("total", total)));
     }
+
+    @PostMapping("/items/from-draft")
+    @Operation(summary = "Convert draft items to cart", description = "Converts items from draft cart to main cart for a specific vendor")
+    public ResponseEntity<ApiResponse<List<CartItem>>> convertFromDraftToCart(
+            @RequestBody BatchAddToCartRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Converting draft items to cart for user {}", userDetails.getUserId());
+        List<CartItem> items = cartService.batchAddToCart(userDetails.getUserId(), request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created(items, "Items moved from draft to cart"));
+    }
 }

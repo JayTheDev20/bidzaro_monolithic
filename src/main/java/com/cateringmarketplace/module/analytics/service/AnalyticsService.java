@@ -212,6 +212,21 @@ public class AnalyticsService {
                 .build();
     }
 
+    /**
+     * Returns vendor-scoped summary stats for vendor dashboards.
+     */
+    public Map<String, Object> getVendorStats(String vendorId) {
+        VendorDashboardResponse dashboard = getVendorDashboard(vendorId);
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("vendorId", dashboard.getVendorId());
+        stats.put("vendorName", dashboard.getVendorName());
+        stats.put("metrics", dashboard.getMetrics());
+        stats.put("bidMetrics", dashboard.getBidMetrics());
+        stats.put("performance", dashboard.getPerformance());
+        return stats;
+    }
+
     // ==================== REPORTS ====================
 
     public Map<String, Object> generateReport(String reportType, LocalDate startDate, LocalDate endDate) {

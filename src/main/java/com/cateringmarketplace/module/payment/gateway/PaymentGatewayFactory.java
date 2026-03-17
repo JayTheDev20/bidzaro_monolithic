@@ -20,26 +20,40 @@ public class PaymentGatewayFactory {
      * Gets the appropriate payment gateway for a country.
      */
     public PaymentGatewayStrategy getGatewayForCountry(String country) {
-        if (country == null || country.isEmpty()) {
-            country = "USA"; // Default to USA
-        }
+        String normalizedCountry = normalizeCountry(country);
 
-        String finalCountry = country;
         PaymentGatewayStrategy gateway = paymentGateways.stream()
-                .filter(g -> g.supportsCountry(finalCountry))
+                .filter(g -> g.supportsCountry(normalizedCountry))
                 .findFirst()
                 .orElse(null);
 
         if (gateway == null) {
-            // Default to Stripe for USA
+            // Keep existing fallback behavior but log clearly when country is unmapped.
             gateway = paymentGateways.stream()
                     .filter(g -> "STRIPE".equals(g.getGatewayName()))
                     .findFirst()
                     .orElseThrow(() -> new IllegalStateException("No payment gateway configured"));
+            log.warn("No direct gateway mapping for country '{}', falling back to {}", normalizedCountry, gateway.getGatewayName());
         }
 
-        log.info("Selected payment gateway: {} for country: {}", gateway.getGatewayName(), country);
+        log.info("Selected payment gateway: {} for country: {}", gateway.getGatewayName(), normalizedCountry);
         return gateway;
+    }
+
+    private String normalizeCountry(String country) {
+        if (country == null || country.trim().isEmpty()) {
+            return "USA";
+        }
+
+        String normalized = country.trim();
+        if ("IN".equalsIgnoreCase(normalized) || "INDIA".equalsIgnoreCase(normalized)) {
+            return "INDIA";
+        }
+        if ("US".equalsIgnoreCase(normalized) || "USA".equalsIgnoreCase(normalized) ||
+                "UNITED STATES".equalsIgnoreCase(normalized) || "UNITED STATES OF AMERICA".equalsIgnoreCase(normalized)) {
+            return "USA";
+        }
+        return normalized.toUpperCase();
     }
 
     /**
@@ -52,4 +66,3 @@ public class PaymentGatewayFactory {
                 .orElseThrow(() -> new IllegalArgumentException("Payment gateway not found: " + gatewayName));
     }
 }
-

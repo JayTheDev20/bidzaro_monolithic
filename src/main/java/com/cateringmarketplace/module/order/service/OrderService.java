@@ -255,24 +255,46 @@ public class OrderService {
         Order order = orderRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
-        // Validate state transition
-        validateStatusTransition(order.getStatus(), newStatus);
-
-        order.setStatus(newStatus);
-
-        // Set timestamps based on status
-        switch (newStatus) {
-            case CONFIRMED -> order.setConfirmedAt(Instant.now());
-            case DELIVERED -> order.setDeliveredAt(Instant.now());
-            case COMPLETED -> order.setCompletedAt(Instant.now());
+        // User can update only their own order in this generic endpoint.
+        if (!order.getUserId().equals(userId)) {
+            throw new ForbiddenException("FORBIDDEN", "You cannot update this order");
         }
 
+        applyOrderStatusUpdate(order, newStatus);
         order = orderRepository.save(order);
         log.info("Order status updated: {} -> {}", orderId, newStatus);
 
-        // Send notification
-        // In a real app, we would fetch user email and send notification
-        // emailService.sendOrderConfirmationEmail(userEmail, orderId, "Status updated to " + newStatus, "USER");
+        return OrderResponse.fromEntity(order);
+    }
+
+    /**
+     * Vendor-specific order status update.
+     */
+    @Transactional
+    public OrderResponse updateOrderStatusByVendor(String orderId, OrderStatus newStatus, String vendorUserId) {
+        log.info("Vendor {} updating order {} status to: {}", vendorUserId, orderId, newStatus);
+
+        Order order = orderRepository.findByOrderId(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+
+        if (!isVendorOfOrder(order, vendorUserId)) {
+            throw new ForbiddenException("FORBIDDEN", "You are not assigned to this order");
+        }
+
+        // Restrict vendor-controlled status updates to operational flow.
+        List<OrderStatus> vendorAllowedStatuses = List.of(
+                OrderStatus.IN_PREPARATION,
+                OrderStatus.READY_FOR_DELIVERY,
+                OrderStatus.DELIVERING,
+                OrderStatus.DELIVERED
+        );
+        if (!vendorAllowedStatuses.contains(newStatus)) {
+            throw new BadRequestException("INVALID_STATUS", "Vendor can update only operational statuses");
+        }
+
+        applyOrderStatusUpdate(order, newStatus);
+        order = orderRepository.save(order);
+        log.info("Vendor order status updated: {} -> {}", orderId, newStatus);
 
         return OrderResponse.fromEntity(order);
     }
@@ -384,5 +406,16 @@ public class OrderService {
 
         return totalPaid.multiply(BigDecimal.valueOf(refundPercentage / 100))
                 .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private void applyOrderStatusUpdate(Order order, OrderStatus newStatus) {
+        validateStatusTransition(order.getStatus(), newStatus);
+        order.setStatus(newStatus);
+
+        switch (newStatus) {
+            case CONFIRMED -> order.setConfirmedAt(Instant.now());
+            case DELIVERED -> order.setDeliveredAt(Instant.now());
+            case COMPLETED -> order.setCompletedAt(Instant.now());
+        }
     }
 }

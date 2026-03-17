@@ -75,6 +75,17 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .setAllowedOriginPatterns("*")
                 .addInterceptors(new JwtHandshakeInterceptor())
                 .withSockJS();
+
+        // 5. Raw WebSocket Endpoint for notifications
+        registry.addEndpoint("/ws/notifications")
+                .setAllowedOriginPatterns("*")
+                .addInterceptors(new JwtHandshakeInterceptor());
+
+        // 6. SockJS Endpoint for notifications
+        registry.addEndpoint("/ws/sockjs/notifications")
+                .setAllowedOriginPatterns("*")
+                .addInterceptors(new JwtHandshakeInterceptor())
+                .withSockJS();
     }
 
     @Override

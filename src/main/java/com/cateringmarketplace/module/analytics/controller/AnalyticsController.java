@@ -101,5 +101,15 @@ public class AnalyticsController {
         VendorDashboardResponse dashboard = analyticsService.getVendorDashboard(vendorId);
         return ResponseEntity.ok(ApiResponse.success(dashboard));
     }
+
+    @GetMapping("/vendor/stats")
+    @Operation(summary = "Get vendor stats", description = "Returns vendor summary stats (Vendor only)")
+    @PreAuthorize("hasRole('VENDOR')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getVendorStats(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        String vendorId = vendorService.getVendorByUserId(userDetails.getUserId()).getVendorId();
+        Map<String, Object> stats = analyticsService.getVendorStats(vendorId);
+        return ResponseEntity.ok(ApiResponse.success(stats));
+    }
 }
 

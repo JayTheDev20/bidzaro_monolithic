@@ -77,6 +77,19 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success(response, "Order status updated"));
     }
 
+    // Backward compatibility for clients using PUT instead of PATCH.
+    @PutMapping("/{orderId}/status")
+    @Operation(summary = "Update order status (PUT compatibility)", description = "Updates the status of an order")
+    public ResponseEntity<ApiResponse<OrderResponse>> updateOrderStatusPut(
+            @PathVariable String orderId,
+            @RequestParam String status,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        log.info("Updating order {} status to: {} via PUT", orderId, status);
+        OrderStatus orderStatus = OrderStatus.valueOf(status.toUpperCase());
+        OrderResponse response = orderService.updateOrderStatus(orderId, orderStatus, userDetails.getUserId());
+        return ResponseEntity.ok(ApiResponse.success(response, "Order status updated"));
+    }
+
     @PostMapping("/{orderId}/cancel")
     @Operation(summary = "Cancel order", description = "Cancels an order")
     public ResponseEntity<ApiResponse<OrderResponse>> cancelOrder(
@@ -162,5 +175,33 @@ public class OrderController {
                 "Vendor orders retrieved",
                 PageInfo.from(orders)
         ));
+    }
+
+    @PutMapping("/vendor/{orderId}/status")
+    @Operation(summary = "Update vendor order status", description = "Allows assigned vendor to update order workflow status")
+    @PreAuthorize("hasRole('VENDOR')")
+    public ResponseEntity<ApiResponse<OrderResponse>> updateVendorOrderStatus(
+            @PathVariable String orderId,
+            @RequestParam String status,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        OrderStatus orderStatus = OrderStatus.valueOf(status.toUpperCase());
+        OrderResponse response = orderService.updateOrderStatusByVendor(orderId, orderStatus, userDetails.getUserId());
+
+        return ResponseEntity.ok(ApiResponse.success(response, "Vendor order status updated"));
+    }
+
+    @PatchMapping("/vendor/{orderId}/status")
+    @Operation(summary = "Update vendor order status (PATCH)", description = "Allows assigned vendor to update order workflow status")
+    @PreAuthorize("hasRole('VENDOR')")
+    public ResponseEntity<ApiResponse<OrderResponse>> updateVendorOrderStatusPatch(
+            @PathVariable String orderId,
+            @RequestParam String status,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        OrderStatus orderStatus = OrderStatus.valueOf(status.toUpperCase());
+        OrderResponse response = orderService.updateOrderStatusByVendor(orderId, orderStatus, userDetails.getUserId());
+
+        return ResponseEntity.ok(ApiResponse.success(response, "Vendor order status updated"));
     }
 }

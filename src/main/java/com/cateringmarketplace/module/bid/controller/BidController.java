@@ -183,6 +183,23 @@ public class BidController {
                 .body(ApiResponse.created(response, "Bid submitted successfully"));
     }
 
+    @PostMapping("/{bidRequestId}/submit")
+    @Operation(summary = "Submit bid (shorthand)", description = "Submits a bid for a bid request (vendor only) - shorthand for /requests/{bidRequestId}/submit-bid")
+    @PreAuthorize("hasRole('VENDOR')")
+    public ResponseEntity<ApiResponse<VendorBidResponse>> submitBidShorthand(
+            @PathVariable String bidRequestId,
+            @Valid @RequestBody SubmitBidDTO request,
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        // Get vendor ID for the user
+        String vendorId = vendorService.getVendorByUserId(userDetails.getUserId()).getVendorId();
+
+        log.info("Vendor {} submitting bid for request: {}", vendorId, bidRequestId);
+        VendorBidResponse response = bidService.submitBid(bidRequestId, request, vendorId);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created(response, "Bid submitted successfully"));
+    }
+
     @PutMapping("/{bidId}")
     @Operation(summary = "Revise bid", description = "Revises an existing bid (vendor only)")
     @PreAuthorize("hasRole('VENDOR')")

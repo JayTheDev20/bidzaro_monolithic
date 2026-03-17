@@ -55,7 +55,7 @@ public class PaymentService {
      */
     @Transactional
     public PaymentInitiationResponse initiatePayment(String orderId, String bidId, PaymentType paymentType,
-                                                      BigDecimal amount, String userId) {
+                                                      BigDecimal amount, String userId, String requestCountry) {
         log.info("Initiating {} payment of {} for order: {} / bid: {}", paymentType, amount, orderId, bidId);
 
         // Validate inputs: either orderId or bidId must be present
@@ -85,8 +85,14 @@ public class PaymentService {
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        String country = user.getCountry() != null ? user.getCountry() : "USA";
+        String country = resolveCountry(requestCountry, user.getCountry(), user.getPreferredCurrency());
         String currency = determineCurrency(country);
+
+        if (requestCountry != null && !requestCountry.trim().isEmpty() && !country.equalsIgnoreCase(user.getCountry())) {
+            user.setCountry(country);
+            userRepository.save(user);
+            log.info("Updated user country to {} for userId: {} based on payment request", country, userId);
+        }
 
         // Select appropriate payment gateway based on country
         PaymentGatewayStrategy gateway = gatewayFactory.getGatewayForCountry(country);
@@ -286,23 +292,52 @@ public class PaymentService {
      * Determines currency based on country.
      */
     private String determineCurrency(String country) {
-        if (country == null || country.isEmpty()) {
-            return "USD"; // Default
-        }
+        String normalizedCountry = normalizeCountry(country);
 
-        // USA uses USD
-        if ("USA".equalsIgnoreCase(country) || "US".equalsIgnoreCase(country) ||
-            "UNITED STATES".equalsIgnoreCase(country)) {
-            return "USD";
-        }
-
-        // India uses INR
-        if ("INDIA".equalsIgnoreCase(country) || "IN".equalsIgnoreCase(country)) {
+        if ("INDIA".equals(normalizedCountry)) {
             return "INR";
         }
-
-        // Default to USD for other countries
         return "USD";
+    }
+
+    private String resolveCountry(String requestCountry, String userCountry, String preferredCurrency) {
+        String normalizedRequestCountry = normalizeCountry(requestCountry);
+        if (normalizedRequestCountry != null) {
+            return normalizedRequestCountry;
+        }
+
+        String normalizedUserCountry = normalizeCountry(userCountry);
+        if (normalizedUserCountry != null) {
+            return normalizedUserCountry;
+        }
+
+        if (preferredCurrency != null && "INR".equalsIgnoreCase(preferredCurrency.trim())) {
+            return "INDIA";
+        }
+
+        return "USA";
+    }
+
+    private String normalizeCountry(String country) {
+        if (country == null) {
+            return null;
+        }
+
+        String normalized = country.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+
+        if ("IN".equalsIgnoreCase(normalized) || "INDIA".equalsIgnoreCase(normalized)) {
+            return "INDIA";
+        }
+
+        if ("US".equalsIgnoreCase(normalized) || "USA".equalsIgnoreCase(normalized) ||
+                "UNITED STATES".equalsIgnoreCase(normalized) || "UNITED STATES OF AMERICA".equalsIgnoreCase(normalized)) {
+            return "USA";
+        }
+
+        return normalized.toUpperCase();
     }
 
     private void updateOrderPaymentStatus(Transaction transaction) {

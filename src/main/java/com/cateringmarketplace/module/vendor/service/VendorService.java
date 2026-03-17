@@ -393,6 +393,20 @@ public class VendorService {
     }
 
     /**
+     * Updates vendor profile by user ID (for /me endpoint).
+     */
+    @Transactional
+    public VendorResponse updateVendorByUserId(String userId, VendorUpdateRequest request) {
+        log.info("Updating vendor by user: {}", userId);
+
+        Vendor vendor = vendorRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor profile not found for this user"));
+
+        // Delegate to existing updateVendor logic using the vendor ID
+        return updateVendor(vendor.getVendorId(), request, userId);
+    }
+
+    /**
      * Approves a vendor (Admin only).
      */
     @Transactional
