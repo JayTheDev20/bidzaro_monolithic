@@ -179,7 +179,7 @@ public class AdminController {
         ));
     }
 
-    @PostMapping("/vendors/{vendorId}/approve")
+    @RequestMapping(value = "/vendors/{vendorId}/approve", method = {RequestMethod.POST, RequestMethod.PUT})
     @Operation(summary = "Approve vendor", description = "Approves a vendor registration")
     public ResponseEntity<ApiResponse<VendorResponse>> approveVendor(
             @PathVariable String vendorId,
@@ -189,7 +189,7 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.success(response, "Vendor approved successfully"));
     }
 
-    @PostMapping("/vendors/{vendorId}/reject")
+    @RequestMapping(value = "/vendors/{vendorId}/reject", method = {RequestMethod.POST, RequestMethod.PUT})
     @Operation(summary = "Reject vendor", description = "Rejects a vendor registration with reason")
     public ResponseEntity<ApiResponse<VendorResponse>> rejectVendor(
             @PathVariable String vendorId,
